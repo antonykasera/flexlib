@@ -14,7 +14,7 @@
 
 static char text[16];
 
-/* ---- decimal candidates (fu_fmt_u32: fixed point, unrolled pairs) ---- */
+/* ---- decimal candidates (fu_fmt_u32: split at 10^8, branch-free) ---- */
 
 /* a copy of fu_fmt_dec_digits, inlined here as it is in fu_fmt_u32, so the
  * candidates differ from it only in the digit loop */
@@ -50,6 +50,58 @@ BENCH_CALL static size_t u32_by100(char *buf, uint32_t v) {
   } else {
     p[-1] = (char)('0' + v);
   }
+  return n;
+}
+
+/* fixed point per digit count: one UMULL to v / 10^k, then a UMULL by 100 per
+ * pair, unrolled with a switch (the version before the split) */
+static const uint32_t frac_mul[4] = {2748779070U, 3518437209U, 2251799814U,
+                                     2882303762U};
+static const uint8_t frac_shift[4] = {6U, 13U, 19U, 26U};
+
+static inline char *put_pair(char *p, uint32_t *f) {
+  uint64_t t = (uint64_t)*f * 100U;
+  memcpy(p, &digit_pairs[2U * (uint32_t)(t >> 32)], 2U);
+  *f = (uint32_t)t;
+  return p + 2;
+}
+
+BENCH_CALL static size_t u32_unrolled(char *buf, uint32_t v) {
+  uint32_t n = dec_digits(v);
+  if (n <= 2U) {
+    if (n == 2U) {
+      memcpy(buf, &digit_pairs[2U * v], 2U);
+    } else {
+      buf[0] = (char)('0' + v);
+    }
+    buf[n] = '\0';
+    return n;
+  }
+  uint32_t i = (n - 1U) / 2U - 1U;
+  uint64_t y = (((uint64_t)v * frac_mul[i]) >> frac_shift[i]) + 1U;
+  uint32_t lead = (uint32_t)(y >> 32);
+  uint32_t f = (uint32_t)y;
+  char *p = buf;
+  if ((n & 1U) != 0U) {
+    *p++ = (char)('0' + lead);
+  } else {
+    memcpy(p, &digit_pairs[2U * lead], 2U);
+    p += 2;
+  }
+  switch (i) {
+  case 3U:
+    p = put_pair(p, &f);
+    __attribute__((fallthrough));
+  case 2U:
+    p = put_pair(p, &f);
+    __attribute__((fallthrough));
+  case 1U:
+    p = put_pair(p, &f);
+    __attribute__((fallthrough));
+  default:
+    p = put_pair(p, &f);
+  }
+  *p = '\0';
   return n;
 }
 
@@ -110,6 +162,8 @@ static inline int32_t in_logs(uint32_t u) { return (int32_t)u >> (u & 31U); }
 
 BENCH_TEXT(b_u32_10, uint32_t, in_10dig, fu_fmt_u32(text, x), text)
 BENCH_TEXT(b_u32_log, uint32_t, in_logu, fu_fmt_u32(text, x), text)
+BENCH_TEXT(b_unrolled_10, uint32_t, in_10dig, u32_unrolled(text, x), text)
+BENCH_TEXT(b_unrolled_log, uint32_t, in_logu, u32_unrolled(text, x), text)
 BENCH_TEXT(b_by100_10, uint32_t, in_10dig, u32_by100(text, x), text)
 BENCH_TEXT(b_by100_log, uint32_t, in_logu, u32_by100(text, x), text)
 BENCH_TEXT(b_by10_10, uint32_t, in_10dig, u32_by10(text, x), text)
@@ -134,6 +188,8 @@ BENCH_UNARY(b_digits, uint32_t, in_logu, uint32_t, fu_fmt_dec_digits(x))
 static const BenchCase cases[] = {
     {"fu_fmt_u32, 10 digits", "flexlib", b_u32_10, true},
     {"fu_fmt_u32, log", "flexlib", b_u32_log, true},
+    {"u32 fixed point unrolled, 10 digits", "candidate", b_unrolled_10, true},
+    {"u32 fixed point unrolled, log", "candidate", b_unrolled_log, true},
     {"u32 by 100s loop, 10 digits", "candidate", b_by100_10, true},
     {"u32 by 100s loop, log", "candidate", b_by100_log, true},
     {"u32 by 10s, 10 digits", "candidate", b_by10_10, true},

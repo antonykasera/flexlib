@@ -28,15 +28,6 @@ uint32_t fu_fmt_dec_digits(uint32_t v) {
   return t + 1U - (v < pow10_tab[t] ? 1U : 0U);
 }
 
-/* Y = ((v * M) >> S) + 1 is v / 10^k in 32.32 fixed point, for k = 2, 4, 6, 8.
- * The +1 keeps Y from rounding below the true value, and M, S keep it less
- * than 2^32 / 10^k above it for every v with up to k + 2 digits. So each
- * multiply of the fraction by 100 yields the next two digits exactly.
- * `make exhaustive` checks all 2^32 inputs. */
-static const uint32_t frac_mul[4] = {2748779070U, 3518437209U, 2251799814U,
-                                     2882303762U};
-static const uint8_t frac_shift[4] = {6U, 13U, 19U, 26U};
-
 /* the next two digits of the 0.32 fraction f */
 FX_INLINE char *put_pair(char *p, uint32_t *f) {
   uint64_t t = (uint64_t)*f * 100U;
@@ -45,43 +36,36 @@ FX_INLINE char *put_pair(char *p, uint32_t *f) {
   return p + 2;
 }
 
+/* All ten digits without a branch, then the last n of them. v splits at 10^8
+ * into hi (0..42, two digits) and lo (eight digits, leading zeros kept).
+ * ((lo * M) >> 19) + 1 is lo / 10^6 in 32.32 fixed point: the +1 keeps it from
+ * rounding below the true value, and M keeps it less than 2^32 / 10^6 above it
+ * for every lo < 10^8. So the integer part is the first pair, and each multiply
+ * of the fraction by 100 yields the next. `make exhaustive` checks all 2^32. */
 size_t fu_fmt_u32(char *buf, uint32_t v) {
   uint32_t n = fu_fmt_dec_digits(v);
-  if (n <= 2U) {
-    if (n == 2U) {
-      memcpy(buf, &digit_pairs[2U * v], 2U);
-    } else {
-      buf[0] = (char)('0' + v);
-    }
-    buf[n] = '\0';
-    return n;
-  }
+  uint32_t hi = v / 100000000U;
+  uint32_t lo = v - hi * 100000000U;
 
-  uint32_t i = (n - 1U) / 2U - 1U; /* k = 2 (i + 1) */
-  uint64_t y = (((uint64_t)v * frac_mul[i]) >> frac_shift[i]) + 1U;
-  uint32_t lead = (uint32_t)(y >> 32); /* the first 1 (n odd) or 2 digits */
+  /* digits in t[0..9], NUL at t[10]; zeros up to t[19] so the fixed 11-byte
+   * copy below never reads uninitialised bytes */
+  uint32_t tmp[5];
+  char *t = (char *)tmp;
+  tmp[3] = 0U;
+  tmp[4] = 0U;
+  memcpy(t, &digit_pairs[2U * hi], 2U);
+  uint64_t y = (((uint64_t)lo * 2251799814U) >> 19) + 1U;
+  memcpy(t + 2, &digit_pairs[2U * (uint32_t)(y >> 32)], 2U);
   uint32_t f = (uint32_t)y;
-  char *p = buf;
-  if ((n & 1U) != 0U) {
-    *p++ = (char)('0' + lead);
-  } else {
-    memcpy(p, &digit_pairs[2U * lead], 2U);
-    p += 2;
-  }
-  switch (i) { /* i + 1 more pairs, unrolled */
-  case 3U:
-    p = put_pair(p, &f);
-    __attribute__((fallthrough));
-  case 2U:
-    p = put_pair(p, &f);
-    __attribute__((fallthrough));
-  case 1U:
-    p = put_pair(p, &f);
-    __attribute__((fallthrough));
-  default:
-    p = put_pair(p, &f);
-  }
-  *p = '\0';
+  char *p = put_pair(t + 4, &f);
+  p = put_pair(p, &f);
+  p = put_pair(p, &f);
+  p[0] = '\0';
+  p[1] = '\0';
+
+  const char *s = t + 10U - n;
+  memcpy(buf, s, 8U);
+  memcpy(buf + 8, s + 8, 3U);
   return n;
 }
 
@@ -110,6 +94,11 @@ size_t fu_fmt_hex32(char *buf, uint32_t v, uint32_t min_digits, bool upper) {
     n = min_digits;
   }
   uint32_t alpha = upper ? 7U : 39U;
+  if (n <= 4U) { /* v < 2^16 */
+    fu_store_le32(buf, hex4(v, alpha) >> (8U * (4U - n)));
+    buf[n] = '\0';
+    return n;
+  }
   uint64_t s = (uint64_t)hex4(v >> 16, alpha) |
                (uint64_t)hex4(v & 0xFFFFU, alpha) << 32;
   s >>= 8U * (8U - n); /* drop the leading zeros; the freed bytes are NULs */

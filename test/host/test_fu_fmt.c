@@ -12,7 +12,8 @@
 
 #define CANARY 0x5A
 
-/* checks text, length, NUL, and that nothing past the NUL was written */
+/* checks text, length, NUL, and that nothing past the documented buffer size
+ * (FU_FMT_*_SIZE) was written */
 static void check_u32(uint32_t v) {
   char want[16];
   char got[16];
@@ -22,7 +23,7 @@ static void check_u32(uint32_t v) {
   ASSERT_EQ(len, n);
   ASSERT_EQ(fu_fmt_dec_digits(v), n);
   ASSERT_TRUE(strcmp(got, want) == 0);
-  ASSERT_EQ((uint8_t)got[len + 1U], CANARY);
+  ASSERT_EQ((uint8_t)got[FU_FMT_U32_SIZE], CANARY);
 }
 
 static void check_i32(int32_t v) {
@@ -33,7 +34,7 @@ static void check_i32(int32_t v) {
   size_t len = fu_fmt_i32(got, v);
   ASSERT_EQ(len, n);
   ASSERT_TRUE(strcmp(got, want) == 0);
-  ASSERT_EQ((uint8_t)got[len + 1U], CANARY);
+  ASSERT_EQ((uint8_t)got[FU_FMT_I32_SIZE], CANARY);
 }
 
 static void check_hex(uint32_t v, uint32_t digits, bool upper) {
@@ -45,7 +46,7 @@ static void check_hex(uint32_t v, uint32_t digits, bool upper) {
   size_t len = fu_fmt_hex32(got, v, digits, upper);
   ASSERT_EQ(len, n);
   ASSERT_TRUE(strcmp(got, want) == 0);
-  ASSERT_EQ((uint8_t)got[FU_FMT_HEX32_SIZE], CANARY); /* may use all 9 */
+  ASSERT_EQ((uint8_t)got[FU_FMT_HEX32_SIZE], CANARY);
 }
 
 void test_fu_fmt_u32(void) {
