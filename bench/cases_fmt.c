@@ -1,7 +1,7 @@
 /**
  * @file cases_fmt.c
  * @brief Bench cases for fu_fmt.h, with the decimal candidates it was chosen
- *        from and newlib's snprintf as the baseline
+ *        from and newlib's snprintf (float support linked in) as the baseline
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -13,6 +13,7 @@
 #include <stdio.h>
 
 static char text[16];
+static char line[64]; /* f32 and printf cases */
 
 /* ---- decimal candidates (fu_fmt_u32: two digits per step, a loop) ---- */
 
@@ -181,6 +182,20 @@ static inline uint32_t in_10dig(uint32_t u) {
 static inline uint32_t in_logu(uint32_t u) { return u >> (u & 31U); }
 static inline int32_t in_logs(uint32_t u) { return (int32_t)u >> (u & 31U); }
 
+static inline float f32_bits(uint32_t b) {
+  float x;
+  memcpy(&x, &b, sizeof x);
+  return x;
+}
+/* +-2^-7 .. 2^13: readings, setpoints */
+static inline float in_f32_common(uint32_t u) {
+  return f32_bits((u & 0x807FFFFFU) | (120U + u % 20U) << 23);
+}
+/* 2^32 .. FLT_MAX: the long path */
+static inline float in_f32_big(uint32_t u) {
+  return f32_bits((u & 0x807FFFFFU) | (159U + u % 96U) << 23);
+}
+
 BENCH_TEXT(b_u32_10, uint32_t, in_10dig, fu_fmt_u32(text, x), text)
 BENCH_TEXT(b_u32_log, uint32_t, in_logu, fu_fmt_u32(text, x), text)
 BENCH_TEXT(b_split_10, uint32_t, in_10dig, u32_split(text, x), text)
@@ -204,6 +219,28 @@ BENCH_TEXT(b_hexloop_min, uint32_t, in_logu, hex_loop(text, x, 0U, false),
            text)
 BENCH_UNARY(b_digits, uint32_t, in_logu, uint32_t, fu_fmt_dec_digits(x))
 
+BENCH_TEXT(b_q16_4, int32_t, in_logs, fu_fmt_q16(text, x, 4U), text)
+BENCH_TEXT(b_q16_snprintf, int32_t, in_logs,
+           snprintf(line, sizeof line, "%.4f", (double)x / 65536.0), line)
+BENCH_TEXT(b_f32_2, float, in_f32_common, fu_fmt_f32(line, x, 2U), line)
+BENCH_TEXT(b_f32_snprintf, float, in_f32_common,
+           snprintf(line, sizeof line, "%.2f", (double)x), line)
+BENCH_TEXT(b_f32_big, float, in_f32_big, fu_fmt_f32(line, x, 0U), line)
+BENCH_TEXT(b_f32_big_snprintf, float, in_f32_big,
+           snprintf(line, sizeof line, "%.0f", (double)x), line)
+
+/* the same integer line through both; the casts match %u / %d / %X on every
+ * target (uint32_t is unsigned long on Arm) */
+#define LINE_FMT "n=%u t=%d id=%08X\r\n"
+BENCH_TEXT(b_printf_fu, uint32_t, in_logu,
+           fu_snprintf(line, sizeof line, LINE_FMT, (unsigned)x,
+                       (int)x >> 4, (unsigned)x),
+           line)
+BENCH_TEXT(b_printf_newlib, uint32_t, in_logu,
+           snprintf(line, sizeof line, LINE_FMT, (unsigned)x, (int)x >> 4,
+                    (unsigned)x),
+           line)
+
 /* "log" inputs have every digit count; snprintf is golden too, since newlib
  * and the host's libc must print the same text */
 static const BenchCase cases[] = {
@@ -225,6 +262,14 @@ static const BenchCase cases[] = {
     {"hex nibble loop, 8 digits", "candidate", b_hexloop_8, true},
     {"hex nibble loop, minimal", "candidate", b_hexloop_min, true},
     {"fu_fmt_dec_digits", "flexlib", b_digits, true},
+    {"fu_fmt_q16, %.4f, log", "flexlib", b_q16_4, true},
+    {"snprintf %.4f of q16, log", "newlib", b_q16_snprintf, true},
+    {"fu_fmt_f32, %.2f, 2^-7..2^13", "flexlib", b_f32_2, true},
+    {"snprintf %.2f, 2^-7..2^13", "newlib", b_f32_snprintf, true},
+    {"fu_fmt_f32, %.0f, >= 2^32", "flexlib", b_f32_big, true},
+    {"snprintf %.0f, >= 2^32", "newlib", b_f32_big_snprintf, true},
+    {"fu_snprintf u32 + i32 + hex line", "flexlib", b_printf_fu, true},
+    {"snprintf u32 + i32 + hex line", "newlib", b_printf_newlib, true},
 };
 
 const BenchGroup bench_group_fmt = {cases, BENCH_COUNT(cases)};

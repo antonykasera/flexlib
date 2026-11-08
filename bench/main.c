@@ -16,6 +16,7 @@
 
 #include "bench.h"
 #include "cache_probe.h"
+#include "fu_fmt.h"
 #include "hal_clock.h"
 #include "hal_gpio.h"
 #include "hal_usb.h"
@@ -52,22 +53,14 @@ static void print(const char *s) {
 }
 
 static void print_u32(uint32_t v) {
-  char buf[11];
-  uint32_t i = 10U;
-  buf[i] = '\0';
-  do {
-    buf[--i] = (char)('0' + (v % 10U));
-    v /= 10U;
-  } while (v > 0U);
-  print(&buf[i]);
+  char buf[FU_FMT_U32_SIZE];
+  fu_fmt_u32(buf, v);
+  print(buf);
 }
 
 static void print_hex32(uint32_t v) {
-  char buf[11] = "0x";
-  for (uint32_t i = 0U; i < 8U; i++) {
-    buf[2U + i] = "0123456789ABCDEF"[(v >> (28U - 4U * i)) & 0xFU];
-  }
-  buf[10] = '\0';
+  char buf[2U + FU_FMT_HEX32_SIZE] = "0x";
+  fu_fmt_hex32(buf + 2, v, 8U, true);
   print(buf);
 }
 

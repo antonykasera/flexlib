@@ -1,6 +1,6 @@
 /**
  * @file fu_fmt.c
- * @brief Integers to text without printf: decimal and hex
+ * @brief Numbers to text without printf: integers, Q16.16 and float
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -87,4 +87,132 @@ size_t fu_fmt_hex32(char *buf, uint32_t v, uint32_t min_digits, bool upper) {
   fu_store_le32(buf + 4, (uint32_t)(s >> 32));
   buf[n] = '\0';
   return n;
+}
+
+/* d digits of q (q < 10^d), zero-padded, at p */
+static void put_fixed(char *p, uint32_t q, uint32_t d) {
+  for (; d >= 2U; d -= 2U) {
+    uint32_t t = q / 100U;
+    memcpy(p + d - 2U, &digit_pairs[2U * (q - t * 100U)], 2U);
+    q = t;
+  }
+  if (d != 0U) {
+    p[0] = (char)('0' + q);
+  }
+}
+
+/* [-]ip.ddd, the fraction f / 2^s (1 <= s <= 63, f < 2^24) rounded to d
+ * digits. With odd the parity of the last digit kept, (f * 10^d + 2^(s-1) - 1
+ * + odd) >> s is round to nearest, ties to even, exactly: one UMULL. */
+FX_INLINE size_t fmt_point(char *buf, bool neg, uint32_t ip, uint32_t f,
+                           uint32_t s, uint32_t d) {
+  uint64_t p = (uint64_t)f * pow10_tab[d];
+  uint32_t odd = (d == 0U ? ip : (uint32_t)(p >> s)) & 1U;
+  uint32_t q = (uint32_t)((p + (1ULL << (s - 1U)) - 1U + odd) >> s);
+  if (q == pow10_tab[d]) {
+    ip++;
+    q = 0U;
+  }
+  char *o = buf;
+  *o = '-';
+  o += neg ? 1 : 0;
+  o += fu_fmt_u32(o, ip);
+  if (d != 0U) {
+    *o++ = '.';
+    put_fixed(o, q, d);
+    o += d;
+  }
+  *o = '\0';
+  return (size_t)(o - buf);
+}
+
+size_t fu_fmt_q16(char *buf, int32_t v, uint32_t frac_digits) {
+  FX_ASSERT(frac_digits <= FU_FMT_FRAC_MAX);
+  uint32_t m = v < 0 ? 0U - (uint32_t)v : (uint32_t)v;
+  return fmt_point(buf, v < 0, m >> 16, m & 0xFFFFU, 16U, frac_digits);
+}
+
+FX_COLD static size_t fmt_special(char *buf, bool neg, uint32_t mant) {
+  const char *s = mant != 0U ? "nan" : (neg ? "-inf" : "inf");
+  size_t n = strlen(s);
+  memcpy(buf, s, n + 1U);
+  return n;
+}
+
+/* m * 2^e for e >= 9 (x >= 2^32, an integer): m in base 10^4 limbs, doubled
+ * up to 18 times per pass, since 9999 * 2^18 plus a carry stays below 2^32 */
+FX_COLD static size_t fmt_big(char *buf, bool neg, uint32_t m, uint32_t e,
+                              uint32_t d) {
+  uint32_t limb[10]; /* least significant first; floats have <= 39 digits */
+  uint32_t n = 0U;
+  do {
+    limb[n++] = m % 10000U;
+    m /= 10000U;
+  } while (m != 0U);
+  while (e != 0U) {
+    uint32_t k = e < 18U ? e : 18U;
+    e -= k;
+    uint32_t carry = 0U;
+    for (uint32_t i = 0U; i < n; i++) {
+      uint32_t t = (limb[i] << k) + carry;
+      carry = t / 10000U;
+      limb[i] = t - carry * 10000U;
+    }
+    for (; carry != 0U; carry /= 10000U) {
+      limb[n++] = carry % 10000U;
+    }
+  }
+  char *o = buf;
+  *o = '-';
+  o += neg ? 1 : 0;
+  o += fu_fmt_u32(o, limb[--n]);
+  while (n != 0U) {
+    put_fixed(o, limb[--n], 4U);
+    o += 4;
+  }
+  if (d != 0U) {
+    *o++ = '.';
+    memset(o, '0', d);
+    o += d;
+  }
+  *o = '\0';
+  return (size_t)(o - buf);
+}
+
+size_t fu_fmt_f32(char *buf, float x, uint32_t frac_digits) {
+  FX_ASSERT(frac_digits <= FU_FMT_FRAC_MAX);
+  uint32_t b;
+  memcpy(&b, &x, sizeof b);
+  bool neg = (b >> 31) != 0U;
+  uint32_t ex = (b >> 23) & 0xFFU;
+  uint32_t m = b & 0x7FFFFFU;
+  if (ex == 0xFFU) {
+    return fmt_special(buf, neg, m);
+  }
+  if (ex != 0U) {
+    m |= 0x800000U;
+  } else {
+    ex = 1U; /* subnormal */
+  }
+  /* x = m * 2^(ex - 150) = ip + f / 2^s */
+  uint32_t ip = 0U;
+  uint32_t f = m;
+  uint32_t s;
+  if (ex >= 150U) {
+    if (ex > 158U) {
+      return fmt_big(buf, neg, m, ex - 150U, frac_digits);
+    }
+    ip = m << (ex - 150U);
+    f = 0U;
+    s = 1U;
+  } else {
+    s = 150U - ex;
+    if (s < 24U) {
+      ip = m >> s;
+      f = m & ((1U << s) - 1U);
+    } else if (s > 63U) {
+      s = 63U; /* |x| < 2^-40: rounds to 0 either way */
+    }
+  }
+  return fmt_point(buf, neg, ip, f, s, frac_digits);
 }

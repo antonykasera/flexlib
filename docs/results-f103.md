@@ -1,6 +1,6 @@
 # Bench results: STM32F103C8 (Blue Pill clone)
 
-Written by `make bench-run` on 2026-11-08. Do not edit by hand;
+Written by `make bench-run` on 2026-11-09. Do not edit by hand;
 rerun it. Method: the Bench section of README.md.
 
 <!-- bench begin -->
@@ -59,6 +59,14 @@ rerun it. Method: the Bench section of README.md.
 | hex nibble loop, 8 digits | candidate | 103 | 103 | 103 | ok |
 | hex nibble loop, minimal | candidate | 40 | 67 | 103 | ok |
 | fu_fmt_dec_digits | flexlib | 20 | 20 | 20 | ok |
+| fu_fmt_q16, %.4f, log | flexlib | 151 | 154 | 190 | ok |
+| snprintf %.4f of q16, log | newlib | 1830 | 4278 | 6346 | ok |
+| fu_fmt_f32, %.2f, 2^-7..2^13 | flexlib | 178 | 182 | 203 | ok |
+| snprintf %.2f, 2^-7..2^13 | newlib | 3225 | 4282 | 5445 | ok |
+| fu_fmt_f32, %.0f, >= 2^32 | flexlib | 334 | 746 | 1485 | ok |
+| snprintf %.0f, >= 2^32 | newlib | 5961 | 9649 | 17069 | ok |
+| fu_snprintf u32 + i32 + hex line | flexlib | 941 | 1039 | 1213 | ok |
+| snprintf u32 + i32 + hex line | newlib | 3219 | 3267 | 3317 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -68,7 +76,7 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 46 ok, 0 FAIL, 0 missing
+golden: 54 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

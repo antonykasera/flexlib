@@ -44,18 +44,28 @@ host-test:
 	./$(HOST_BUILD)/test_runner
 	@echo "--- Host tests passed ($(HOST_CC)) ---"
 
-# ---- exhaustive: every 32-bit input, on all cores (about a minute) ----
+# ---- exhaustive: every 32-bit input, on all cores ----
+# `exhaustive` (CI, about a minute) checks against plain references;
+# `exhaustive-slow` (*_slow.c, ~13 min on 12 cores) against the C library's %f.
 
-EXHAUSTIVE_SRCS = $(wildcard test/exhaustive/*.c)
+EXHAUSTIVE_ALL  = $(wildcard test/exhaustive/*.c)
+EXHAUSTIVE_SLOW = $(filter %_slow.c,$(EXHAUSTIVE_ALL))
 
-exhaustive:
+define RUN_EXHAUSTIVE
 	@mkdir -p $(BUILD)/exhaustive
-	@set -e; for t in $(EXHAUSTIVE_SRCS); do \
+	@set -e; for t in $(1); do \
 		b=$(BUILD)/exhaustive/$$(basename $$t .c); \
 		$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -fopenmp $(LIB_INC) $$t \
 			$(LIB_SRCS) -o $$b; \
 		echo "--- $$t"; ./$$b; \
 	done
+endef
+
+exhaustive:
+	$(call RUN_EXHAUSTIVE,$(filter-out $(EXHAUSTIVE_SLOW),$(EXHAUSTIVE_ALL)))
+
+exhaustive-slow:
+	$(call RUN_EXHAUSTIVE,$(EXHAUSTIVE_SLOW))
 
 # ---- Arm cross-builds: M3 is the target; M4/M7 keep those arch paths building ----
 
@@ -148,8 +158,10 @@ endif
 BENCH_BASE_CFLAGS = $(M3_FLAGS) $(STD) $(BENCH_OPT) -g3 \
                     -ffunction-sections -fdata-sections $(BENCH_DEFS) \
                     $(LIB_INC) -Ibench $(FLEX_INC) $(CMSIS_DSP_INC)
+# _printf_float: newlib-nano's %f, for the fu_fmt_f32 baseline
 BENCH_LDFLAGS = $(M3_FLAGS) -Tbench/linker.ld -Wl,--gc-sections \
                 -Wl,--no-warn-rwx-segments --specs=nano.specs --specs=nosys.specs \
+                -u _printf_float \
                 -Wl,-Map=$(BENCH_BUILD)/bench.map
 
 # flexlib + bench sources get the strict warnings; flex and CMSIS-DSP don't
@@ -222,5 +234,5 @@ clean:
 
 -include $(CROSS_OBJS:.o=.d) $(BENCH_OBJS:.o=.d) $(FLEX_OBJS:.o=.d) $(CMSIS_OBJS:.o=.d)
 
-.PHONY: all check host-test exhaustive cross asm-audit size lint golden bench bench-flash \
+.PHONY: all check host-test exhaustive exhaustive-slow cross asm-audit size lint golden bench bench-flash \
         bench-run bench-windows compdb clean

@@ -45,6 +45,9 @@ void test_fu_sext(void);
 void test_fu_fmt_u32(void);
 void test_fu_fmt_i32(void);
 void test_fu_fmt_hex32(void);
+void test_fu_fmt_q16(void);
+void test_fu_fmt_f32(void);
+void test_fu_snprintf(void);
 
 int main(void) {
   TEST_RUN(test_rng_reproducible);
@@ -67,6 +70,9 @@ int main(void) {
   TEST_RUN(test_fu_fmt_u32);
   TEST_RUN(test_fu_fmt_i32);
   TEST_RUN(test_fu_fmt_hex32);
+  TEST_RUN(test_fu_fmt_q16);
+  TEST_RUN(test_fu_fmt_f32);
+  TEST_RUN(test_fu_snprintf);
 
   return TEST_SUMMARY();
 }

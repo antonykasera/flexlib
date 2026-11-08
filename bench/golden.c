@@ -57,6 +57,14 @@ const BenchGolden bench_golden[] = {
     {"hex nibble loop, 8 digits", 0x92704AF4U},
     {"hex nibble loop, minimal", 0x6461F7BAU},
     {"fu_fmt_dec_digits", 0xA50F20B1U},
+    {"fu_fmt_q16, %.4f, log", 0x938429FBU},
+    {"snprintf %.4f of q16, log", 0x938429FBU},
+    {"fu_fmt_f32, %.2f, 2^-7..2^13", 0x538F8BC4U},
+    {"snprintf %.2f, 2^-7..2^13", 0x538F8BC4U},
+    {"fu_fmt_f32, %.0f, >= 2^32", 0xAF3A46A4U},
+    {"snprintf %.0f, >= 2^32", 0xAF3A46A4U},
+    {"fu_snprintf u32 + i32 + hex line", 0x32AE02DCU},
+    {"snprintf u32 + i32 + hex line", 0x32AE02DCU},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

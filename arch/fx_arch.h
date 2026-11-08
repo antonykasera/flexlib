@@ -32,6 +32,10 @@
  * ART line and the F1 prefetch width, so a table touches the fewest lines. */
 #define FX_ALIGN_LINE __attribute__((aligned(32)))
 
+/* Rare paths: out of line and grouped apart, so hot code packs into fewer
+ * lines. */
+#define FX_COLD __attribute__((cold, noinline))
+
 /* ---- programmer-mistake checks ----
  * A failed FX_ASSERT traps (one UDF on Arm, no stdio pulled in, and the
  * debugger stops on the spot). Define FX_ASSERT_FAIL(file, line) to call your
