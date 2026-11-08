@@ -117,7 +117,8 @@ FLEX_MODULES := clock gpio usb
 include $(FLEX_DIR)/flex.mk
 endif
 
-BENCH_SRCS = bench/main.c $(BENCH_PORTABLE) bench/golden.c $(LIB_SRCS)
+BENCH_SRCS = bench/main.c bench/cache_probe.c $(BENCH_PORTABLE) bench/golden.c \
+             $(LIB_SRCS)
 BENCH_DEFS = -DSTM32F103xB -DBENCH_OPT_NAME='"$(BENCH_OPT)"'
 
 ifneq ($(wildcard $(CMSIS_DSP_DIR)/Include/arm_math.h),)

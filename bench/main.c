@@ -15,6 +15,7 @@
  */
 
 #include "bench.h"
+#include "cache_probe.h"
 #include "hal_clock.h"
 #include "hal_gpio.h"
 #include "hal_usb.h"
@@ -68,6 +69,54 @@ static void print_hex32(uint32_t v) {
   }
   buf[10] = '\0';
   print(buf);
+}
+
+/* v / 10 with one decimal */
+static void print_x10(uint32_t v) {
+  print_u32(v / 10U);
+  char frac[3] = {'.', (char)('0' + v % 10U), '\0'};
+  print(frac);
+}
+
+static void print_probe_row(const char *label, uint32_t v, const char *unit,
+                            const CacheProbeRow *r) {
+  print("| ");
+  print(label);
+  print_u32(v);
+  print(unit);
+  print(" | ");
+  print_x10(r->cold_x10);
+  print(" | ");
+  print_x10(r->warm_x10);
+  print(" |\r\n");
+}
+
+static void print_cache_probe(void) {
+  static CacheProbe p;
+  cache_probe_run(&p, cyc, sizeof cyc);
+
+  print("\r\n### Flash read cost\r\n\r\n");
+  print("Cycles per 32-bit load from flash, loop included, first pass after "
+        "a flush (cold) and second pass (warm). The same loop over SRAM: ");
+  print_x10(p.sram_x10);
+  print(".\r\n\r\n");
+
+  print("| block, one load per 32 B | cold | warm |\r\n");
+  print("|--:|--:|--:|\r\n");
+  for (unsigned i = 0U; i < CACHE_PROBE_SIZES; i++) {
+    uint32_t b = p.size[i].bytes;
+    if (b < 1024U) {
+      print_probe_row("", b, " B", &p.size[i]);
+    } else {
+      print_probe_row("", b / 1024U, " KB", &p.size[i]);
+    }
+  }
+
+  print("\r\n| stride, 1 KB block | cold | warm |\r\n");
+  print("|--:|--:|--:|\r\n");
+  for (unsigned i = 0U; i < CACHE_PROBE_STRIDES; i++) {
+    print_probe_row("", p.stride[i].bytes, " B", &p.stride[i]);
+  }
 }
 
 static void cycles_init(void) {
@@ -178,6 +227,7 @@ static void run_all(void) {
   print(" FAIL, ");
   print_u32(count[BENCH_GOLDEN_MISSING]);
   print(" missing\r\n");
+  print_cache_probe();
   print("<!-- bench end -->\r\n");
 }
 

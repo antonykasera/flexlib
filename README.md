@@ -71,10 +71,12 @@ The bench needs the submodules: `git submodule update --init`.
   off while it times, and USB is polled. The cost of reading the counter is
   measured and subtracted.
 - Each case first runs once untimed, so the numbers are warm. The bench board
-  is an F103 clone (CPUID 0x412FC230) whose flash behaves like a cache with
-  32-byte lines: the first fetch of a line costs about 110 cycles, and later
-  ones are fast. A genuine STM32F103 has no cache (2 wait states plus a
-  prefetch buffer), so its timings may differ, especially for table lookups.
+  is an F103 clone (CPUID 0x412FC230) whose flash behaves like a cache. The
+  probe below measures 32-byte lines, a capacity between 16 and 32 KB, about
+  113 cycles (1.6 us) per cold line with no next-line prefetch, and hits as
+  fast as SRAM. A genuine STM32F103 has no cache (2 wait states plus a
+  prefetch buffer), so its timings may differ, especially for table lookups
+  and for code that hasn't run recently.
 - Built at `-O2` without LTO, so library functions are timed as real calls.
   libm is prebuilt newlib, so its numbers don't depend on the bench's flags.
 - `make bench-windows` lists the exact instructions between the two counter
@@ -88,6 +90,9 @@ The bench needs the submodules: `git submodule update --init`.
   measures both effects.
 - Samples above 2 x median + 4 are counted per case and listed by input
   index under the table, so data-dependent timing stands out.
+- A "Flash read cost" section measures the board's flash: cycles per load,
+  cold and warm, by block size and by stride. The loop runs from SRAM so its
+  own fetches don't disturb the result.
 
 ## Results
 

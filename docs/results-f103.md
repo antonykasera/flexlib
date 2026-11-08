@@ -4,7 +4,6 @@ Written by `make bench-run` on 2026-11-08. Do not edit by hand;
 rerun it. Method: the Bench section of README.md.
 
 <!-- bench begin -->
-
 ## flexlib bench, STM32F103 @ 72 MHz
 
 - build: -O2, GCC 16.2.0, newlib-nano
@@ -33,4 +32,27 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_f32 | CMSIS-DSP | 401 | 572 | 583 | - |
 
 golden: 9 ok, 0 FAIL, 0 missing
+
+### Flash read cost
+
+Cycles per 32-bit load from flash, loop included, first pass after a flush (cold) and second pass (warm). The same loop over SRAM: 8.3.
+
+| block, one load per 32 B | cold | warm |
+|--:|--:|--:|
+| 256 B | 122.1 | 9.1 |
+| 512 B | 121.5 | 8.5 |
+| 1 KB | 121.2 | 8.2 |
+| 2 KB | 121.1 | 8.1 |
+| 4 KB | 121.0 | 8.0 |
+| 8 KB | 121.0 | 8.0 |
+| 16 KB | 121.0 | 8.0 |
+| 32 KB | 121.0 | 121.0 |
+
+| stride, 1 KB block | cold | warm |
+|--:|--:|--:|
+| 4 B | 22.1 | 8.0 |
+| 8 B | 36.3 | 8.0 |
+| 16 B | 64.6 | 8.1 |
+| 32 B | 121.2 | 8.2 |
+| 64 B | 121.5 | 8.5 |
 <!-- bench end -->
