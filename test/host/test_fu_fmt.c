@@ -190,6 +190,38 @@ void test_fu_fmt_f32(void) {
     ASSERT_TRUE(strcmp(got_, want_) == 0);                                     \
   } while (0)
 
+/* every buffer size from 0 to len + 2: prefix, NUL, no write past size */
+#define CHECK_SIZES(want, ...)                                                 \
+  do {                                                                         \
+    size_t wl_ = strlen(want);                                                 \
+    for (size_t sz_ = 0U; sz_ <= wl_ + 2U; sz_++) {                            \
+      char g_[128];                                                            \
+      memset(g_, CANARY, sizeof g_);                                           \
+      ASSERT_EQ(fu_snprintf(sz_ != 0U ? g_ : NULL, sz_, __VA_ARGS__), wl_);    \
+      if (sz_ != 0U) {                                                         \
+        size_t k_ = sz_ - 1U < wl_ ? sz_ - 1U : wl_;                           \
+        ASSERT_TRUE(memcmp(g_, want, k_) == 0 && g_[k_] == '\0');              \
+      }                                                                        \
+      ASSERT_EQ((uint8_t)g_[sz_], CANARY);                                     \
+    }                                                                          \
+  } while (0)
+
+static void test_snprintf_sizes(void) {
+  char w[128];
+  snprintf(w, sizeof w, "ab%dcd%-7uef%08Xg%5xh%%%s|%c", -12345, 678U,
+           0xABCU, 0x1FU, "str", 'z');
+  CHECK_SIZES(w, "ab%dcd%-7uef%08Xg%5xh%%%s|%c", -12345, 678U, 0xABCU, 0x1FU,
+              "str", 'z');
+  snprintf(w, sizeof w, "[%24d][%-20u][%020d][%019X][%5d]", INT32_MIN,
+           UINT32_MAX, -77, 0xBEEFU, 3);
+  CHECK_SIZES(w, "[%24d][%-20u][%020d][%019X][%5d]", INT32_MIN, UINT32_MAX,
+              -77, 0xBEEFU, 3);
+  snprintf(w, sizeof w, "%.9f|%22.3f|%-12.1f|%012.2f", -32768.0,
+           -98304 / 65536.0, 1.5, -0.25);
+  CHECK_SIZES(w, "%.9q|%22.3q|%-12.1q|%012.2q", INT32_MIN, -98304, 98304,
+              -16384);
+}
+
 void test_fu_snprintf(void) {
   CHECK_PRINTF("plain %s", "text");
   CHECK_PRINTF("%d|%i|%u|%x|%X|%c|%%", -42, 7, 42U, 0xBEEFU, 0xBEEFU, 'z');
@@ -225,4 +257,6 @@ void test_fu_snprintf(void) {
   memset(got, CANARY, sizeof got);
   ASSERT_EQ(fu_snprintf(got, 4U, "%-6c|", 'x'), 7U);
   ASSERT_TRUE(strcmp(got, "x  ") == 0);
+
+  test_snprintf_sizes();
 }

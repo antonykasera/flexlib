@@ -64,8 +64,9 @@ rerun it. Method: the Bench section of README.md.
 | fu_fmt_f32, %.2f, 2^-7..2^13 | flexlib | 178 | 182 | 203 | ok |
 | snprintf %.2f, 2^-7..2^13 | newlib | 3225 | 4282 | 5445 | ok |
 | fu_fmt_f32, %.0f, >= 2^32 | flexlib | 334 | 746 | 1485 | ok |
-| snprintf %.0f, >= 2^32 | newlib | 5961 | 9649 | 17069 | ok |
-| fu_snprintf u32 + i32 + hex line | flexlib | 941 | 1039 | 1213 | ok |
+| snprintf %.0f, >= 2^32 | newlib | 6060 | 9663 | 17239 | ok |
+| fu_snprintf u32 + i32 + hex line | flexlib | 705 | 763 | 838 | ok |
+| fu_snprintf v1 (tmp + memcpy), same line | candidate | 941 | 1039 | 1213 | ok |
 | snprintf u32 + i32 + hex line | newlib | 3219 | 3267 | 3317 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
@@ -76,7 +77,7 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 54 ok, 0 FAIL, 0 missing
+golden: 55 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

@@ -64,6 +64,7 @@ const BenchGolden bench_golden[] = {
     {"fu_fmt_f32, %.0f, >= 2^32", 0xAF3A46A4U},
     {"snprintf %.0f, >= 2^32", 0xAF3A46A4U},
     {"fu_snprintf u32 + i32 + hex line", 0x32AE02DCU},
+    {"fu_snprintf v1 (tmp + memcpy), same line", 0x32AE02DCU},
     {"snprintf u32 + i32 + hex line", 0x32AE02DCU},
 };
 

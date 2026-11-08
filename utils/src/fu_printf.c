@@ -8,28 +8,22 @@
 
 #include "fu_fmt.h"
 #include "fx_arch.h"
-#include <string.h>
 
-typedef struct {
-  char *buf;
-  size_t lim; /* characters that fit: size - 1 */
-  size_t n;   /* characters the text needs so far */
-} Out;
+#define CONV_MAX (FU_FMT_Q16_SIZE - 1U) /* fu_fmt may write this + 1 bytes */
 
-static void put(Out *o, const char *s, size_t len) {
-  if (o->n < o->lim) {
-    size_t room = o->lim - o->n;
-    memcpy(o->buf + o->n, s, len < room ? len : room);
+/* Bounded copies for the slow path; buf[0..lim) is writable, n counts all. */
+static size_t put(char *buf, size_t lim, size_t n, const char *s, size_t len) {
+  for (size_t i = 0U; i < len && n + i < lim; i++) {
+    buf[n + i] = s[i];
   }
-  o->n += len;
+  return n + len;
 }
 
-static void pad(Out *o, char c, size_t len) {
-  if (o->n < o->lim) {
-    size_t room = o->lim - o->n;
-    memset(o->buf + o->n, c, len < room ? len : room);
+static size_t pad(char *buf, size_t lim, size_t n, char c, size_t len) {
+  for (size_t i = 0U; i < len && n + i < lim; i++) {
+    buf[n + i] = c;
   }
-  o->n += len;
+  return n + len;
 }
 
 size_t fu_snprintf(char *buf, size_t size, const char *fmt, ...) {
@@ -41,16 +35,19 @@ size_t fu_snprintf(char *buf, size_t size, const char *fmt, ...) {
 }
 
 size_t fu_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
-  Out o = {buf, size != 0U ? size - 1U : 0U, 0U};
+  size_t lim = size != 0U ? size - 1U : 0U;
+  size_t n = 0U;
   va_list args;
   va_copy(args, ap);
   for (;;) {
-    const char *lit = fmt;
-    while (*fmt != '\0' && *fmt != '%') {
-      fmt++;
+    char c = *fmt;
+    for (; n < lim && c != '%' && c != '\0'; c = *++fmt) {
+      buf[n++] = c;
     }
-    put(&o, lit, (size_t)(fmt - lit));
-    if (*fmt == '\0') {
+    for (; c != '%' && c != '\0'; c = *++fmt) {
+      n++;
+    }
+    if (c == '\0') {
       break;
     }
     fmt++;
@@ -92,38 +89,43 @@ size_t fu_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
     bool lng = *fmt == 'l';
     fmt += lng ? 1 : 0;
 
+    /* numbers go straight into buf when the whole field fits */
     char tmp[FU_FMT_Q16_SIZE];
-    const char *s = tmp;
+    bool fit = n <= lim && lim - n >= (width > CONV_MAX ? width : CONV_MAX);
+    char *d = fit ? buf + n : tmp;
+    const char *s = d;
     size_t len = 0U;
     bool num = true;
     switch (*fmt) {
     case 'd':
     case 'i':
-      len = fu_fmt_i32(tmp, lng ? (int32_t)va_arg(args, long)
-                                : (int32_t)va_arg(args, int));
+      len = fu_fmt_i32(d, lng ? (int32_t)va_arg(args, long)
+                              : (int32_t)va_arg(args, int));
       break;
     case 'u':
-      len = fu_fmt_u32(tmp, lng ? (uint32_t)va_arg(args, unsigned long)
-                                : va_arg(args, unsigned));
+      len = fu_fmt_u32(d, lng ? (uint32_t)va_arg(args, unsigned long)
+                              : va_arg(args, unsigned));
       break;
     case 'x':
     case 'X':
-      len = fu_fmt_hex32(tmp,
+      len = fu_fmt_hex32(d,
                          lng ? (uint32_t)va_arg(args, unsigned long)
                              : va_arg(args, unsigned),
-                         0U, *fmt == 'X');
+                         zero && !left && width <= 8U ? (uint32_t)width : 0U,
+                         *fmt == 'X');
       break;
     case 'q': {
       FX_ASSERT(prec <= (int32_t)FU_FMT_FRAC_MAX);
-      uint32_t d = prec < 0 ? 4U : (uint32_t)prec;
-      len = fu_fmt_q16(tmp,
+      uint32_t fd = prec < 0 ? 4U : (uint32_t)prec;
+      len = fu_fmt_q16(d,
                        lng ? (int32_t)va_arg(args, long)
                            : (int32_t)va_arg(args, int),
-                       d < FU_FMT_FRAC_MAX ? d : FU_FMT_FRAC_MAX);
+                       fd < FU_FMT_FRAC_MAX ? fd : FU_FMT_FRAC_MAX);
       break;
     }
     case 'c':
       tmp[0] = (char)va_arg(args, int);
+      s = tmp;
       len = 1U;
       num = false;
       break;
@@ -137,6 +139,7 @@ size_t fu_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
       break;
     case '%':
       tmp[0] = '%';
+      s = tmp;
       len = 1U;
       num = false;
       break;
@@ -151,22 +154,37 @@ size_t fu_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
     fmt++;
 
     size_t fill = width > len ? width - len : 0U;
-    if (left) {
-      put(&o, s, len);
-      pad(&o, ' ', fill);
+    if (num && fit) {
+      if (left) {
+        for (size_t i = len; i < width; i++) {
+          d[i] = ' ';
+        }
+      } else if (fill != 0U) {
+        size_t keep = zero && d[0] == '-' ? 1U : 0U; /* zeros after the sign */
+        for (size_t i = len; i-- > keep;) {
+          d[i + fill] = d[i];
+        }
+        for (size_t i = keep; i < keep + fill; i++) {
+          d[i] = zero ? '0' : ' ';
+        }
+      }
+      n += len + fill;
+    } else if (left) {
+      n = put(buf, lim, n, s, len);
+      n = pad(buf, lim, n, ' ', fill);
     } else if (zero && num) {
-      size_t sign = s[0] == '-' ? 1U : 0U; /* zeros go after the sign */
-      put(&o, s, sign);
-      pad(&o, '0', fill);
-      put(&o, s + sign, len - sign);
+      size_t sign = s[0] == '-' ? 1U : 0U;
+      n = put(buf, lim, n, s, sign);
+      n = pad(buf, lim, n, '0', fill);
+      n = put(buf, lim, n, s + sign, len - sign);
     } else {
-      pad(&o, ' ', fill);
-      put(&o, s, len);
+      n = pad(buf, lim, n, ' ', fill);
+      n = put(buf, lim, n, s, len);
     }
   }
   va_end(args);
   if (size != 0U) {
-    buf[o.n < o.lim ? o.n : o.lim] = '\0';
+    buf[n < lim ? n : lim] = '\0';
   }
-  return o.n;
+  return n;
 }
