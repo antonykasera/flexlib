@@ -41,6 +41,22 @@ rerun it. Method: the Bench section of README.md.
 | fu_load_be32, +2 | flexlib | 5 | 5 | 5 | ok |
 | fu_sext(x, 12) | flexlib | 2 | 2 | 2 | ok |
 | fu_sext(x, n) | flexlib | 7 | 7 | 7 | ok |
+| fu_fmt_u32, 10 digits | flexlib | 117 | 117 | 117 | ok |
+| fu_fmt_u32, log | flexlib | 40 | 98 | 122 | ok |
+| u32 by 100s loop, 10 digits | candidate | 116 | 116 | 116 | ok |
+| u32 by 100s loop, log | candidate | 46 | 83 | 120 | ok |
+| u32 by 10s, 10 digits | candidate | 173 | 173 | 173 | ok |
+| u32 by 10s, log | candidate | 50 | 103 | 173 | ok |
+| u32 by 10s UDIV, 10 digits | candidate | 185 | 187 | 190 | ok |
+| u32 by 10s UDIV, log | candidate | 50 | 105 | 190 | ok |
+| snprintf %lu, 10 digits | newlib | 1020 | 1022 | 1025 | ok |
+| snprintf %lu, log | newlib | 786 | 885 | 1025 | ok |
+| fu_fmt_i32, log | flexlib | 50 | 108 | 132 | ok |
+| fu_fmt_hex32, 8 digits | flexlib | 77 | 77 | 77 | ok |
+| fu_fmt_hex32, minimal | flexlib | 77 | 77 | 77 | ok |
+| hex nibble loop, 8 digits | candidate | 103 | 103 | 103 | ok |
+| hex nibble loop, minimal | candidate | 40 | 67 | 103 | ok |
+| fu_fmt_dec_digits | flexlib | 20 | 20 | 20 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -50,7 +66,7 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 28 ok, 0 FAIL, 0 missing
+golden: 44 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

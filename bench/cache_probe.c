@@ -10,8 +10,10 @@
 #include "cache_probe.h"
 #include "stm32f103xb.h"
 
-/* Probed blocks sit in the upper 32 KB of the 64 KB flash, above the image.
- * Reading the lower 32 KB in between evicts them, if the cache is smaller. */
+/* Probed blocks sit in the upper 32 KB of the 64 KB flash. Code may live there
+ * too, but none of it runs during the probe (the linker script keeps this
+ * file's code low, and the timed loop runs from SRAM). Reading the lower
+ * 32 KB in between evicts them, if the cache is smaller. */
 #define PROBE_BASE (FLASH_BASE + 0x8000U)
 #define FLUSH_BASE FLASH_BASE
 #define PROBE_SPAN 0x8000U

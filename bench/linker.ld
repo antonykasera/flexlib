@@ -28,6 +28,9 @@ SECTIONS
   .text :
   {
     . = ALIGN(4);
+    /* first, so it stays below the upper 32 KB that bench/cache_probe.c reads */
+    *cache_probe.o(.text .text* .rodata .rodata*)
+    _cache_probe_end = .;
     *(.text)
     *(.text*)
     *(.rodata)
@@ -90,6 +93,7 @@ SECTIONS
 
 _estack = ORIGIN(RAM) + LENGTH(RAM);
 
-/* bench/cache_probe.c reads the upper 32 KB as free flash */
-ASSERT(_sidata + SIZEOF(.data) <= ORIGIN(FLASH) + 32K,
-       "bench image has grown into the cache probe's region (upper 32 KB)")
+/* bench/cache_probe.c reads the upper 32 KB. Other code may live there, as
+ * long as none of it runs during the probe: only the probe's own code does. */
+ASSERT(_cache_probe_end <= ORIGIN(FLASH) + 32K,
+       "cache probe code must stay below the upper 32 KB it reads")

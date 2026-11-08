@@ -25,12 +25,12 @@ static const uint8_t pop8[256] __attribute__((aligned(32))) = {
 static const uint8_t pop4[16] = {0, 1, 1, 2, 1, 2, 2, 3,
                                  1, 2, 2, 3, 2, 3, 3, 4};
 
-__attribute__((noinline)) static uint32_t pop_table8(uint32_t x) {
+BENCH_CALL static uint32_t pop_table8(uint32_t x) {
   return (uint32_t)pop8[x & 0xFFU] + pop8[(x >> 8) & 0xFFU] +
          pop8[(x >> 16) & 0xFFU] + pop8[x >> 24];
 }
 
-__attribute__((noinline)) static uint32_t pop_table4(uint32_t x) {
+BENCH_CALL static uint32_t pop_table4(uint32_t x) {
   uint32_t n = 0U;
   for (unsigned i = 0U; i < 8U; i++) {
     n += pop4[(x >> (4U * i)) & 0xFU];
@@ -39,7 +39,7 @@ __attribute__((noinline)) static uint32_t pop_table4(uint32_t x) {
 }
 
 /* one iteration per set bit */
-__attribute__((noinline)) static uint32_t pop_kernighan(uint32_t x) {
+BENCH_CALL static uint32_t pop_kernighan(uint32_t x) {
   uint32_t n = 0U;
   for (; x != 0U; x &= x - 1U) {
     n++;
@@ -47,7 +47,7 @@ __attribute__((noinline)) static uint32_t pop_kernighan(uint32_t x) {
   return n;
 }
 
-__attribute__((noinline)) static uint32_t pop_swar_call(uint32_t x) {
+BENCH_CALL static uint32_t pop_swar_call(uint32_t x) {
   return fu_popcount(x);
 }
 

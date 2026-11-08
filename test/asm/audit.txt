@@ -1,11 +1,12 @@
 # asm-audit spec: one function per line, checked in the -O2 Cortex-M3 objects.
 #
-#   <symbol>  [max=N]  [calls-ok]  <mnemonic>...
+#   <symbol>  [max=N]  [calls-ok | no-calls]  <mnemonic>...  [!mnemonic]...
 #
-# Every listed mnemonic must appear in the function. max=N caps its length in
+# Every listed mnemonic must appear in the function, and none marked !x may. max=N caps its length in
 # instructions, counting the return and not the alignment nops after it. A
 # call to any `__` symbol (__aeabi_* soft-float, libgcc helpers) fails, unless
-# calls-ok is given.
+# calls-ok is given; no-calls fails any call at all (memcpy included). Calls are
+# found from relocations, since `!bl` would also match the branch `bls`.
 
 # fx_arch.h: each wrapper is its instruction plus `bx lr`
 probe_clz       max=2  clz
@@ -35,3 +36,9 @@ probe_fu_store_le16   max=2   strh
 probe_fu_sext12       max=2   sbfx
 # with the FX_ASSERT range check: cmp, branch, udf
 probe_fu_sext         max=8   lsl asr udf
+
+# fu_fmt.c: decimal is multiply-only (no divide, no MLS), the 2-byte copies are
+# LDRH/STRH; hex is branch-free SWAR
+fu_fmt_dec_digits     max=13  no-calls  clz !udiv
+fu_fmt_u32            no-calls  umull ldrh strh !udiv !mls
+fu_fmt_hex32          no-calls  clz rev !udiv !ldrb

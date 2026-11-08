@@ -28,6 +28,10 @@
 
 #define FX_INLINE static inline __attribute__((always_inline))
 
+/* Tables of 64 B or more: 32 B is the M7 cache line and a multiple of the F4
+ * ART line and the F1 prefetch width, so a table touches the fewest lines. */
+#define FX_ALIGN_LINE __attribute__((aligned(32)))
+
 /* ---- programmer-mistake checks ----
  * A failed FX_ASSERT traps (one UDF on Arm, no stdio pulled in, and the
  * debugger stops on the spot). Define FX_ASSERT_FAIL(file, line) to call your

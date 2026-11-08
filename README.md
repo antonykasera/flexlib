@@ -23,6 +23,7 @@ flexutils is under way.
 | `arch/fx_arch.h` (CLZ, RBIT, REV, SSAT/USAT, SMULL/UMULL/SMLAL, barriers) | tests + asm-audit | golden check passes |
 | bench firmware (DWT cycles, USB CDC output, golden check) | builds | runs |
 | `fu_bits` (clz/ctz 32/64, popcount, bswap, endian loads/stores, sign extension) | exhaustive + random tests, asm-audit | bench + golden check |
+| `fu_fmt` integers (u32, i32, hex) | all 2^32 inputs (u32, hex), tests against snprintf, asm-audit | pending |
 
 ## Layout
 
@@ -59,6 +60,7 @@ Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
 |---|---|
 | `make` | `host-test`, `cross`, `lint`, `asm-audit` |
 | `make host-test [HOST_CC=clang]` | host tests with ASan + UBSan |
+| `make exhaustive` | checks every 32-bit input where the plan calls for it (~1 min on 12 cores) |
 | `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |
 | `make asm-audit` | checks the M3 disassembly for the expected instructions and for no soft-float or libgcc calls |

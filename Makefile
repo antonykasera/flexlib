@@ -44,6 +44,19 @@ host-test:
 	./$(HOST_BUILD)/test_runner
 	@echo "--- Host tests passed ($(HOST_CC)) ---"
 
+# ---- exhaustive: every 32-bit input, on all cores (about a minute) ----
+
+EXHAUSTIVE_SRCS = $(wildcard test/exhaustive/*.c)
+
+exhaustive:
+	@mkdir -p $(BUILD)/exhaustive
+	@set -e; for t in $(EXHAUSTIVE_SRCS); do \
+		b=$(BUILD)/exhaustive/$$(basename $$t .c); \
+		$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -fopenmp $(LIB_INC) $$t \
+			$(LIB_SRCS) -o $$b; \
+		echo "--- $$t"; ./$$b; \
+	done
+
 # ---- Arm cross-builds: M3 is the target; M4/M7 keep those arch paths building ----
 
 ARM_CFLAGS = $(STD) $(WARN) $(WERROR) -O2 -g -ffunction-sections -fdata-sections \
@@ -78,7 +91,7 @@ size: $(M3_OBJS)
 LINT_FLAGS   = $(STD) $(WARN) -Wpedantic -Werror -fsyntax-only
 LINT_HEADERS = $(wildcard include/*.h arch/*.h) bench/bench.h
 BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
-                 bench/cases_libm.c
+                 bench/cases_fmt.c bench/cases_libm.c
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench $(CROSS_SRCS) \
@@ -209,5 +222,5 @@ clean:
 
 -include $(CROSS_OBJS:.o=.d) $(BENCH_OBJS:.o=.d) $(FLEX_OBJS:.o=.d) $(CMSIS_OBJS:.o=.d)
 
-.PHONY: all check host-test cross asm-audit size lint golden bench bench-flash \
+.PHONY: all check host-test exhaustive cross asm-audit size lint golden bench bench-flash \
         bench-run bench-windows compdb clean

@@ -22,6 +22,10 @@ jobs:
       - name: Host tests (ASan + UBSan)
         run: make host-test HOST_CC=${{ matrix.cc }}
 
+      - name: Exhaustive checks (every 32-bit input)
+        if: matrix.cc == 'gcc'
+        run: make exhaustive
+
   arm:
     runs-on: ubuntu-24.04
     steps:

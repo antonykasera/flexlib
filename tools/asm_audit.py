@@ -44,12 +44,16 @@ def parse_spec(path):
             if not line:
                 continue
             entry = {"sym": line[0], "max": None, "calls_ok": False,
-                     "want": [], "line": n}
+                     "no_calls": False, "want": [], "never": [], "line": n}
             for tok in line[1:]:
                 if tok.startswith("max="):
                     entry["max"] = int(tok[4:])
                 elif tok == "calls-ok":
                     entry["calls_ok"] = True
+                elif tok == "no-calls":
+                    entry["no_calls"] = True
+                elif tok.startswith("!"):
+                    entry["never"].append(tok[1:])
                 else:
                     entry["want"].append(tok)
             spec.append(entry)
@@ -101,14 +105,21 @@ def main():
                        if not any(matches(i, w) for i in f["insns"])]
             if missing:
                 problems.append("missing " + " ".join(missing))
+            banned = sorted({i for i in f["insns"]
+                             for w in e["never"] if matches(i, w)})
+            if banned:
+                problems.append("has " + " ".join(banned))
             if e["max"] is not None and len(f["insns"]) > e["max"]:
                 problems.append(f"{len(f['insns'])} insns > max {e['max']}")
+            if e["no_calls"] and f["calls"]:
+                problems.append("calls " + " ".join(sorted(set(f["calls"]))))
             helpers = [c for c in f["calls"] if c.startswith("__")]
             if helpers and not e["calls_ok"]:
                 problems.append("calls " + " ".join(sorted(set(helpers))))
         n = "-" if f is None else str(len(f["insns"]))
         status = "FAIL" if problems else "ok"
-        detail = "; ".join(problems) if problems else " ".join(e["want"])
+        detail = "; ".join(problems) if problems else " ".join(
+            e["want"] + ["!" + w for w in e["never"]])
         print(f"  {status:4}  {e['sym']:24} {n:>4} insns  {detail}")
         failed += bool(problems)
 

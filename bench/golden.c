@@ -39,6 +39,22 @@ const BenchGolden bench_golden[] = {
     {"fu_load_be32, +2", 0x42175745U},
     {"fu_sext(x, 12)", 0x03DAB045U},
     {"fu_sext(x, n)", 0x7DEB25C3U},
+    {"fu_fmt_u32, 10 digits", 0xD79D4E0DU},
+    {"fu_fmt_u32, log", 0x41169C91U},
+    {"u32 by 100s loop, 10 digits", 0xD79D4E0DU},
+    {"u32 by 100s loop, log", 0x41169C91U},
+    {"u32 by 10s, 10 digits", 0xD79D4E0DU},
+    {"u32 by 10s, log", 0x41169C91U},
+    {"u32 by 10s UDIV, 10 digits", 0xD79D4E0DU},
+    {"u32 by 10s UDIV, log", 0x41169C91U},
+    {"snprintf %lu, 10 digits", 0xD79D4E0DU},
+    {"snprintf %lu, log", 0x41169C91U},
+    {"fu_fmt_i32, log", 0x186AD1C8U},
+    {"fu_fmt_hex32, 8 digits", 0x92704AF4U},
+    {"fu_fmt_hex32, minimal", 0x6461F7BAU},
+    {"hex nibble loop, 8 digits", 0x92704AF4U},
+    {"hex nibble loop, minimal", 0x6461F7BAU},
+    {"fu_fmt_dec_digits", 0xA50F20B1U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

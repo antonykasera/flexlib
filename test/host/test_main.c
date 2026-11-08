@@ -41,6 +41,11 @@ void test_fu_reversal(void);
 void test_fu_load_store(void);
 void test_fu_sext(void);
 
+/* --- fu_fmt (test_fu_fmt.c) --- */
+void test_fu_fmt_u32(void);
+void test_fu_fmt_i32(void);
+void test_fu_fmt_hex32(void);
+
 int main(void) {
   TEST_RUN(test_rng_reproducible);
   TEST_RUN(test_stats_tracks_max_mean_bias);
@@ -58,6 +63,10 @@ int main(void) {
   TEST_RUN(test_fu_reversal);
   TEST_RUN(test_fu_load_store);
   TEST_RUN(test_fu_sext);
+
+  TEST_RUN(test_fu_fmt_u32);
+  TEST_RUN(test_fu_fmt_i32);
+  TEST_RUN(test_fu_fmt_hex32);
 
   return TEST_SUMMARY();
 }

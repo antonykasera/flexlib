@@ -23,6 +23,14 @@
 #include <string.h>
 
 #define BENCH_N 256U
+
+/* For candidates timed as calls: no inlining, and no GCC clone specialised on
+ * constant arguments, so they pay the same argument setup as the library. */
+#if defined(__GNUC__) && !defined(__clang__)
+#define BENCH_CALL __attribute__((noinline, noipa))
+#else
+#define BENCH_CALL __attribute__((noinline))
+#endif
 #define BENCH_COUNT(a) ((unsigned)(sizeof(a) / sizeof((a)[0])))
 
 /* every case derives its arguments from these; see bench_inputs_init() */
@@ -124,6 +132,17 @@ static inline uint32_t bench_now(void) {
 /* Defines `static uint32_t name(uint32_t *cyc)`, timing `expr` (of x) once
  * per input. conv maps the raw uint32_t input to x and runs untimed. */
 #define BENCH_UNARY(name, Tx, conv, Tr, expr)                                  \
+  BENCH_UNARY_POST(name, Tx, conv, Tr, expr, (void)0)
+
+/* For a call that writes text to buf and returns its length: the hash also
+ * covers the text. The length is hashed as uint32_t, since size_t is 8 bytes
+ * on a 64-bit host. */
+#define BENCH_TEXT(name, Tx, conv, expr, buf)                                  \
+  BENCH_UNARY_POST(name, Tx, conv, uint32_t, (uint32_t)(expr),                 \
+                   h = bench_hash(h, (buf), (unsigned)out))
+
+/* BENCH_UNARY, plus `post` (which sees h and out) after each hash */
+#define BENCH_UNARY_POST(name, Tx, conv, Tr, expr, post)                       \
   static uint32_t name(uint32_t *cyc) {                                        \
     _Static_assert(sizeof(Tx) <= 8U, "argument wider than its slot");          \
     for (unsigned i = 0U; i < BENCH_N; i++) {                                  \
@@ -144,6 +163,7 @@ static inline uint32_t bench_now(void) {
       Tr out = r; /* hashing &r would put a store in the window */             \
       BENCH_PIN(out);                                                          \
       h = bench_hash(h, &out, (unsigned)sizeof out);                           \
+      post;                                                                    \
     }                                                                          \
     return h;                                                                  \
   }
