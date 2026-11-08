@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  host-test:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compiler version
+        run: ${{ matrix.cc }} --version | head -n 1
+
+      - name: Host tests (ASan + UBSan)
+        run: make host-test HOST_CC=${{ matrix.cc }}
+
+  arm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi libnewlib-arm-none-eabi make
+
+      - name: Toolchain versions
+        run: |
+          arm-none-eabi-gcc --version | head -n 1
+          gcc --version | head -n 1
+
+      - name: Cross-build M3 / M4 / M7 (-Werror)
+        run: make cross
+
+      - name: Lint (-Wpedantic, headers standalone)
+        run: make lint
+
+      - name: asm-audit
+        run: make asm-audit
+
+      - name: Golden hashes are up to date
+        run: |
+          make golden
+          git diff --exit-code bench/golden.c
+
+      - name: Bench firmware (-O2, -Os)
+        run: |
+          make bench
+          make bench BENCH_OPT=-Os
+
+      - name: Bench timed windows
+        run: make bench-windows

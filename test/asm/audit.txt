@@ -1,0 +1,22 @@
+# asm-audit spec: one function per line, checked in the -O2 Cortex-M3 objects.
+#
+#   <symbol>  [max=N]  [calls-ok]  <mnemonic>...
+#
+# Every listed mnemonic must appear in the function. max=N caps its length in
+# instructions, counting the return and not the alignment nops after it. A
+# call to any `__` symbol (__aeabi_* soft-float, libgcc helpers) fails, unless
+# calls-ok is given.
+
+# fx_arch.h: each wrapper is its instruction plus `bx lr`
+probe_clz       max=2  clz
+probe_ctz       max=3  rbit clz
+probe_rbit      max=2  rbit
+probe_rev       max=2  rev
+probe_rev16     max=2  rev16
+probe_ssat16    max=2  ssat
+probe_usat8     max=2  usat
+probe_smull_hi  max=2  smull
+probe_umull_hi  max=2  umull
+probe_smlal     max=2  smlal
+probe_umlal     max=2  umlal
+probe_dmb       max=2  dmb

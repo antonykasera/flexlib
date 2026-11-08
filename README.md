@@ -1,0 +1,91 @@
+# flexlib
+
+Compute libraries for Cortex-M, measured on the chip they're for:
+
+- **flexutils** (`fu_`): bit tricks, lock-free rings, printf-free formatting
+  and parsing, CRCs, COBS, debouncing, PRNGs.
+- **flexmath** (`fm_`): fixed point (Q15 / Q31 / Q16.16), and fast float
+  functions built on integer internals, for chips with no FPU.
+
+The first target is the STM32F103 (Cortex-M3, 72 MHz, no FPU). Each function
+states an error bound, which the host tests prove against a `double`
+reference, and has a cycle count measured on the board next to newlib libm and
+CMSIS-DSP. flexlib is plain C11 with no dependencies. The bench firmware runs
+on [flex](https://github.com/antonykasera/STM32F1-HAL).
+
+## Status
+
+Early: the arch layer, test harness and bench firmware are in place. The
+library modules come next.
+
+| Part | Host | Board |
+|---|---|---|
+| `arch/fx_arch.h` (CLZ, RBIT, REV, SSAT/USAT, SMULL/UMULL/SMLAL, barriers) | tests + asm-audit | golden check passes |
+| bench firmware (DWT cycles, USB CDC output, golden check) | builds | runs |
+
+## Layout
+
+```
+include/      public headers (fu_*.h, fm_*.h)
+arch/         fx_arch.h: single-instruction wrappers, plain C on the host
+utils/src/    flexutils sources
+math/src/     flexmath sources
+test/host/    host tests: harness, error statistics, ULP error
+test/asm/     asm-audit spec and probes
+bench/        F103 bench firmware (flex and CMSIS-DSP as submodules)
+tools/        asm_audit.py, bench_run.py, bench_windows.py
+docs/         results-f103.md
+```
+
+## Using it
+
+```make
+include lib/flexlib/flexmath.mk     # or flexutils.mk on its own
+CFLAGS += $(FLEXLIB_CFLAGS)
+SRCS   += $(FM_SRCS) $(FU_SRCS)
+```
+
+Build with `-ffunction-sections -fdata-sections` and link with
+`--gc-sections`, so the functions you don't call drop out.
+
+## Building and testing
+
+| Command | What it does |
+|---|---|
+| `make` | `host-test`, `cross`, `lint`, `asm-audit` |
+| `make host-test [HOST_CC=clang]` | host tests with ASan + UBSan |
+| `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
+| `make lint` | `-Wpedantic` everywhere, each header compiled on its own |
+| `make asm-audit` | checks the M3 disassembly for the expected instructions and for no soft-float or libgcc calls |
+| `make golden` | runs the bench cases on the host and writes `bench/golden.c` |
+| `make bench [BENCH_OPT=-Os]` | builds the bench firmware |
+| `make bench-run` | flashes it over ST-Link, reads `/dev/ttyACM0`, writes `docs/results-f103.md` |
+| `make bench-windows` | lists the instructions each bench case actually times |
+
+The bench needs the submodules: `git submodule update --init`.
+
+## Bench
+
+- Each case times one call per input with the DWT cycle counter, over 256
+  fixed pseudo-random inputs, and reports min, median and max. Interrupts are
+  off while it times, and USB is polled. The cost of reading the counter is
+  measured and subtracted.
+- Built at `-O2` without LTO, so library functions are timed as real calls.
+  libm is prebuilt newlib, so its numbers don't depend on the bench's flags.
+- `make bench-windows` lists the exact instructions between the two counter
+  reads of every case.
+- The same case code also runs on the host. The board compares its output
+  hash for each case against the host's, which catches any difference between
+  the two builds.
+- Any non-empty window reads one cycle high, because the second counter read
+  no longer pipelines with the first. A single-instruction case shows 2. With
+  GCC, a 16-bit argument costs one extra SXTH. The `empty, int16 arg` row
+  measures both effects.
+
+## Results
+
+Pending.
+
+## License
+
+MIT, see [LICENSE](LICENSE). CMSIS-DSP (bench baseline only) is Apache-2.0.
