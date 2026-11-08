@@ -8,6 +8,7 @@
 
 #include "test_assert.h"
 
+const char *test_filter = NULL;
 unsigned tests_run = 0;
 unsigned tests_failed = 0;
 unsigned checks_failed = 0;
@@ -46,7 +47,13 @@ void test_fu_fmt_q16(void);
 void test_fu_fmt_f32(void);
 void test_fu_snprintf(void);
 
-int main(void) {
+/* --- fu_crc (test_fu_crc.c) --- */
+void test_fu_crc_check_values(void);
+void test_fu_crc_vs_bitwise(void);
+void test_fu_crc_chaining(void);
+
+int main(int argc, char **argv) {
+  test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
   TEST_RUN(test_stats_tracks_max_mean_bias);
   TEST_RUN(test_ulp_err_f32);
@@ -70,6 +77,10 @@ int main(void) {
   TEST_RUN(test_fu_fmt_q16);
   TEST_RUN(test_fu_fmt_f32);
   TEST_RUN(test_fu_snprintf);
+
+  TEST_RUN(test_fu_crc_check_values);
+  TEST_RUN(test_fu_crc_vs_bitwise);
+  TEST_RUN(test_fu_crc_chaining);
 
   return TEST_SUMMARY();
 }

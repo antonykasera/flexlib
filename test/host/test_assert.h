@@ -12,7 +12,9 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
+extern const char *test_filter; /* argv[1]: run only tests whose name has it */
 extern unsigned tests_run;
 extern unsigned tests_failed;
 extern unsigned checks_failed;
@@ -52,6 +54,9 @@ extern unsigned checks_failed;
 
 #define TEST_RUN(fn)                                                           \
   do {                                                                         \
+    if (test_filter != NULL && strstr(#fn, test_filter) == NULL) {             \
+      break;                                                                   \
+    }                                                                          \
     unsigned _before = checks_failed;                                          \
     tests_run++;                                                               \
     printf("RUN  %s\n", #fn);                                                  \

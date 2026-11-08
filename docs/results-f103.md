@@ -64,10 +64,36 @@ rerun it. Method: the Bench section of README.md.
 | fu_fmt_f32, %.2f, 2^-7..2^13 | flexlib | 178 | 182 | 203 | ok |
 | snprintf %.2f, 2^-7..2^13 | newlib | 3225 | 4282 | 5445 | ok |
 | fu_fmt_f32, %.0f, >= 2^32 | flexlib | 334 | 746 | 1485 | ok |
-| snprintf %.0f, >= 2^32 | newlib | 6060 | 9663 | 17239 | ok |
+| snprintf %.0f, >= 2^32 | newlib | 5961 | 9649 | 17069 | ok |
 | fu_snprintf u32 + i32 + hex line | flexlib | 705 | 763 | 838 | ok |
 | fu_snprintf v1 (tmp + memcpy), same line | candidate | 941 | 1039 | 1213 | ok |
 | snprintf u32 + i32 + hex line | newlib | 3219 | 3267 | 3317 | ok |
+| fu_crc32, 256 B | flexlib | 1457 | 1585 | 1585 | ok |
+| crc32 byte table 1 KB, 256 B | candidate | 2828 | 2828 | 2828 | ok |
+| crc32 nibble table (small), 256 B | candidate | 4108 | 4108 | 4108 | ok |
+| crc32 bitwise, 256 B | candidate | 13842 | 13842 | 13842 | ok |
+| crc32 F1 CRC unit + RBIT, 256 B | hardware | 596 | 724 | 724 | ok |
+| crc32 slice-by-4, aligned head, 256 B | candidate | 1523 | 1544 | 1546 | ok |
+| fu_crc32, 8 B | flexlib | 93 | 97 | 97 | ok |
+| crc32 byte table 1 KB, 8 B | candidate | 101 | 101 | 101 | ok |
+| crc32 nibble table (small), 8 B | candidate | 141 | 141 | 141 | ok |
+| crc32 slice-by-4, aligned head, 8 B | candidate | 98 | 119 | 121 | ok |
+| fu_crc16_ccitt, 64 B | flexlib | 552 | 568 | 568 | ok |
+| crc16 ccitt nibble table (small), 64 B | candidate | 1168 | 1168 | 1168 | ok |
+| crc16 ccitt bitwise, 64 B | candidate | 3984 | 3984 | 3984 | ok |
+| crc16 ccitt byte table, 1 per step, 64 B | candidate | 716 | 716 | 716 | ok |
+| fu_crc16_modbus, 64 B | flexlib | 506 | 523 | 525 | ok |
+| crc16 modbus nibble table (small), 64 B | candidate | 1041 | 1041 | 1041 | ok |
+| crc16 modbus bitwise, 64 B | candidate | 3472 | 3472 | 3472 | ok |
+| crc16 modbus byte table, 1 per step, 64 B | candidate | 779 | 779 | 779 | ok |
+| fu_crc8_smbus, 64 B | flexlib | 441 | 453 | 455 | ok |
+| crc8 smbus nibble table (small), 64 B | candidate | 1099 | 1099 | 1099 | ok |
+| crc8 smbus bitwise, 64 B | candidate | 3466 | 3466 | 3466 | ok |
+| crc8 smbus byte table, 1 per step, 64 B | candidate | 524 | 524 | 524 | ok |
+| fu_crc8_maxim, 64 B | flexlib | 441 | 453 | 455 | ok |
+| crc8 maxim nibble table (small), 64 B | candidate | 1104 | 1104 | 1104 | ok |
+| crc8 maxim bitwise, 64 B | candidate | 3466 | 3466 | 3466 | ok |
+| crc8 maxim byte table, 1 per step, 64 B | candidate | 524 | 524 | 524 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -77,7 +103,7 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 55 ok, 0 FAIL, 0 missing
+golden: 81 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

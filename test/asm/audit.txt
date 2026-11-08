@@ -46,3 +46,10 @@ fu_fmt_hex32          no-calls  clz rev !udiv !ldrb
 fu_fmt_q16            umull !udiv
 fu_fmt_f32            umull !udiv
 fu_vsnprintf          !udiv
+
+# fu_crc.c: table loops with no calls; CRC-32 is slice-by-4
+fu_crc32              no-calls  ubfx !udiv
+fu_crc16_ccitt        no-calls  ldrh
+fu_crc16_modbus       no-calls  ldrh
+fu_crc8_smbus         no-calls  ldrb
+fu_crc8_maxim         no-calls  ldrb

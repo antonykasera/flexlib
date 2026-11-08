@@ -42,6 +42,9 @@ host-test:
 	@mkdir -p $(HOST_BUILD)
 	$(HOST_CC) $(HOST_CFLAGS) $(TEST_SRCS) -lm -o $(HOST_BUILD)/test_runner
 	./$(HOST_BUILD)/test_runner
+	$(HOST_CC) $(HOST_CFLAGS) -DFU_CRC_SMALL $(TEST_SRCS) -lm \
+		-o $(HOST_BUILD)/test_runner_crc_small
+	./$(HOST_BUILD)/test_runner_crc_small fu_crc
 	@echo "--- Host tests passed ($(HOST_CC)) ---"
 
 # ---- exhaustive: every 32-bit input, on all cores ----
@@ -98,16 +101,17 @@ size: $(M3_OBJS)
 # ---- lint: -Wpedantic over everything, and each header on its own ----
 
 LINT_FLAGS   = $(STD) $(WARN) -Wpedantic -Werror -fsyntax-only
-LINT_HEADERS = $(wildcard include/*.h arch/*.h) bench/bench.h
+LINT_HEADERS = $(wildcard include/*.h arch/*.h utils/src/*.h) bench/bench.h
 BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
-                 bench/cases_fmt.c bench/cases_libm.c
+                 bench/cases_fmt.c bench/cases_crc.c bench/cases_libm.c
 
 lint:
-	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench $(CROSS_SRCS) \
+	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src $(CROSS_SRCS) \
 		$(BENCH_PORTABLE) bench/golden.c
 	$(HOST_CC) $(LINT_FLAGS) $(LIB_INC) -Itest/host $(wildcard test/host/*.c)
-	$(HOST_CC) $(LINT_FLAGS) -DBENCH_HOST $(LIB_INC) -Ibench $(BENCH_PORTABLE) \
-		bench/golden_gen.c
+	$(HOST_CC) $(LINT_FLAGS) -DBENCH_HOST $(LIB_INC) -Ibench -Iutils/src \
+		$(BENCH_PORTABLE) bench/golden_gen.c
+	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFU_CRC_SMALL $(LIB_INC) utils/src/fu_crc.c
 	@for h in $(LINT_HEADERS); do \
 		echo "  header $$h"; \
 		echo "#include \"$$h\"" | $(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) \
@@ -120,7 +124,7 @@ GOLDEN_BUILD = $(BUILD)/golden
 
 golden:
 	@mkdir -p $(GOLDEN_BUILD)
-	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST $(LIB_INC) -Ibench \
+	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST $(LIB_INC) -Ibench -Iutils/src \
 		bench/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS) -lm \
 		-o $(GOLDEN_BUILD)/golden_gen
 	./$(GOLDEN_BUILD)/golden_gen > $(GOLDEN_BUILD)/golden.c
@@ -156,7 +160,7 @@ endif
 
 BENCH_BASE_CFLAGS = $(M3_FLAGS) $(STD) $(BENCH_OPT) -g3 \
                     -ffunction-sections -fdata-sections $(BENCH_DEFS) \
-                    $(LIB_INC) -Ibench $(FLEX_INC) $(CMSIS_DSP_INC)
+                    $(LIB_INC) -Ibench -Iutils/src $(FLEX_INC) $(CMSIS_DSP_INC)
 # _printf_float: newlib-nano's %f, for the fu_fmt_f32 baseline
 BENCH_LDFLAGS = $(M3_FLAGS) -Tbench/linker.ld -Wl,--gc-sections \
                 -Wl,--no-warn-rwx-segments --specs=nano.specs --specs=nosys.specs \
@@ -222,6 +226,11 @@ bench-windows: $(BENCH_BUILD)/bench.elf
 		$(filter $(BENCH_BUILD)/bench/%,$(BENCH_OBJS))
 endif
 
+# ---- generated sources ----
+
+tables:
+	$(PYTHON) tools/gen_crc_tables.py > utils/src/fu_crc_tab.c
+
 # ---- misc ----
 
 # compile_commands.json for clangd (needs bear)
@@ -233,5 +242,5 @@ clean:
 
 -include $(CROSS_OBJS:.o=.d) $(BENCH_OBJS:.o=.d) $(FLEX_OBJS:.o=.d) $(CMSIS_OBJS:.o=.d)
 
-.PHONY: all check host-test exhaustive exhaustive-slow cross asm-audit size lint golden bench bench-flash \
+.PHONY: all check host-test exhaustive exhaustive-slow cross tables asm-audit size lint golden bench bench-flash \
         bench-run bench-windows compdb clean

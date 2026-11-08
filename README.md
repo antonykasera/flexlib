@@ -25,6 +25,7 @@ flexutils is under way.
 | `fu_bits` (clz/ctz 32/64, popcount, bswap, endian loads/stores, sign extension) | exhaustive + random tests, asm-audit | bench + golden check |
 | `fu_fmt` integers (u32, i32, hex) | all 2^32 inputs (u32, hex), tests against snprintf, asm-audit | bench + golden check |
 | `fu_fmt` Q16.16 and float (printf's `%.*f`, exact, no soft-float), `fu_snprintf` | all 2^32 inputs (q16, f32) against the C library's `%.*f`, tests against snprintf, asm-audit | bench + golden check |
+| `fu_crc` (CRC-8 SMBus/Maxim, CRC-16 CCITT/MODBUS, CRC-32 zlib; `FU_CRC_SMALL` 16-entry tables) | check values, random data against a bitwise reference (both table sizes), asm-audit | bench + golden check |
 
 ## Layout
 
@@ -36,7 +37,7 @@ math/src/     flexmath sources
 test/host/    host tests: harness, error statistics, ULP error
 test/asm/     asm-audit spec and probes
 bench/        F103 bench firmware (flex and CMSIS-DSP as submodules)
-tools/        asm_audit.py, bench_run.py, bench_windows.py
+tools/        asm_audit.py, bench_run.py, bench_windows.py, gen_crc_tables.py
 docs/         results-f103.md
 ```
 
@@ -66,6 +67,7 @@ Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
 | `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |
 | `make asm-audit` | checks the M3 disassembly for the expected instructions and for no soft-float or libgcc calls |
+| `make tables` | regenerates the CRC tables (`utils/src/fu_crc_tab.c`) |
 | `make golden` | runs the bench cases on the host and writes `bench/golden.c` |
 | `make bench [BENCH_OPT=-Os]` | builds the bench firmware |
 | `make bench-run` | flashes it over ST-Link, reads `/dev/ttyACM0`, writes `docs/results-f103.md` |
@@ -102,6 +104,8 @@ The bench needs the submodules: `git submodule update --init`.
 - A "Flash read cost" section measures the board's flash: cycles per load,
   cold and warm, by block size and by stride. The loop runs from SRAM so its
   own fetches don't disturb the result.
+- The firmware needs 128 KB of flash: an F103CB, or a C8 that has it, as
+  most clones do (`st-info --probe` shows the size).
 
 ## Results
 
