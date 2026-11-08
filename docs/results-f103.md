@@ -24,27 +24,33 @@ rerun it. Method: the Bench section of README.md.
 | fx_umull_hi | flexlib | 6 | 6 | 6 | ok |
 | fu_popcount | flexlib | 13 | 13 | 13 | ok |
 | popcount SWAR, call | flexlib | 17 | 17 | 17 | ok |
-| popcount __builtin | libgcc | 18 | 18 | 18 | ok |
-| popcount table 256 B, call | candidate | 24 | 24 | 24 | ok |
-| popcount table 16 B, call | candidate | 90 | 90 | 90 | ok |
+| popcount __builtin | libgcc | 17 | 17 | 17 | ok |
+| popcount table 256 B, call | candidate | 23 | 23 | 23 | ok |
+| popcount table 16 B, call | candidate | 89 | 89 | 89 | ok |
 | popcount x &= x - 1, call | candidate | 52 | 87 | 127 | ok |
-| fu_clz64 | flexlib | 3 | 9 | 9 | ok |
-| fu_ctz64 | flexlib | 4 | 4 | 10 | ok |
+| fu_clz64, half hi = 0 | flexlib | 3 | 9 | 9 | ok |
+| fu_clz64, hi != 0 | flexlib | 3 | 3 | 3 | ok |
+| clz64 branchless, half hi = 0 | candidate | 6 | 6 | 6 | ok |
+| clz64 branchless, hi != 0 | candidate | 6 | 6 | 6 | ok |
+| fu_ctz64, half lo = 0 | flexlib | 4 | 11 | 11 | ok |
+| fu_ctz64, lo != 0 | flexlib | 4 | 4 | 4 | ok |
+| ctz64 branchless, half lo = 0 | candidate | 9 | 9 | 9 | ok |
+| ctz64 branchless, lo != 0 | candidate | 8 | 8 | 8 | ok |
 | fu_load_be32, aligned | flexlib | 4 | 4 | 4 | ok |
 | fu_load_be32, +1 | flexlib | 6 | 6 | 6 | ok |
 | fu_load_be32, +2 | flexlib | 5 | 5 | 5 | ok |
 | fu_sext(x, 12) | flexlib | 2 | 2 | 2 | ok |
 | fu_sext(x, n) | flexlib | 7 | 7 | 7 | ok |
-| sinf | libm | 703 | 1347 | 1460 | - |
-| cosf | libm | 846 | 1219 | 1596 | - |
-| sqrtf | libm | 595 | 595 | 595 | - |
+| sinf | libm | 704 | 1348 | 1461 | - |
+| cosf | libm | 847 | 1220 | 1597 | - |
+| sqrtf | libm | 596 | 596 | 596 | - |
 | atan2f | libm | 1130 | 1839 | 2005 | - |
 | float multiply | libgcc | 40 | 40 | 40 | - |
-| float divide | libgcc | 151 | 151 | 151 | - |
+| float divide | libgcc | 149 | 149 | 149 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
-| arm_sin_f32 | CMSIS-DSP | 401 | 572 | 583 | - |
+| arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 22 ok, 0 FAIL, 0 missing
+golden: 28 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

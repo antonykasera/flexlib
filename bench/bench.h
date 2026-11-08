@@ -20,12 +20,18 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #define BENCH_N 256U
 #define BENCH_COUNT(a) ((unsigned)(sizeof(a) / sizeof((a)[0])))
 
 /* every case derives its arguments from these; see bench_inputs_init() */
 extern volatile uint32_t bench_in[BENCH_N];
+
+/* Converted arguments, one 8-byte slot per input, filled before the timed
+ * loop so conversion temporaries don't crowd the registers it needs. */
+extern uint8_t bench_arg_a[BENCH_N * 8U];
+extern uint8_t bench_arg_b[BENCH_N * 8U];
 
 typedef uint32_t (*BenchFn)(uint32_t cyc[BENCH_N]); /* returns the hash */
 
@@ -119,9 +125,15 @@ static inline uint32_t bench_now(void) {
  * per input. conv maps the raw uint32_t input to x and runs untimed. */
 #define BENCH_UNARY(name, Tx, conv, Tr, expr)                                  \
   static uint32_t name(uint32_t *cyc) {                                        \
+    _Static_assert(sizeof(Tx) <= 8U, "argument wider than its slot");          \
+    for (unsigned i = 0U; i < BENCH_N; i++) {                                  \
+      Tx v = conv(bench_in[i]);                                                \
+      memcpy(&bench_arg_a[8U * i], &v, sizeof v);                              \
+    }                                                                          \
     uint32_t h = BENCH_HASH_INIT;                                              \
     for (unsigned i = 0U; i < BENCH_N; i++) {                                  \
-      Tx x = conv(bench_in[i]);                                                \
+      Tx x;                                                                    \
+      memcpy(&x, &bench_arg_a[8U * i], sizeof x);                              \
       BENCH_PIN(x);                                                            \
       uint32_t t0 = bench_now();                                               \
       BENCH_PIN(x);                                                            \
@@ -139,10 +151,20 @@ static inline uint32_t bench_now(void) {
 /* Same, for `expr` of a and b; b comes from the next input along. */
 #define BENCH_BINARY(name, Ta, conva, Tb, convb, Tr, expr)                     \
   static uint32_t name(uint32_t *cyc) {                                        \
+    _Static_assert(sizeof(Ta) <= 8U && sizeof(Tb) <= 8U,                       \
+                   "argument wider than its slot");                            \
+    for (unsigned i = 0U; i < BENCH_N; i++) {                                  \
+      Ta va = conva(bench_in[i]);                                              \
+      Tb vb = convb(bench_in[(i + 1U) % BENCH_N]);                             \
+      memcpy(&bench_arg_a[8U * i], &va, sizeof va);                            \
+      memcpy(&bench_arg_b[8U * i], &vb, sizeof vb);                            \
+    }                                                                          \
     uint32_t h = BENCH_HASH_INIT;                                              \
     for (unsigned i = 0U; i < BENCH_N; i++) {                                  \
-      Ta a = conva(bench_in[i]);                                               \
-      Tb b = convb(bench_in[(i + 1U) % BENCH_N]);                              \
+      Ta a;                                                                    \
+      Tb b;                                                                    \
+      memcpy(&a, &bench_arg_a[8U * i], sizeof a);                              \
+      memcpy(&b, &bench_arg_b[8U * i], sizeof b);                              \
       BENCH_PIN(a);                                                            \
       BENCH_PIN(b);                                                            \
       uint32_t t0 = bench_now();                                               \
@@ -152,7 +174,7 @@ static inline uint32_t bench_now(void) {
       BENCH_USE(r);                                                            \
       uint32_t t1 = bench_now();                                               \
       cyc[i] = t1 - t0;                                                        \
-      Tr out = r; /* hashing &r would put a store in the window */             \
+      Tr out = r;                                                              \
       BENCH_PIN(out);                                                          \
       h = bench_hash(h, &out, (unsigned)sizeof out);                           \
     }                                                                          \

@@ -10,6 +10,8 @@
 #include <string.h>
 
 volatile uint32_t bench_in[BENCH_N];
+uint8_t bench_arg_a[BENCH_N * 8U] __attribute__((aligned(8)));
+uint8_t bench_arg_b[BENCH_N * 8U] __attribute__((aligned(8)));
 
 extern const BenchGroup bench_group_arch;
 extern const BenchGroup bench_group_bits;
