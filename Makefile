@@ -103,7 +103,8 @@ size: $(M3_OBJS)
 LINT_FLAGS   = $(STD) $(WARN) -Wpedantic -Werror -fsyntax-only
 LINT_HEADERS = $(wildcard include/*.h arch/*.h utils/src/*.h) bench/bench.h
 BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
-                 bench/cases_fmt.c bench/cases_crc.c bench/cases_libm.c
+                 bench/cases_fmt.c bench/cases_crc.c bench/cases_ring.c \
+                 bench/cases_libm.c
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src $(CROSS_SRCS) \

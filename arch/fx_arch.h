@@ -35,6 +35,9 @@
 /* rare paths: out of line, so hot code packs into fewer cache lines */
 #define FX_COLD __attribute__((cold, noinline))
 
+/* hides x from the optimiser, e.g. so a copy loop isn't made a memcpy call */
+#define FX_OPAQUE(x) __asm__("" : "+r"(x))
+
 /* ---- programmer-mistake checks: trap (one UDF, no stdio) ----
  * Override with FX_ASSERT_FAIL(file, line); FX_DISABLE_ASSERT removes them. */
 #ifndef FX_ASSERT_FAIL

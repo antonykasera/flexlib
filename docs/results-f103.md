@@ -94,6 +94,16 @@ rerun it. Method: the Bench section of README.md.
 | crc8 maxim nibble table (small), 64 B | candidate | 1104 | 1104 | 1104 | ok |
 | crc8 maxim bitwise, 64 B | candidate | 3466 | 3466 | 3466 | ok |
 | crc8 maxim byte table, 1 per step, 64 B | candidate | 524 | 524 | 524 | ok |
+| fu_ring write + read, 64 B | flexlib | 322 | 390 | 528 | ok |
+| ring, word copy not unrolled, 64 B | candidate | 359 | 423 | 478 | ok |
+| ring, newlib memcpy, 64 B | candidate | 931 | 931 | 972 | ok |
+| ring, put + get per byte, 64 B | candidate | 2589 | 2589 | 2589 | ok |
+| fu_ring write + read, 8 B | flexlib | 197 | 207 | 258 | ok |
+| ring, newlib memcpy, 8 B | candidate | 259 | 259 | 300 | ok |
+| ring, put + get per byte, 8 B | candidate | 349 | 349 | 349 | ok |
+| fu_ring_put + fu_ring_get (inline) | flexlib | 33 | 33 | 33 | ok |
+| fu_queue push + pop, 12 B | flexlib | 166 | 166 | 166 | ok |
+| fu_ring_from_dma + read, 64 B | flexlib | 380 | 480 | 659 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -103,7 +113,7 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 81 ok, 0 FAIL, 0 missing
+golden: 91 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

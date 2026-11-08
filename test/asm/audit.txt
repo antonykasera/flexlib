@@ -1,6 +1,7 @@
 # asm-audit spec: one function per line, checked in the -O2 Cortex-M3 objects.
 #
 #   <symbol>  [max=N]  [calls-ok | no-calls]  <mnemonic>...  [!mnemonic]...
+#             [!call=symbol]...
 #
 # Every listed mnemonic must appear in the function, and none marked !x may. max=N caps its length in
 # instructions, counting the return and not the alignment nops after it. A
@@ -53,3 +54,14 @@ fu_crc16_ccitt        no-calls  ldrh
 fu_crc16_modbus       no-calls  ldrh
 fu_crc8_smbus         no-calls  ldrb
 fu_crc8_maxim         no-calls  ldrb
+
+# fu_ring: inline put/get; word copies, never memcpy; no modulo
+probe_fu_ring_put     max=16  no-calls
+probe_fu_ring_get     max=16  no-calls
+copy16                no-calls  ldr str
+fu_ring_write         !udiv !call=memcpy
+fu_ring_read          !udiv !call=memcpy
+fu_ring_peek          !udiv !call=memcpy
+fu_queue_push         !call=memcpy
+fu_queue_pop          !call=memcpy
+fu_ring_from_dma      !udiv

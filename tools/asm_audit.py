@@ -44,7 +44,8 @@ def parse_spec(path):
             if not line:
                 continue
             entry = {"sym": line[0], "max": None, "calls_ok": False,
-                     "no_calls": False, "want": [], "never": [], "line": n}
+                     "no_calls": False, "want": [], "never": [],
+                     "never_calls": [], "line": n}
             for tok in line[1:]:
                 if tok.startswith("max="):
                     entry["max"] = int(tok[4:])
@@ -52,6 +53,8 @@ def parse_spec(path):
                     entry["calls_ok"] = True
                 elif tok == "no-calls":
                     entry["no_calls"] = True
+                elif tok.startswith("!call="):
+                    entry["never_calls"].append(tok[6:])
                 elif tok.startswith("!"):
                     entry["never"].append(tok[1:])
                 else:
@@ -111,6 +114,9 @@ def main():
                 problems.append("has " + " ".join(banned))
             if e["max"] is not None and len(f["insns"]) > e["max"]:
                 problems.append(f"{len(f['insns'])} insns > max {e['max']}")
+            bad = sorted(set(f["calls"]) & set(e["never_calls"]))
+            if bad:
+                problems.append("calls " + " ".join(bad))
             if e["no_calls"] and f["calls"]:
                 problems.append("calls " + " ".join(sorted(set(f["calls"]))))
             helpers = [c for c in f["calls"] if c.startswith("__")]
@@ -119,7 +125,8 @@ def main():
         n = "-" if f is None else str(len(f["insns"]))
         status = "FAIL" if problems else "ok"
         detail = "; ".join(problems) if problems else " ".join(
-            e["want"] + ["!" + w for w in e["never"]])
+            e["want"] + ["!" + w for w in e["never"]] +
+            ["!call=" + c for c in e["never_calls"]])
         print(f"  {status:4}  {e['sym']:24} {n:>4} insns  {detail}")
         failed += bool(problems)
 

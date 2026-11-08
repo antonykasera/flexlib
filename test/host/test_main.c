@@ -52,6 +52,11 @@ void test_fu_crc_check_values(void);
 void test_fu_crc_vs_bitwise(void);
 void test_fu_crc_chaining(void);
 
+/* --- fu_ring (test_fu_ring.c) --- */
+void test_fu_ring_vs_model(void);
+void test_fu_queue_vs_model(void);
+void test_fu_ring_from_dma(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -81,6 +86,10 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fu_crc_check_values);
   TEST_RUN(test_fu_crc_vs_bitwise);
   TEST_RUN(test_fu_crc_chaining);
+
+  TEST_RUN(test_fu_ring_vs_model);
+  TEST_RUN(test_fu_queue_vs_model);
+  TEST_RUN(test_fu_ring_from_dma);
 
   return TEST_SUMMARY();
 }

@@ -92,6 +92,16 @@ const BenchGolden bench_golden[] = {
     {"crc8 maxim nibble table (small), 64 B", 0xF3D73D23U},
     {"crc8 maxim bitwise, 64 B", 0xF3D73D23U},
     {"crc8 maxim byte table, 1 per step, 64 B", 0xF3D73D23U},
+    {"fu_ring write + read, 64 B", 0xF0486DC5U},
+    {"ring, word copy not unrolled, 64 B", 0xF0486DC5U},
+    {"ring, newlib memcpy, 64 B", 0xF0486DC5U},
+    {"ring, put + get per byte, 64 B", 0xF0486DC5U},
+    {"fu_ring write + read, 8 B", 0x2A7CFDC5U},
+    {"ring, newlib memcpy, 8 B", 0x2A7CFDC5U},
+    {"ring, put + get per byte, 8 B", 0x2A7CFDC5U},
+    {"fu_ring_put + fu_ring_get (inline)", 0x496BAD81U},
+    {"fu_queue push + pop, 12 B", 0x0B7F1DC5U},
+    {"fu_ring_from_dma + read, 64 B", 0xCA9BEE05U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

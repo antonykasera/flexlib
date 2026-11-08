@@ -26,6 +26,7 @@ flexutils is under way.
 | `fu_fmt` integers (u32, i32, hex) | all 2^32 inputs (u32, hex), tests against snprintf, asm-audit | bench + golden check |
 | `fu_fmt` Q16.16 and float (printf's `%.*f`, exact, no soft-float), `fu_snprintf` | all 2^32 inputs (q16, f32) against the C library's `%.*f`, tests against snprintf, asm-audit | bench + golden check |
 | `fu_crc` (CRC-8 SMBus/Maxim, CRC-16 CCITT/MODBUS, CRC-32 zlib; `FU_CRC_SMALL` 16-entry tables) | check values, random data against a bitwise reference (both table sizes), asm-audit | bench + golden check |
+| `fu_ring` (lock-free SPSC byte ring, fixed-size element queue, circular-DMA receive) | random operations against a reference FIFO (indices across the 2^32 wrap), DMA simulation, asm-audit | bench + golden check |
 
 ## Layout
 
@@ -109,8 +110,9 @@ The bench needs the submodules: `git submodule update --init`.
 
 ## Results
 
-[docs/results-f103.md](docs/results-f103.md): the arch layer and the libm
-and CMSIS-DSP baselines. Library results follow with the modules.
+[docs/results-f103.md](docs/results-f103.md): every bench case, with the
+newlib, libm and CMSIS-DSP baselines and the candidates each function was
+chosen from.
 
 ## License
 
