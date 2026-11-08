@@ -51,8 +51,8 @@ rerun it. Method: the Bench section of README.md.
 | u32 by 10s, log | candidate | 50 | 103 | 173 | ok |
 | u32 by 10s UDIV, 10 digits | candidate | 185 | 187 | 190 | ok |
 | u32 by 10s UDIV, log | candidate | 50 | 105 | 190 | ok |
-| snprintf %lu, 10 digits | newlib | 1020 | 1022 | 1025 | ok |
-| snprintf %lu, log | newlib | 786 | 885 | 1025 | ok |
+| snprintf %lu, 10 digits | newlib | 1022 | 1024 | 1027 | ok |
+| snprintf %lu, log | newlib | 788 | 887 | 1027 | ok |
 | fu_fmt_i32, log | flexlib | 56 | 93 | 130 | ok |
 | fu_fmt_hex32, 8 digits | flexlib | 78 | 78 | 78 | ok |
 | fu_fmt_hex32, minimal | flexlib | 56 | 56 | 78 | ok |
@@ -60,14 +60,14 @@ rerun it. Method: the Bench section of README.md.
 | hex nibble loop, minimal | candidate | 40 | 67 | 103 | ok |
 | fu_fmt_dec_digits | flexlib | 20 | 20 | 20 | ok |
 | fu_fmt_q16, %.4f, log | flexlib | 151 | 154 | 190 | ok |
-| snprintf %.4f of q16, log | newlib | 1830 | 4278 | 6346 | ok |
+| snprintf %.4f of q16, log | newlib | 1837 | 4282 | 6350 | ok |
 | fu_fmt_f32, %.2f, 2^-7..2^13 | flexlib | 178 | 182 | 203 | ok |
-| snprintf %.2f, 2^-7..2^13 | newlib | 3225 | 4282 | 5445 | ok |
+| snprintf %.2f, 2^-7..2^13 | newlib | 3230 | 4286 | 5449 | ok |
 | fu_fmt_f32, %.0f, >= 2^32 | flexlib | 334 | 746 | 1485 | ok |
-| snprintf %.0f, >= 2^32 | newlib | 5961 | 9649 | 17069 | ok |
+| snprintf %.0f, >= 2^32 | newlib | 5963 | 9700 | 17071 | ok |
 | fu_snprintf u32 + i32 + hex line | flexlib | 705 | 763 | 838 | ok |
 | fu_snprintf v1 (tmp + memcpy), same line | candidate | 941 | 1039 | 1213 | ok |
-| snprintf u32 + i32 + hex line | newlib | 3219 | 3267 | 3317 | ok |
+| snprintf u32 + i32 + hex line | newlib | 3232 | 3279 | 3334 | ok |
 | fu_crc32, 256 B | flexlib | 1457 | 1585 | 1585 | ok |
 | crc32 byte table 1 KB, 256 B | candidate | 2828 | 2828 | 2828 | ok |
 | crc32 nibble table (small), 256 B | candidate | 4108 | 4108 | 4108 | ok |
@@ -104,6 +104,19 @@ rerun it. Method: the Bench section of README.md.
 | fu_ring_put + fu_ring_get (inline) | flexlib | 33 | 33 | 33 | ok |
 | fu_queue push + pop, 12 B | flexlib | 166 | 166 | 166 | ok |
 | fu_ring_from_dma + read, 64 B | flexlib | 380 | 480 | 659 | ok |
+| fu_parse_u32, log | flexlib | 80 | 111 | 152 | ok |
+| u32 one digit per step, log | candidate | 63 | 115 | 180 | ok |
+| strtoul, log | newlib | 129 | 217 | 327 | ok |
+| fu_parse_u32, 10 digits | flexlib | 152 | 152 | 152 | ok |
+| u32 one digit per step, 10 digits | candidate | 180 | 180 | 180 | ok |
+| strtoul, 10 digits | newlib | 327 | 327 | 327 | ok |
+| fu_parse_i32, log | flexlib | 100 | 133 | 174 | ok |
+| strtol, log | newlib | 136 | 228 | 345 | ok |
+| fu_parse_hex32, 8 digits | flexlib | 195 | 195 | 200 | ok |
+| hex two-branch classify, 8 digits | candidate | 204 | 219 | 239 | ok |
+| strtoul base 16, 8 digits | newlib | 290 | 314 | 356 | ok |
+| fu_parse_q16, 4 decimals | flexlib | 247 | 275 | 316 | ok |
+| strtod * 65536 + lrint, 4 decimals | newlib | 786 | 1332 | 1413 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -113,7 +126,7 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 91 ok, 0 FAIL, 0 missing
+golden: 104 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

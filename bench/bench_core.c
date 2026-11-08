@@ -18,6 +18,7 @@ extern const BenchGroup bench_group_bits;
 extern const BenchGroup bench_group_fmt;
 extern const BenchGroup bench_group_crc;
 extern const BenchGroup bench_group_ring;
+extern const BenchGroup bench_group_parse;
 extern const BenchGroup bench_group_libm;
 #ifdef BENCH_HAVE_CMSIS_DSP
 extern const BenchGroup bench_group_cmsis;
@@ -29,6 +30,7 @@ const BenchGroup *const bench_groups[] = {
     &bench_group_fmt,
     &bench_group_crc,
     &bench_group_ring,
+    &bench_group_parse,
     &bench_group_libm,
 #ifdef BENCH_HAVE_CMSIS_DSP
     &bench_group_cmsis,

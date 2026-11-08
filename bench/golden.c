@@ -102,6 +102,19 @@ const BenchGolden bench_golden[] = {
     {"fu_ring_put + fu_ring_get (inline)", 0x496BAD81U},
     {"fu_queue push + pop, 12 B", 0x0B7F1DC5U},
     {"fu_ring_from_dma + read, 64 B", 0xCA9BEE05U},
+    {"fu_parse_u32, log", 0x5BD13148U},
+    {"u32 one digit per step, log", 0x5BD13148U},
+    {"strtoul, log", 0x5BD13148U},
+    {"fu_parse_u32, 10 digits", 0x25D65A7CU},
+    {"u32 one digit per step, 10 digits", 0x25D65A7CU},
+    {"strtoul, 10 digits", 0x25D65A7CU},
+    {"fu_parse_i32, log", 0x8C2A73F0U},
+    {"strtol, log", 0x8C2A73F0U},
+    {"fu_parse_hex32, 8 digits", 0xA5CCC65FU},
+    {"hex two-branch classify, 8 digits", 0xA5CCC65FU},
+    {"strtoul base 16, 8 digits", 0xA5CCC65FU},
+    {"fu_parse_q16, 4 decimals", 0xB0AA1E77U},
+    {"strtod * 65536 + lrint, 4 decimals", 0xB0AA1E77U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

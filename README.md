@@ -27,6 +27,7 @@ flexutils is under way.
 | `fu_fmt` Q16.16 and float (printf's `%.*f`, exact, no soft-float), `fu_snprintf` | all 2^32 inputs (q16, f32) against the C library's `%.*f`, tests against snprintf, asm-audit | bench + golden check |
 | `fu_crc` (CRC-8 SMBus/Maxim, CRC-16 CCITT/MODBUS, CRC-32 zlib; `FU_CRC_SMALL` 16-entry tables) | check values, random data against a bitwise reference (both table sizes), asm-audit | bench + golden check |
 | `fu_ring` (lock-free SPSC byte ring, fixed-size element queue, circular-DMA receive) | random operations against a reference FIFO (indices across the 2^32 wrap), DMA simulation, asm-audit | bench + golden check |
+| `fu_parse` (u32, i32, hex, Q16.16 correctly rounded; bounded input, status return) | all 2^32 inputs read back from fu_fmt, Q16.16 against an exact reference and at every kind of rounding tie, asm-audit | bench + golden check |
 
 ## Layout
 
@@ -63,7 +64,7 @@ Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
 |---|---|
 | `make` | `host-test`, `cross`, `lint`, `asm-audit` |
 | `make host-test [HOST_CC=clang]` | host tests with ASan + UBSan |
-| `make exhaustive` | checks functions of one 32-bit input on every input (~1 min on 12 cores) |
+| `make exhaustive` | checks functions of one 32-bit input on every input (~2.5 min on 12 cores) |
 | `make exhaustive-slow` | the same for q16 and float text, against the C library's `%.*f` (~13 min on 12 cores) |
 | `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |

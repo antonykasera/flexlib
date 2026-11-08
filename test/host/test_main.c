@@ -57,6 +57,12 @@ void test_fu_ring_vs_model(void);
 void test_fu_queue_vs_model(void);
 void test_fu_ring_from_dma(void);
 
+/* --- fu_parse (test_fu_parse.c) --- */
+void test_fu_parse_edges(void);
+void test_fu_parse_q16_vs_exact(void);
+void test_fu_parse_round_trips(void);
+void test_fu_parse_q16_ties(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -90,6 +96,11 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fu_ring_vs_model);
   TEST_RUN(test_fu_queue_vs_model);
   TEST_RUN(test_fu_ring_from_dma);
+
+  TEST_RUN(test_fu_parse_edges);
+  TEST_RUN(test_fu_parse_q16_vs_exact);
+  TEST_RUN(test_fu_parse_round_trips);
+  TEST_RUN(test_fu_parse_q16_ties);
 
   return TEST_SUMMARY();
 }

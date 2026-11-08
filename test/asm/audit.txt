@@ -65,3 +65,10 @@ fu_ring_peek          !udiv !call=memcpy
 fu_queue_push         !call=memcpy
 fu_queue_pop          !call=memcpy
 fu_ring_from_dma      !udiv
+
+# fu_parse: no calls at all (q16 divides by 5^17 with UMULL, no libgcc 64-bit
+# division)
+fu_parse_u32          no-calls  !udiv
+fu_parse_i32          no-calls  !udiv
+fu_parse_hex32        no-calls  !udiv
+fu_parse_q16          no-calls  umull !udiv
