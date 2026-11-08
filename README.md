@@ -29,6 +29,7 @@ flexutils is under way.
 | `fu_ring` (lock-free SPSC byte ring, fixed-size element queue, circular-DMA receive) | random operations against a reference FIFO (indices across the 2^32 wrap), DMA simulation, asm-audit | bench + golden check |
 | `fu_parse` (u32, i32, hex, Q16.16 correctly rounded; bounded input, status return) | all 2^32 inputs read back from fu_fmt, Q16.16 against an exact reference and at every kind of rounding tie, asm-audit | bench + golden check |
 | `fu_cobs` (COBS encode, strict in-place decode, byte-at-a-time receiver) | reference vectors, random frames against a byte-wise encoder, malformed input, receiver against the block decoder, asm-audit | bench + golden check |
+| `fu_debounce` (integrator for one input, branch-free vertical counter for 32) | against per-input reference counters on bouncing streams, glitch properties, asm-audit | bench + golden check |
 
 ## Layout
 

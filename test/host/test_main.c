@@ -69,6 +69,11 @@ void test_fu_cobs_random(void);
 void test_fu_cobs_malformed(void);
 void test_fu_cobs_rx(void);
 
+/* --- fu_debounce (test_fu_debounce.c) --- */
+void test_fu_debounce32_vs_reference(void);
+void test_fu_debounce_vs_reference(void);
+void test_fu_debounce_glitch(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -112,6 +117,10 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fu_cobs_random);
   TEST_RUN(test_fu_cobs_malformed);
   TEST_RUN(test_fu_cobs_rx);
+
+  TEST_RUN(test_fu_debounce32_vs_reference);
+  TEST_RUN(test_fu_debounce_vs_reference);
+  TEST_RUN(test_fu_debounce_glitch);
 
   return TEST_SUMMARY();
 }

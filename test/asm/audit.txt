@@ -77,3 +77,7 @@ fu_parse_q16          no-calls  umull !udiv
 fu_cobs_encode        no-calls
 fu_cobs_decode        no-calls
 fu_cobs_rx_byte       no-calls  max=60
+
+# fu_debounce.h: the vertical counter is branch-free
+probe_fu_debounce32   max=16  no-calls  !b !cbz !cbnz
+probe_fu_debounce     max=36  no-calls

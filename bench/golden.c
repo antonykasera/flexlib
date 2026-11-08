@@ -126,6 +126,9 @@ const BenchGolden bench_golden[] = {
     {"fu_cobs_decode, 64 B 1/4 zeros", 0x291D1407U},
     {"cobs decode byte loop, 64 B 1/4 zeros", 0x291D1407U},
     {"fu_cobs_rx_byte, 64 B frame + 0", 0x8DAE61B6U},
+    {"fu_debounce32, 32 inputs per tick (inline)", 0x1B107745U},
+    {"fu_debounce, 1 input per tick (inline)", 0x1F116DC5U},
+    {"16 x fu_debounce, 16 inputs per tick", 0x722DB875U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

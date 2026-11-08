@@ -60,60 +60,60 @@ rerun it. Method: the Bench section of README.md.
 | hex nibble loop, minimal | candidate | 40 | 67 | 103 | ok |
 | fu_fmt_dec_digits | flexlib | 20 | 20 | 20 | ok |
 | fu_fmt_q16, %.4f, log | flexlib | 151 | 154 | 190 | ok |
-| snprintf %.4f of q16, log | newlib | 1837 | 4282 | 6350 | ok |
+| snprintf %.4f of q16, log | newlib | 1837 | 4358 | 6736 | ok |
 | fu_fmt_f32, %.2f, 2^-7..2^13 | flexlib | 178 | 182 | 203 | ok |
 | snprintf %.2f, 2^-7..2^13 | newlib | 3230 | 4286 | 5449 | ok |
 | fu_fmt_f32, %.0f, >= 2^32 | flexlib | 334 | 746 | 1485 | ok |
-| snprintf %.0f, >= 2^32 | newlib | 6062 | 9700 | 17150 | ok |
+| snprintf %.0f, >= 2^32 | newlib | 5963 | 9700 | 17071 | ok |
 | fu_snprintf u32 + i32 + hex line | flexlib | 705 | 763 | 838 | ok |
 | fu_snprintf v1 (tmp + memcpy), same line | candidate | 941 | 1039 | 1213 | ok |
 | snprintf u32 + i32 + hex line | newlib | 3232 | 3279 | 3334 | ok |
-| fu_crc32, 256 B | flexlib | 1457 | 1585 | 1585 | ok |
-| crc32 byte table 1 KB, 256 B | candidate | 2828 | 2828 | 2828 | ok |
-| crc32 nibble table (small), 256 B | candidate | 4108 | 4108 | 4108 | ok |
-| crc32 bitwise, 256 B | candidate | 13842 | 13842 | 13842 | ok |
+| fu_crc32, 256 B | flexlib | 1456 | 1584 | 1584 | ok |
+| crc32 byte table 1 KB, 256 B | candidate | 2829 | 2829 | 2829 | ok |
+| crc32 nibble table (small), 256 B | candidate | 4109 | 4109 | 4109 | ok |
+| crc32 bitwise, 256 B | candidate | 13843 | 13843 | 13843 | ok |
 | crc32 F1 CRC unit + RBIT, 256 B | hardware | 596 | 724 | 724 | ok |
-| crc32 slice-by-4, aligned head, 256 B | candidate | 1523 | 1544 | 1546 | ok |
+| crc32 slice-by-4, aligned head, 256 B | candidate | 1524 | 1545 | 1547 | ok |
 | fu_crc32, 8 B | flexlib | 93 | 97 | 97 | ok |
-| crc32 byte table 1 KB, 8 B | candidate | 101 | 101 | 101 | ok |
-| crc32 nibble table (small), 8 B | candidate | 141 | 141 | 141 | ok |
-| crc32 slice-by-4, aligned head, 8 B | candidate | 98 | 119 | 121 | ok |
+| crc32 byte table 1 KB, 8 B | candidate | 100 | 100 | 100 | ok |
+| crc32 nibble table (small), 8 B | candidate | 140 | 140 | 140 | ok |
+| crc32 slice-by-4, aligned head, 8 B | candidate | 97 | 118 | 120 | ok |
 | fu_crc16_ccitt, 64 B | flexlib | 552 | 568 | 568 | ok |
-| crc16 ccitt nibble table (small), 64 B | candidate | 1168 | 1168 | 1168 | ok |
-| crc16 ccitt bitwise, 64 B | candidate | 3984 | 3984 | 3984 | ok |
-| crc16 ccitt byte table, 1 per step, 64 B | candidate | 716 | 716 | 716 | ok |
+| crc16 ccitt nibble table (small), 64 B | candidate | 1169 | 1169 | 1169 | ok |
+| crc16 ccitt bitwise, 64 B | candidate | 3985 | 3985 | 3985 | ok |
+| crc16 ccitt byte table, 1 per step, 64 B | candidate | 717 | 717 | 717 | ok |
 | fu_crc16_modbus, 64 B | flexlib | 506 | 523 | 525 | ok |
-| crc16 modbus nibble table (small), 64 B | candidate | 1041 | 1041 | 1041 | ok |
-| crc16 modbus bitwise, 64 B | candidate | 3472 | 3472 | 3472 | ok |
-| crc16 modbus byte table, 1 per step, 64 B | candidate | 779 | 779 | 779 | ok |
+| crc16 modbus nibble table (small), 64 B | candidate | 1042 | 1042 | 1042 | ok |
+| crc16 modbus bitwise, 64 B | candidate | 3473 | 3473 | 3473 | ok |
+| crc16 modbus byte table, 1 per step, 64 B | candidate | 780 | 780 | 780 | ok |
 | fu_crc8_smbus, 64 B | flexlib | 441 | 453 | 455 | ok |
-| crc8 smbus nibble table (small), 64 B | candidate | 1099 | 1099 | 1099 | ok |
-| crc8 smbus bitwise, 64 B | candidate | 3466 | 3466 | 3466 | ok |
-| crc8 smbus byte table, 1 per step, 64 B | candidate | 524 | 524 | 524 | ok |
+| crc8 smbus nibble table (small), 64 B | candidate | 1100 | 1100 | 1100 | ok |
+| crc8 smbus bitwise, 64 B | candidate | 3467 | 3467 | 3467 | ok |
+| crc8 smbus byte table, 1 per step, 64 B | candidate | 525 | 525 | 525 | ok |
 | fu_crc8_maxim, 64 B | flexlib | 441 | 453 | 455 | ok |
-| crc8 maxim nibble table (small), 64 B | candidate | 1104 | 1104 | 1104 | ok |
-| crc8 maxim bitwise, 64 B | candidate | 3466 | 3466 | 3466 | ok |
-| crc8 maxim byte table, 1 per step, 64 B | candidate | 524 | 524 | 524 | ok |
-| fu_ring write + read, 64 B | flexlib | 322 | 390 | 528 | ok |
-| ring, word copy not unrolled, 64 B | candidate | 359 | 423 | 478 | ok |
-| ring, newlib memcpy, 64 B | candidate | 931 | 931 | 972 | ok |
-| ring, put + get per byte, 64 B | candidate | 2589 | 2589 | 2589 | ok |
-| fu_ring write + read, 8 B | flexlib | 197 | 207 | 258 | ok |
-| ring, newlib memcpy, 8 B | candidate | 259 | 259 | 300 | ok |
-| ring, put + get per byte, 8 B | candidate | 349 | 349 | 349 | ok |
+| crc8 maxim nibble table (small), 64 B | candidate | 1105 | 1105 | 1105 | ok |
+| crc8 maxim bitwise, 64 B | candidate | 3467 | 3467 | 3467 | ok |
+| crc8 maxim byte table, 1 per step, 64 B | candidate | 525 | 525 | 525 | ok |
+| fu_ring write + read, 64 B | flexlib | 324 | 392 | 530 | ok |
+| ring, word copy not unrolled, 64 B | candidate | 361 | 425 | 480 | ok |
+| ring, newlib memcpy, 64 B | candidate | 933 | 933 | 974 | ok |
+| ring, put + get per byte, 64 B | candidate | 2527 | 2527 | 2527 | ok |
+| fu_ring write + read, 8 B | flexlib | 199 | 209 | 260 | ok |
+| ring, newlib memcpy, 8 B | candidate | 261 | 261 | 302 | ok |
+| ring, put + get per byte, 8 B | candidate | 343 | 343 | 343 | ok |
 | fu_ring_put + fu_ring_get (inline) | flexlib | 33 | 33 | 33 | ok |
 | fu_queue push + pop, 12 B | flexlib | 166 | 166 | 166 | ok |
 | fu_ring_from_dma + read, 64 B | flexlib | 380 | 480 | 659 | ok |
 | fu_parse_u32, log | flexlib | 80 | 111 | 152 | ok |
 | u32 one digit per step, log | candidate | 63 | 115 | 180 | ok |
 | strtoul, log | newlib | 129 | 217 | 327 | ok |
-| fu_parse_u32, 10 digits | flexlib | 152 | 152 | 152 | ok |
-| u32 one digit per step, 10 digits | candidate | 180 | 180 | 180 | ok |
+| fu_parse_u32, 10 digits | flexlib | 153 | 153 | 153 | ok |
+| u32 one digit per step, 10 digits | candidate | 181 | 181 | 181 | ok |
 | strtoul, 10 digits | newlib | 327 | 327 | 327 | ok |
 | fu_parse_i32, log | flexlib | 100 | 133 | 174 | ok |
 | strtol, log | newlib | 136 | 228 | 345 | ok |
-| fu_parse_hex32, 8 digits | flexlib | 195 | 195 | 200 | ok |
-| hex two-branch classify, 8 digits | candidate | 204 | 219 | 239 | ok |
+| fu_parse_hex32, 8 digits | flexlib | 196 | 196 | 201 | ok |
+| hex two-branch classify, 8 digits | candidate | 205 | 220 | 240 | ok |
 | strtoul base 16, 8 digits | newlib | 290 | 314 | 356 | ok |
 | fu_parse_q16, 4 decimals | flexlib | 247 | 275 | 316 | ok |
 | strtod * 65536 + lrint, 4 decimals | newlib | 786 | 1332 | 1413 | ok |
@@ -123,11 +123,14 @@ rerun it. Method: the Bench section of README.md.
 | cobs encode byte loop, 64 B 1/4 zeros | candidate | 1080 | 1115 | 1129 | ok |
 | fu_cobs_encode, 256 B random | flexlib | 1223 | 1234 | 1270 | ok |
 | cobs encode byte loop, 256 B random | candidate | 3882 | 3886 | 3896 | ok |
-| fu_cobs_decode, 64 B random | flexlib | 308 | 340 | 397 | ok |
-| cobs decode byte loop, 64 B random | candidate | 904 | 904 | 923 | ok |
-| fu_cobs_decode, 64 B 1/4 zeros | flexlib | 875 | 979 | 1113 | ok |
-| cobs decode byte loop, 64 B 1/4 zeros | candidate | 1121 | 1175 | 1221 | ok |
-| fu_cobs_rx_byte, 64 B frame + 0 | flexlib | 2216 | 2216 | 2226 | ok |
+| fu_cobs_decode, 64 B random | flexlib | 310 | 342 | 399 | ok |
+| cobs decode byte loop, 64 B random | candidate | 906 | 906 | 925 | ok |
+| fu_cobs_decode, 64 B 1/4 zeros | flexlib | 877 | 981 | 1115 | ok |
+| cobs decode byte loop, 64 B 1/4 zeros | candidate | 1123 | 1177 | 1223 | ok |
+| fu_cobs_rx_byte, 64 B frame + 0 | flexlib | 2217 | 2217 | 2227 | ok |
+| fu_debounce32, 32 inputs per tick (inline) | flexlib | 20 | 20 | 20 | ok |
+| fu_debounce, 1 input per tick (inline) | flexlib | 18 | 18 | 24 | ok |
+| 16 x fu_debounce, 16 inputs per tick | candidate | 361 | 379 | 404 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -137,7 +140,7 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 115 ok, 0 FAIL, 0 missing
+golden: 118 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 
