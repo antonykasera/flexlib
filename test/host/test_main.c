@@ -33,6 +33,14 @@ void test_fx_ssat(void);
 void test_fx_usat(void);
 void test_fx_multiplies(void);
 
+/* --- fu_bits (test_fu_bits.c) --- */
+void test_fu_counts_edges(void);
+void test_fu_counts_random(void);
+void test_fu_is_pow2(void);
+void test_fu_reversal(void);
+void test_fu_load_store(void);
+void test_fu_sext(void);
+
 int main(void) {
   TEST_RUN(test_rng_reproducible);
   TEST_RUN(test_stats_tracks_max_mean_bias);
@@ -43,6 +51,13 @@ int main(void) {
   TEST_RUN(test_fx_ssat);
   TEST_RUN(test_fx_usat);
   TEST_RUN(test_fx_multiplies);
+
+  TEST_RUN(test_fu_counts_edges);
+  TEST_RUN(test_fu_counts_random);
+  TEST_RUN(test_fu_is_pow2);
+  TEST_RUN(test_fu_reversal);
+  TEST_RUN(test_fu_load_store);
+  TEST_RUN(test_fu_sext);
 
   return TEST_SUMMARY();
 }

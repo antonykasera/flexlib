@@ -20,3 +20,18 @@ probe_umull_hi  max=2  umull
 probe_smlal     max=2  smlal
 probe_umlal     max=2  umlal
 probe_dmb       max=2  dmb
+
+# fu_bits.h
+probe_fu_clz64        max=8   clz
+probe_fu_ctz64        max=10  rbit clz
+probe_fu_popcount     max=14
+probe_fu_is_pow2      max=7
+probe_fu_bswap16      max=3   rev16
+probe_fu_load_le32    max=2   ldr
+probe_fu_load_be32    max=3   ldr rev
+probe_fu_load_be16    max=4   ldrh rev16
+probe_fu_store_be32   max=3   rev str
+probe_fu_store_le16   max=2   strh
+probe_fu_sext12       max=2   sbfx
+# with the FX_ASSERT range check: cmp, branch, udf
+probe_fu_sext         max=8   lsl asr udf

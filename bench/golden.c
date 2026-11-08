@@ -20,6 +20,19 @@ const BenchGolden bench_golden[] = {
     {"FX_USAT(x, 8)", 0x24FE7066U},
     {"fx_smull_hi", 0x04D1B737U},
     {"fx_umull_hi", 0xCD64C326U},
+    {"fu_popcount", 0xE5F425F9U},
+    {"popcount SWAR, call", 0xE5F425F9U},
+    {"popcount __builtin", 0xE5F425F9U},
+    {"popcount table 256 B, call", 0xE5F425F9U},
+    {"popcount table 16 B, call", 0xE5F425F9U},
+    {"popcount x &= x - 1, call", 0xE5F425F9U},
+    {"fu_clz64", 0x9D88A8C2U},
+    {"fu_ctz64", 0xF92F6495U},
+    {"fu_load_be32, aligned", 0x8B6BD995U},
+    {"fu_load_be32, +1", 0xE0EC1265U},
+    {"fu_load_be32, +2", 0x42175745U},
+    {"fu_sext(x, 12)", 0x03DAB045U},
+    {"fu_sext(x, n)", 0x7DEB25C3U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

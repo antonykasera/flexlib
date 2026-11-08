@@ -46,7 +46,8 @@ def windows(lines):
     for line in lines:
         r = RELOC_RE.search(line)
         if r:
-            if insns and "<" + r.group(1) + ">" not in insns[-1]:
+            if insns:  # objdump's own <name> is wrong before relocation
+                insns[-1] = re.sub(r" <[^>]*>$", "", insns[-1])
                 insns[-1] += " <" + r.group(1) + ">"
             continue
         m = LINE_RE.match(line)

@@ -28,6 +28,24 @@
 
 #define FX_INLINE static inline __attribute__((always_inline))
 
+/* ---- programmer-mistake checks ----
+ * A failed FX_ASSERT traps (one UDF on Arm, no stdio pulled in, and the
+ * debugger stops on the spot). Define FX_ASSERT_FAIL(file, line) to call your
+ * own handler, or FX_DISABLE_ASSERT to compile the checks out. */
+#ifndef FX_ASSERT_FAIL
+#define FX_ASSERT_FAIL(file, line) __builtin_trap()
+#endif
+#ifdef FX_DISABLE_ASSERT
+#define FX_ASSERT(cond) ((void)0)
+#else
+#define FX_ASSERT(cond)                                                        \
+  do {                                                                         \
+    if (!(cond)) {                                                             \
+      FX_ASSERT_FAIL(__FILE__, __LINE__);                                      \
+    }                                                                          \
+  } while (0)
+#endif
+
 /* ---- bit operations ---- */
 
 /* clz(0) = 32, as the instruction gives; the zero test folds into CLZ on Arm */

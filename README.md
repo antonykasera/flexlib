@@ -15,13 +15,14 @@ on [flex](https://github.com/antonykasera/STM32F1-HAL).
 
 ## Status
 
-Early: the arch layer, test harness and bench firmware are in place. The
-library modules come next.
+Early: the arch layer, test harness and bench firmware are in place, and
+flexutils is under way.
 
 | Part | Host | Board |
 |---|---|---|
 | `arch/fx_arch.h` (CLZ, RBIT, REV, SSAT/USAT, SMULL/UMULL/SMLAL, barriers) | tests + asm-audit | golden check passes |
 | bench firmware (DWT cycles, USB CDC output, golden check) | builds | runs |
+| `fu_bits` (clz/ctz 32/64, popcount, bswap, endian loads/stores, sign extension) | exhaustive + random tests, asm-audit | pending |
 
 ## Layout
 
@@ -47,6 +48,10 @@ SRCS   += $(FM_SRCS) $(FU_SRCS)
 
 Build with `-ffunction-sections -fdata-sections` and link with
 `--gc-sections`, so the functions you don't call drop out.
+
+Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
+`FX_ASSERT_FAIL(file, line)` to call your own handler instead, or
+`FX_DISABLE_ASSERT` to compile the checks out.
 
 ## Building and testing
 

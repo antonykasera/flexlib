@@ -89,3 +89,7 @@ SECTIONS
 }
 
 _estack = ORIGIN(RAM) + LENGTH(RAM);
+
+/* bench/cache_probe.c reads the upper 32 KB as free flash */
+ASSERT(_sidata + SIZEOF(.data) <= ORIGIN(FLASH) + 32K,
+       "bench image has grown into the cache probe's region (upper 32 KB)")

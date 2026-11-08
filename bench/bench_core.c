@@ -12,6 +12,7 @@
 volatile uint32_t bench_in[BENCH_N];
 
 extern const BenchGroup bench_group_arch;
+extern const BenchGroup bench_group_bits;
 extern const BenchGroup bench_group_libm;
 #ifdef BENCH_HAVE_CMSIS_DSP
 extern const BenchGroup bench_group_cmsis;
@@ -19,6 +20,7 @@ extern const BenchGroup bench_group_cmsis;
 
 const BenchGroup *const bench_groups[] = {
     &bench_group_arch,
+    &bench_group_bits,
     &bench_group_libm,
 #ifdef BENCH_HAVE_CMSIS_DSP
     &bench_group_cmsis,
