@@ -45,8 +45,7 @@ host-test:
 	@echo "--- Host tests passed ($(HOST_CC)) ---"
 
 # ---- exhaustive: every 32-bit input, on all cores ----
-# `exhaustive` (CI, about a minute) checks against plain references;
-# `exhaustive-slow` (*_slow.c, ~13 min on 12 cores) against the C library's %f.
+# exhaustive-slow runs the *_slow.c checks (~13 min), kept out of CI
 
 EXHAUSTIVE_ALL  = $(wildcard test/exhaustive/*.c)
 EXHAUSTIVE_SLOW = $(filter %_slow.c,$(EXHAUSTIVE_ALL))

@@ -5,14 +5,6 @@
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
- *
- * A case times one kernel call per input over BENCH_N inputs and returns a
- * hash of the outputs. Built with -DBENCH_HOST, the same cases run on the PC
- * (`make golden`) to give the hashes the board must reproduce.
- *
- *   BENCH_UNARY(b_clz, uint32_t, in_u32, uint32_t, fx_clz(x))
- *   static const BenchCase cases[] = {{"fx_clz", "flexlib", b_clz, true}};
- *   const BenchGroup bench_group_foo = {cases, BENCH_COUNT(cases)};
  */
 
 #ifndef BENCH_H
@@ -119,12 +111,8 @@ static inline uint32_t bench_now(void) { return 0U; }
 static inline uint32_t bench_now(void) {
   return *(volatile const uint32_t *)0xE0001004U;
 }
-/* The memory clobber orders these against the CYCCNT reads. Pinning x after
- * t0 stops its consumer starting early, USE before t1 makes the result finish
- * in time, and pinning the copy after t1 keeps the hash out of the window.
- * GCC re-extends a pinned 16-bit x (one SXTH in the window); the
- * "empty, int16 arg" case measures that. `make bench-windows` lists what each
- * window holds. */
+/* Keep the call between the CYCCNT reads; a pinned 16-bit x costs one SXTH
+ * (the "empty, int16 arg" case). `make bench-windows` shows each window. */
 #define BENCH_PIN(x) __asm__ volatile("" : "+r"(x) : : "memory")
 #define BENCH_USE(y) __asm__ volatile("" : : "r"(y) : "memory")
 #endif
@@ -134,9 +122,8 @@ static inline uint32_t bench_now(void) {
 #define BENCH_UNARY(name, Tx, conv, Tr, expr)                                  \
   BENCH_UNARY_POST(name, Tx, conv, Tr, expr, (void)0)
 
-/* For a call that writes text to buf and returns its length: the hash also
- * covers the text. The length is hashed as uint32_t, since size_t is 8 bytes
- * on a 64-bit host. */
+/* for a call that writes text to buf and returns its length; the hash covers
+ * the text too */
 #define BENCH_TEXT(name, Tx, conv, expr, buf)                                  \
   BENCH_UNARY_POST(name, Tx, conv, uint32_t, (uint32_t)(expr),                 \
                    h = bench_hash(h, (buf), (unsigned)out))

@@ -4,20 +4,6 @@
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
- *
- * This header provides only the assertion + runner MACROS. The
- * shared counters and main() live in test_main.c, which also lists every test.
- * Each module's tests go in test_<mod>.c as plain `void test_xxx(void)`
- * functions, declared in test_main.c and invoked via TEST_RUN.
- * Error statistics for accuracy sweeps are in test_stats.h.
- *
- *   // test_foo.c
- *   #include "test_assert.h"
- *   void test_foo_thing(void) { ASSERT_EQ(2 + 2, 4); }
- *
- *   // test_main.c
- *   void test_foo_thing(void);
- *   int main(void) { TEST_RUN(test_foo_thing); return TEST_SUMMARY(); }
  */
 
 #ifndef TEST_ASSERT_H

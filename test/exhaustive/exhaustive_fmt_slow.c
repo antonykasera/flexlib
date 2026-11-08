@@ -20,8 +20,7 @@ int main(void) {
     uint32_t u = (uint32_t)i;
     char want[64];
     char got[64];
-    /* the digit count changes with the input, so every count sees every
-     * fraction pattern */
+    /* varies with the input, so every count sees every fraction */
     uint32_t d = (u ^ (u >> 16)) % 10U;
 
     int32_t v = (int32_t)u;

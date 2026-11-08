@@ -17,8 +17,7 @@ static char line[64]; /* f32 and printf cases */
 
 /* ---- decimal candidates (fu_fmt_u32: two digits per step, a loop) ---- */
 
-/* a copy of fu_fmt_dec_digits, inlined here as it is in fu_fmt_u32, so the
- * candidates differ from it only in the digit loop */
+/* fu_fmt_dec_digits, inlined as in fu_fmt_u32 */
 static const uint32_t pow10_tab[10] = {
     1U,      10U,      100U,      1000U,      10000U,
     100000U, 1000000U, 10000000U, 100000000U, 1000000000U};
@@ -94,12 +93,8 @@ static inline char *put_pair2(char *p, uint32_t *f) {
   return p + 2;
 }
 
-/* All ten digits without a branch, then the last n of them. v splits at 10^8
- * into hi (0..42, two digits) and lo (eight digits, leading zeros kept).
- * ((lo * M) >> 19) + 1 is lo / 10^6 in 32.32 fixed point: the +1 keeps it from
- * rounding below the true value, and M keeps it less than 2^32 / 10^6 above it
- * for every lo < 10^8. So the integer part is the first pair, and each multiply
- * of the fraction by 100 yields the next. Exhaustively correct (2^32 inputs) while it was the library version. */
+/* all ten digits branch-free, then the last n; lo / 10^6 in 32.32 fixed point,
+ * +1 so it never rounds low (exhaustively correct) */
 BENCH_CALL static size_t u32_split(char *buf, uint32_t v) {
   uint32_t n = dec_digits(v);
   uint32_t hi = v / 100000000U;
@@ -229,8 +224,7 @@ BENCH_TEXT(b_f32_big, float, in_f32_big, fu_fmt_f32(line, x, 0U), line)
 BENCH_TEXT(b_f32_big_snprintf, float, in_f32_big,
            snprintf(line, sizeof line, "%.0f", (double)x), line)
 
-/* the same integer line through both; the casts match %u / %d / %X on every
- * target (uint32_t is unsigned long on Arm) */
+/* casts: uint32_t is unsigned long on Arm */
 #define LINE_FMT "n=%u t=%d id=%08X\r\n"
 BENCH_TEXT(b_printf_fu, uint32_t, in_logu,
            fu_snprintf(line, sizeof line, LINE_FMT, (unsigned)x,

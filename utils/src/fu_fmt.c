@@ -22,15 +22,12 @@ static const uint32_t pow10_tab[10] = {
 
 uint32_t fu_fmt_dec_digits(uint32_t v) {
   v |= 1U;
-  /* floor(log10) from the bit length (1233 / 4096 ~ log10 2), off by at most
-   * one, then corrected */
+  /* bit length * log10(2) (1233 / 4096), off by at most one */
   uint32_t t = ((32U - fu_clz(v)) * 1233U) >> 12;
   return t + 1U - (v < pow10_tab[t] ? 1U : 0U);
 }
 
-/* Two digits per step: v / 100 is one UMULL and a shift. The fastest of five
- * designs measured on the M3 (116 cycles for 10 digits); the others are kept
- * as bench candidates. */
+/* two digits per step; v / 100 is a UMULL */
 size_t fu_fmt_u32(char *buf, uint32_t v) {
   uint32_t n = fu_fmt_dec_digits(v);
   char *p = buf + n;
@@ -58,9 +55,8 @@ size_t fu_fmt_i32(char *buf, int32_t v) {
   return fu_fmt_u32(buf, (uint32_t)v);
 }
 
-/* Four nibbles to four ASCII digits at once (SWAR). The top nibble ends up in
- * the low byte, which a little-endian store puts first. alpha = 'A' - '9' - 1
- * or 'a' - '9' - 1. */
+/* four nibbles to ASCII (SWAR), top nibble in the low byte;
+ * alpha = 'A' - '9' - 1 or 'a' - '9' - 1 */
 FX_INLINE uint32_t hex4(uint32_t x, uint32_t alpha) {
   x = ((x & 0xFF00U) << 8) | (x & 0x00FFU);
   x = ((x & 0x00F000F0U) << 4) | (x & 0x000F000FU); /* one nibble per byte */
@@ -89,7 +85,7 @@ size_t fu_fmt_hex32(char *buf, uint32_t v, uint32_t min_digits, bool upper) {
   return n;
 }
 
-/* d digits of q (q < 10^d), zero-padded, at p */
+/* d digits of q, zero-padded */
 static void put_fixed(char *p, uint32_t q, uint32_t d) {
   for (; d >= 2U; d -= 2U) {
     uint32_t t = q / 100U;
@@ -101,9 +97,8 @@ static void put_fixed(char *p, uint32_t q, uint32_t d) {
   }
 }
 
-/* [-]ip.ddd, the fraction f / 2^s (1 <= s <= 63, f < 2^24) rounded to d
- * digits. With odd the parity of the last digit kept, (f * 10^d + 2^(s-1) - 1
- * + odd) >> s is round to nearest, ties to even, exactly: one UMULL. */
+/* [-]ip + f / 2^s (s 1..63, f < 2^24) to d digits; + 2^(s-1) - 1 + odd
+ * rounds to nearest even */
 FX_INLINE size_t fmt_point(char *buf, bool neg, uint32_t ip, uint32_t f,
                            uint32_t s, uint32_t d) {
   uint64_t p = (uint64_t)f * pow10_tab[d];
@@ -139,11 +134,10 @@ FX_COLD static size_t fmt_special(char *buf, bool neg, uint32_t mant) {
   return n;
 }
 
-/* m * 2^e for e >= 9 (x >= 2^32, an integer): m in base 10^4 limbs, doubled
- * up to 18 times per pass, since 9999 * 2^18 plus a carry stays below 2^32 */
+/* x >= 2^32: m * 2^e in base-10^4 limbs; 9999 << 18 plus a carry fits */
 FX_COLD static size_t fmt_big(char *buf, bool neg, uint32_t m, uint32_t e,
                               uint32_t d) {
-  uint32_t limb[10]; /* least significant first; floats have <= 39 digits */
+  uint32_t limb[10]; /* <= 39 digits, least significant first */
   uint32_t n = 0U;
   do {
     limb[n++] = m % 10000U;
@@ -211,7 +205,7 @@ size_t fu_fmt_f32(char *buf, float x, uint32_t frac_digits) {
       ip = m >> s;
       f = m & ((1U << s) - 1U);
     } else if (s > 63U) {
-      s = 63U; /* |x| < 2^-40: rounds to 0 either way */
+      s = 63U; /* rounds to 0 either way */
     }
   }
   return fmt_point(buf, neg, ip, f, s, frac_digits);

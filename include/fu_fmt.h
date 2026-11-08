@@ -6,9 +6,8 @@
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
  *
- * Each function writes the digits and a terminating NUL to buf, and returns
- * the length without the NUL. buf must hold the matching FU_FMT_*_SIZE, and
- * any of those bytes may be written.
+ * Each writes text + NUL and returns the length; buf needs FU_FMT_*_SIZE bytes,
+ * any of which may be written.
  */
 
 #ifndef FU_FMT_H
@@ -35,20 +34,13 @@ size_t fu_fmt_i32(char *buf, int32_t v);
 /* At least min_digits (0..8) digits, zero-padded; always at least one. */
 size_t fu_fmt_hex32(char *buf, uint32_t v, uint32_t min_digits, bool upper);
 
-/* Q16.16 (v / 65536) and float with frac_digits (0..9) after the point, and
- * no point for 0. The text is exactly printf's "%.*f": the exact binary value
- * correctly rounded, ties to even, and "-" for any negative input, even when
- * it rounds to zero. f32 covers every float, without soft-float: "inf",
- * "-inf", and "nan" (never signed). */
+/* Exactly printf's "%.*f" (correctly rounded, ties to even), frac_digits 0..9.
+ * Every float, no soft-float; NaN prints "nan". */
 size_t fu_fmt_q16(char *buf, int32_t v, uint32_t frac_digits);
 size_t fu_fmt_f32(char *buf, float x, uint32_t frac_digits);
 
-/* snprintf subset: %d %i %u %x %X %c %s %%, and %q for a Q16.16 int32_t.
- * Flags - and 0, width, and precision (both may be *): precision is the
- * fraction digits for %q (default 4, at most 9) and the most characters
- * printed for %s. l is accepted and reads a long; integers print as 32 bits.
- * Writes at most size - 1 characters and a NUL (nothing if size is 0), and
- * returns the length the whole text needs, like snprintf. */
+/* %d %i %u %x %X %c %s %% and %q (Q16.16, .4 default, .9 max); flags - 0,
+ * width, precision, *, l. Truncates and returns the full length. */
 size_t fu_snprintf(char *buf, size_t size, const char *fmt, ...);
 size_t fu_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap);
 

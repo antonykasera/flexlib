@@ -4,9 +4,6 @@
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
- *
- * Each module's tests live in test_<mod>.c as `void test_xxx(void)`. Declare
- * them here and add a TEST_RUN line in main().
  */
 
 #include "test_assert.h"

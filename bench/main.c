@@ -2,13 +2,8 @@
  * @file main.c
  * @brief flexlib bench firmware: cycle counts and golden checks over USB CDC
  *
- * Plug in the Blue Pill's own USB port and open /dev/ttyACM0 (or run
- * `make bench-run`). Each time a terminal opens the port, every case runs and
- * a markdown table prints between "bench begin" / "bench end" markers.
- * PC13 LED on = enumerated.
- *
- * USB is polled and interrupts are off while a case runs, so no ISR lands in
- * a sample.
+ * Runs every time /dev/ttyACM0 opens (`make bench-run`); interrupts are off
+ * while a case runs. PC13 LED on = enumerated.
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

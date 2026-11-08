@@ -42,8 +42,7 @@ probe_fu_sext         max=8   lsl asr udf
 fu_fmt_dec_digits     max=13  no-calls  clz !udiv
 fu_fmt_u32            no-calls  umull ldrh strh !udiv
 fu_fmt_hex32          no-calls  clz rev !udiv !ldrb
-# Q16.16 and float: the rounded fraction is one UMULL; float is decoded from
-# its bits, so no __aeabi_* soft-float (any __ call fails)
+# q16/f32: one UMULL rounds the fraction; no soft-float (__ calls fail)
 fu_fmt_q16            umull !udiv
 fu_fmt_f32            umull !udiv
 fu_vsnprintf          !udiv
