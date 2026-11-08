@@ -63,6 +63,12 @@ void test_fu_parse_q16_vs_exact(void);
 void test_fu_parse_round_trips(void);
 void test_fu_parse_q16_ties(void);
 
+/* --- fu_cobs (test_fu_cobs.c) --- */
+void test_fu_cobs_vectors(void);
+void test_fu_cobs_random(void);
+void test_fu_cobs_malformed(void);
+void test_fu_cobs_rx(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -101,6 +107,11 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fu_parse_q16_vs_exact);
   TEST_RUN(test_fu_parse_round_trips);
   TEST_RUN(test_fu_parse_q16_ties);
+
+  TEST_RUN(test_fu_cobs_vectors);
+  TEST_RUN(test_fu_cobs_random);
+  TEST_RUN(test_fu_cobs_malformed);
+  TEST_RUN(test_fu_cobs_rx);
 
   return TEST_SUMMARY();
 }

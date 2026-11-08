@@ -115,6 +115,17 @@ const BenchGolden bench_golden[] = {
     {"strtoul base 16, 8 digits", 0xA5CCC65FU},
     {"fu_parse_q16, 4 decimals", 0xB0AA1E77U},
     {"strtod * 65536 + lrint, 4 decimals", 0xB0AA1E77U},
+    {"fu_cobs_encode, 64 B random", 0x54FBFFE0U},
+    {"cobs encode byte loop, 64 B random", 0x54FBFFE0U},
+    {"fu_cobs_encode, 64 B 1/4 zeros", 0xC5918DCFU},
+    {"cobs encode byte loop, 64 B 1/4 zeros", 0xC5918DCFU},
+    {"fu_cobs_encode, 256 B random", 0x3A307EB9U},
+    {"cobs encode byte loop, 256 B random", 0x3A307EB9U},
+    {"fu_cobs_decode, 64 B random", 0x5347DF5EU},
+    {"cobs decode byte loop, 64 B random", 0x5347DF5EU},
+    {"fu_cobs_decode, 64 B 1/4 zeros", 0x291D1407U},
+    {"cobs decode byte loop, 64 B 1/4 zeros", 0x291D1407U},
+    {"fu_cobs_rx_byte, 64 B frame + 0", 0x8DAE61B6U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

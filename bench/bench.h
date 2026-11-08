@@ -126,9 +126,9 @@ static inline uint32_t bench_now(void) {
  * the text too */
 #define BENCH_TEXT(name, Tx, conv, expr, buf)                                  \
   BENCH_UNARY_POST(name, Tx, conv, uint32_t, (uint32_t)(expr),                 \
-                   h = bench_hash(h, (buf), (unsigned)out))
+                   h = bench_hash(h, (buf), (unsigned)res))
 
-/* BENCH_UNARY, plus `post` (which sees h and out) after each hash */
+/* BENCH_UNARY, plus `post` (which sees h and res) after each hash */
 #define BENCH_UNARY_POST(name, Tx, conv, Tr, expr, post)                       \
   static uint32_t name(uint32_t *cyc) {                                        \
     _Static_assert(sizeof(Tx) <= 8U, "argument wider than its slot");          \
@@ -147,9 +147,9 @@ static inline uint32_t bench_now(void) {
       BENCH_USE(r);                                                            \
       uint32_t t1 = bench_now();                                               \
       cyc[i] = t1 - t0;                                                        \
-      Tr out = r; /* hashing &r would put a store in the window */             \
-      BENCH_PIN(out);                                                          \
-      h = bench_hash(h, &out, (unsigned)sizeof out);                           \
+      Tr res = r; /* hashing &r would put a store in the window */             \
+      BENCH_PIN(res);                                                          \
+      h = bench_hash(h, &res, (unsigned)sizeof res);                           \
       post;                                                                    \
     }                                                                          \
     return h;                                                                  \
@@ -181,9 +181,9 @@ static inline uint32_t bench_now(void) {
       BENCH_USE(r);                                                            \
       uint32_t t1 = bench_now();                                               \
       cyc[i] = t1 - t0;                                                        \
-      Tr out = r;                                                              \
-      BENCH_PIN(out);                                                          \
-      h = bench_hash(h, &out, (unsigned)sizeof out);                           \
+      Tr res = r;                                                              \
+      BENCH_PIN(res);                                                          \
+      h = bench_hash(h, &res, (unsigned)sizeof res);                           \
     }                                                                          \
     return h;                                                                  \
   }

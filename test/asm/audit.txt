@@ -72,3 +72,8 @@ fu_parse_u32          no-calls  !udiv
 fu_parse_i32          no-calls  !udiv
 fu_parse_hex32        no-calls  !udiv
 fu_parse_q16          no-calls  umull !udiv
+
+# fu_cobs: word loops, no calls (no memcpy)
+fu_cobs_encode        no-calls
+fu_cobs_decode        no-calls
+fu_cobs_rx_byte       no-calls  max=60

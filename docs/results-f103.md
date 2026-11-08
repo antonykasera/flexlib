@@ -64,7 +64,7 @@ rerun it. Method: the Bench section of README.md.
 | fu_fmt_f32, %.2f, 2^-7..2^13 | flexlib | 178 | 182 | 203 | ok |
 | snprintf %.2f, 2^-7..2^13 | newlib | 3230 | 4286 | 5449 | ok |
 | fu_fmt_f32, %.0f, >= 2^32 | flexlib | 334 | 746 | 1485 | ok |
-| snprintf %.0f, >= 2^32 | newlib | 5963 | 9700 | 17071 | ok |
+| snprintf %.0f, >= 2^32 | newlib | 6062 | 9700 | 17150 | ok |
 | fu_snprintf u32 + i32 + hex line | flexlib | 705 | 763 | 838 | ok |
 | fu_snprintf v1 (tmp + memcpy), same line | candidate | 941 | 1039 | 1213 | ok |
 | snprintf u32 + i32 + hex line | newlib | 3232 | 3279 | 3334 | ok |
@@ -117,6 +117,17 @@ rerun it. Method: the Bench section of README.md.
 | strtoul base 16, 8 digits | newlib | 290 | 314 | 356 | ok |
 | fu_parse_q16, 4 decimals | flexlib | 247 | 275 | 316 | ok |
 | strtod * 65536 + lrint, 4 decimals | newlib | 786 | 1332 | 1413 | ok |
+| fu_cobs_encode, 64 B random | flexlib | 329 | 329 | 423 | ok |
+| cobs encode byte loop, 64 B random | candidate | 996 | 996 | 1003 | ok |
+| fu_cobs_encode, 64 B 1/4 zeros | flexlib | 705 | 858 | 914 | ok |
+| cobs encode byte loop, 64 B 1/4 zeros | candidate | 1080 | 1115 | 1129 | ok |
+| fu_cobs_encode, 256 B random | flexlib | 1223 | 1234 | 1270 | ok |
+| cobs encode byte loop, 256 B random | candidate | 3882 | 3886 | 3896 | ok |
+| fu_cobs_decode, 64 B random | flexlib | 308 | 340 | 397 | ok |
+| cobs decode byte loop, 64 B random | candidate | 904 | 904 | 923 | ok |
+| fu_cobs_decode, 64 B 1/4 zeros | flexlib | 875 | 979 | 1113 | ok |
+| cobs decode byte loop, 64 B 1/4 zeros | candidate | 1121 | 1175 | 1221 | ok |
+| fu_cobs_rx_byte, 64 B frame + 0 | flexlib | 2216 | 2216 | 2226 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -126,7 +137,7 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 104 ok, 0 FAIL, 0 missing
+golden: 115 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 
