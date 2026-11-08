@@ -16,6 +16,9 @@
 
 /* ---- counts: 0 in gives the full width (32 or 64) ---- */
 
+/* clz64 / ctz64 branch on the word that decides: 3 / 4 cycles when it's
+ * nonzero, 9 / 11 when it's zero. A branchless MLA form is a constant 6 / 8. */
+
 FX_INLINE uint32_t fu_clz(uint32_t x) { return fx_clz(x); }
 FX_INLINE uint32_t fu_ctz(uint32_t x) { return fx_ctz(x); }
 
@@ -29,8 +32,8 @@ FX_INLINE uint32_t fu_ctz64(uint64_t x) {
   return lo != 0U ? fx_ctz(lo) : 32U + fx_ctz((uint32_t)(x >> 32));
 }
 
-/* SWAR: 13 cycles inlined on the M3. As calls it beat libgcc's
- * __popcountsi2 (17 vs 18) and a 256 B table (24). */
+/* SWAR: 13 cycles inlined on the M3. As a call it ties libgcc's
+ * __popcountsi2 (17), which can't inline, and beats a 256 B table (23). */
 FX_INLINE uint32_t fu_popcount(uint32_t x) {
   x = x - ((x >> 1) & 0x55555555U);
   x = (x & 0x33333333U) + ((x >> 2) & 0x33333333U);

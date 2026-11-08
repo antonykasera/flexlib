@@ -22,7 +22,7 @@ flexutils is under way.
 |---|---|---|
 | `arch/fx_arch.h` (CLZ, RBIT, REV, SSAT/USAT, SMULL/UMULL/SMLAL, barriers) | tests + asm-audit | golden check passes |
 | bench firmware (DWT cycles, USB CDC output, golden check) | builds | runs |
-| `fu_bits` (clz/ctz 32/64, popcount, bswap, endian loads/stores, sign extension) | exhaustive + random tests, asm-audit | pending |
+| `fu_bits` (clz/ctz 32/64, popcount, bswap, endian loads/stores, sign extension) | exhaustive + random tests, asm-audit | bench + golden check |
 
 ## Layout
 
