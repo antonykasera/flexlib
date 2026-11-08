@@ -41,19 +41,19 @@ rerun it. Method: the Bench section of README.md.
 | fu_load_be32, +2 | flexlib | 5 | 5 | 5 | ok |
 | fu_sext(x, 12) | flexlib | 2 | 2 | 2 | ok |
 | fu_sext(x, n) | flexlib | 7 | 7 | 7 | ok |
-| fu_fmt_u32, 10 digits | flexlib | 123 | 124 | 124 | ok |
-| fu_fmt_u32, log | flexlib | 121 | 126 | 129 | ok |
+| fu_fmt_u32, 10 digits | flexlib | 116 | 116 | 116 | ok |
+| fu_fmt_u32, log | flexlib | 46 | 83 | 120 | ok |
+| u32 split at 1e8, no branch, 10 digits | candidate | 123 | 124 | 124 | ok |
+| u32 split at 1e8, no branch, log | candidate | 121 | 126 | 129 | ok |
 | u32 fixed point unrolled, 10 digits | candidate | 117 | 117 | 117 | ok |
 | u32 fixed point unrolled, log | candidate | 40 | 98 | 122 | ok |
-| u32 by 100s loop, 10 digits | candidate | 116 | 116 | 116 | ok |
-| u32 by 100s loop, log | candidate | 46 | 83 | 120 | ok |
 | u32 by 10s, 10 digits | candidate | 173 | 173 | 173 | ok |
 | u32 by 10s, log | candidate | 50 | 103 | 173 | ok |
 | u32 by 10s UDIV, 10 digits | candidate | 185 | 187 | 190 | ok |
 | u32 by 10s UDIV, log | candidate | 50 | 105 | 190 | ok |
 | snprintf %lu, 10 digits | newlib | 1020 | 1022 | 1025 | ok |
 | snprintf %lu, log | newlib | 786 | 885 | 1025 | ok |
-| fu_fmt_i32, log | flexlib | 131 | 144 | 152 | ok |
+| fu_fmt_i32, log | flexlib | 56 | 93 | 130 | ok |
 | fu_fmt_hex32, 8 digits | flexlib | 78 | 78 | 78 | ok |
 | fu_fmt_hex32, minimal | flexlib | 56 | 56 | 78 | ok |
 | hex nibble loop, 8 digits | candidate | 103 | 103 | 103 | ok |

@@ -14,7 +14,7 @@
 
 static char text[16];
 
-/* ---- decimal candidates (fu_fmt_u32: split at 10^8, branch-free) ---- */
+/* ---- decimal candidates (fu_fmt_u32: two digits per step, a loop) ---- */
 
 /* a copy of fu_fmt_dec_digits, inlined here as it is in fu_fmt_u32, so the
  * candidates differ from it only in the digit loop */
@@ -32,26 +32,6 @@ static const char digit_pairs[201] FX_ALIGN_LINE =
     "00010203040506070809101112131415161718192021222324252627282930313233343536"
     "37383940414243444546474849505152535455565758596061626364656667686970717273"
     "7475767778798081828384858687888990919293949596979899";
-
-/* two digits per step, as a loop: v / 100 is one UMULL and a shift */
-BENCH_CALL static size_t u32_by100(char *buf, uint32_t v) {
-  uint32_t n = dec_digits(v);
-  char *p = buf + n;
-  *p = '\0';
-  while (v >= 100U) {
-    uint32_t q = v / 100U;
-    uint32_t r = v - q * 100U;
-    v = q;
-    p -= 2;
-    memcpy(p, &digit_pairs[2U * r], 2U);
-  }
-  if (v >= 10U) {
-    memcpy(p - 2, &digit_pairs[2U * v], 2U);
-  } else {
-    p[-1] = (char)('0' + v);
-  }
-  return n;
-}
 
 /* fixed point per digit count: one UMULL to v / 10^k, then a UMULL by 100 per
  * pair, unrolled with a switch (the version before the split) */
@@ -102,6 +82,47 @@ BENCH_CALL static size_t u32_unrolled(char *buf, uint32_t v) {
     p = put_pair(p, &f);
   }
   *p = '\0';
+  return n;
+}
+
+/* the next two digits of the 0.32 fraction f */
+static inline char *put_pair2(char *p, uint32_t *f) {
+  uint64_t t = (uint64_t)*f * 100U;
+  memcpy(p, &digit_pairs[2U * (uint32_t)(t >> 32)], 2U);
+  *f = (uint32_t)t;
+  return p + 2;
+}
+
+/* All ten digits without a branch, then the last n of them. v splits at 10^8
+ * into hi (0..42, two digits) and lo (eight digits, leading zeros kept).
+ * ((lo * M) >> 19) + 1 is lo / 10^6 in 32.32 fixed point: the +1 keeps it from
+ * rounding below the true value, and M keeps it less than 2^32 / 10^6 above it
+ * for every lo < 10^8. So the integer part is the first pair, and each multiply
+ * of the fraction by 100 yields the next. Exhaustively correct (2^32 inputs) while it was the library version. */
+BENCH_CALL static size_t u32_split(char *buf, uint32_t v) {
+  uint32_t n = dec_digits(v);
+  uint32_t hi = v / 100000000U;
+  uint32_t lo = v - hi * 100000000U;
+
+  /* digits in t[0..9], NUL at t[10]; zeros up to t[19] so the fixed 11-byte
+   * copy below never reads uninitialised bytes */
+  uint32_t tmp[5];
+  char *t = (char *)tmp;
+  tmp[3] = 0U;
+  tmp[4] = 0U;
+  memcpy(t, &digit_pairs[2U * hi], 2U);
+  uint64_t y = (((uint64_t)lo * 2251799814U) >> 19) + 1U;
+  memcpy(t + 2, &digit_pairs[2U * (uint32_t)(y >> 32)], 2U);
+  uint32_t f = (uint32_t)y;
+  char *p = put_pair2(t + 4, &f);
+  p = put_pair2(p, &f);
+  p = put_pair2(p, &f);
+  p[0] = '\0';
+  p[1] = '\0';
+
+  const char *s = t + 10U - n;
+  memcpy(buf, s, 8U);
+  memcpy(buf + 8, s + 8, 3U);
   return n;
 }
 
@@ -162,10 +183,10 @@ static inline int32_t in_logs(uint32_t u) { return (int32_t)u >> (u & 31U); }
 
 BENCH_TEXT(b_u32_10, uint32_t, in_10dig, fu_fmt_u32(text, x), text)
 BENCH_TEXT(b_u32_log, uint32_t, in_logu, fu_fmt_u32(text, x), text)
+BENCH_TEXT(b_split_10, uint32_t, in_10dig, u32_split(text, x), text)
+BENCH_TEXT(b_split_log, uint32_t, in_logu, u32_split(text, x), text)
 BENCH_TEXT(b_unrolled_10, uint32_t, in_10dig, u32_unrolled(text, x), text)
 BENCH_TEXT(b_unrolled_log, uint32_t, in_logu, u32_unrolled(text, x), text)
-BENCH_TEXT(b_by100_10, uint32_t, in_10dig, u32_by100(text, x), text)
-BENCH_TEXT(b_by100_log, uint32_t, in_logu, u32_by100(text, x), text)
 BENCH_TEXT(b_by10_10, uint32_t, in_10dig, u32_by10(text, x), text)
 BENCH_TEXT(b_by10_log, uint32_t, in_logu, u32_by10(text, x), text)
 BENCH_TEXT(b_udiv_10, uint32_t, in_10dig, u32_udiv(text, x), text)
@@ -188,10 +209,10 @@ BENCH_UNARY(b_digits, uint32_t, in_logu, uint32_t, fu_fmt_dec_digits(x))
 static const BenchCase cases[] = {
     {"fu_fmt_u32, 10 digits", "flexlib", b_u32_10, true},
     {"fu_fmt_u32, log", "flexlib", b_u32_log, true},
+    {"u32 split at 1e8, no branch, 10 digits", "candidate", b_split_10, true},
+    {"u32 split at 1e8, no branch, log", "candidate", b_split_log, true},
     {"u32 fixed point unrolled, 10 digits", "candidate", b_unrolled_10, true},
     {"u32 fixed point unrolled, log", "candidate", b_unrolled_log, true},
-    {"u32 by 100s loop, 10 digits", "candidate", b_by100_10, true},
-    {"u32 by 100s loop, log", "candidate", b_by100_log, true},
     {"u32 by 10s, 10 digits", "candidate", b_by10_10, true},
     {"u32 by 10s, log", "candidate", b_by10_log, true},
     {"u32 by 10s UDIV, 10 digits", "candidate", b_udiv_10, true},

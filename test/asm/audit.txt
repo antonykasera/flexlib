@@ -37,8 +37,8 @@ probe_fu_sext12       max=2   sbfx
 # with the FX_ASSERT range check: cmp, branch, udf
 probe_fu_sext         max=8   lsl asr udf
 
-# fu_fmt.c: decimal has no divide and no branch (!b also rejects every
-# conditional branch); the 2-byte copies are LDRH/STRH. Hex is SWAR, no table.
+# fu_fmt.c: decimal divides by constants with UMULL, never UDIV; the 2-byte
+# copies are LDRH/STRH. Hex is SWAR, no table.
 fu_fmt_dec_digits     max=13  no-calls  clz !udiv
-fu_fmt_u32            no-calls  umull ldrh strh !udiv !b !cbz !cbnz
+fu_fmt_u32            no-calls  umull ldrh strh !udiv
 fu_fmt_hex32          no-calls  clz rev !udiv !ldrb
