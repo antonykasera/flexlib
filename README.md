@@ -70,6 +70,11 @@ The bench needs the submodules: `git submodule update --init`.
   fixed pseudo-random inputs, and reports min, median and max. Interrupts are
   off while it times, and USB is polled. The cost of reading the counter is
   measured and subtracted.
+- Each case first runs once untimed, so the numbers are warm. The bench board
+  is an F103 clone (CPUID 0x412FC230) whose flash behaves like a cache with
+  32-byte lines: the first fetch of a line costs about 110 cycles, and later
+  ones are fast. A genuine STM32F103 has no cache (2 wait states plus a
+  prefetch buffer), so its timings may differ, especially for table lookups.
 - Built at `-O2` without LTO, so library functions are timed as real calls.
   libm is prebuilt newlib, so its numbers don't depend on the bench's flags.
 - `make bench-windows` lists the exact instructions between the two counter
@@ -81,6 +86,8 @@ The bench needs the submodules: `git submodule update --init`.
   no longer pipelines with the first. A single-instruction case shows 2. With
   GCC, a 16-bit argument costs one extra SXTH. The `empty, int16 arg` row
   measures both effects.
+- Samples above 2 x median + 4 are counted per case and listed by input
+  index under the table, so data-dependent timing stands out.
 
 ## Results
 

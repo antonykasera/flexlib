@@ -54,21 +54,37 @@ static void sort_u32(uint32_t *v, unsigned n) {
 
 uint32_t bench_overhead(uint32_t cyc[BENCH_N]) {
   (void)b_empty(cyc);
+  (void)b_empty(cyc);
   sort_u32(cyc, BENCH_N);
   return cyc[BENCH_N / 2U];
 }
 
 BenchResult bench_run(const BenchCase *c, uint32_t overhead,
                       uint32_t cyc[BENCH_N]) {
+  static uint32_t sorted[BENCH_N];
   BenchResult r;
+  /* untimed warm-up: the first pass over code and tables pays cold flash
+   * fetches (about 110 cycles per 32-byte line on the bench board) */
+  (void)c->fn(cyc);
   r.hash = c->fn(cyc);
   for (unsigned i = 0U; i < BENCH_N; i++) {
     cyc[i] = cyc[i] > overhead ? cyc[i] - overhead : 0U;
+    sorted[i] = cyc[i];
   }
-  sort_u32(cyc, BENCH_N);
-  r.min = cyc[0];
-  r.median = cyc[BENCH_N / 2U];
-  r.max = cyc[BENCH_N - 1U];
+  sort_u32(sorted, BENCH_N);
+  r.min = sorted[0];
+  r.median = sorted[BENCH_N / 2U];
+  r.max = sorted[BENCH_N - 1U];
+
+  r.n_slow = 0U;
+  for (unsigned i = 0U; i < BENCH_N; i++) {
+    if (cyc[i] > 2U * r.median + 4U) {
+      if (r.n_slow < BENCH_SLOW_LIST) {
+        r.slow_at[r.n_slow] = (uint16_t)i;
+      }
+      r.n_slow++;
+    }
+  }
   return r;
 }
 

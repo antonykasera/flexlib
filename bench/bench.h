@@ -59,19 +59,26 @@ typedef enum {
   BENCH_GOLDEN_SKIP,    /* not a golden case */
 } BenchGoldenStatus;
 
+#define BENCH_SLOW_LIST 4U
+
 typedef struct {
   uint32_t min;
   uint32_t median; /* upper median */
   uint32_t max;
   uint32_t hash;
+  uint32_t n_slow;                   /* samples above 2 * median + 4 */
+  uint16_t slow_at[BENCH_SLOW_LIST]; /* input indices of the first ones */
 } BenchResult;
 
 void bench_inputs_init(void);
 
+/* Both run their case once untimed first, so samples are warm. */
+
 /* Runs the empty case: the cycles a pair of CYCCNT reads adds to a sample. */
 uint32_t bench_overhead(uint32_t cyc[BENCH_N]);
 
-/* Runs c, subtracts overhead from every sample (clamped at 0). */
+/* Runs c, subtracts overhead from every sample (clamped at 0). cyc keeps the
+ * samples in input order. */
 BenchResult bench_run(const BenchCase *c, uint32_t overhead,
                       uint32_t cyc[BENCH_N]);
 

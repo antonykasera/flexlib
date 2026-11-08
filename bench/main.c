@@ -93,8 +93,39 @@ static void print_row(const char *name, const char *impl, uint32_t min,
   print(" |\r\n");
 }
 
+typedef struct {
+  const BenchCase *c;
+  BenchResult r;
+} SlowCase;
+
+static void print_slow(const SlowCase *s, unsigned n) {
+  print("\r\nslow samples (above 2 x median + 4), by input index:\r\n\r\n");
+  print("| case | samples | max | at input |\r\n");
+  print("|---|--:|--:|---|\r\n");
+  for (unsigned k = 0U; k < n; k++) {
+    print("| ");
+    print(s[k].c->name);
+    print(" | ");
+    print_u32(s[k].r.n_slow);
+    print(" | ");
+    print_u32(s[k].r.max);
+    print(" | ");
+    uint32_t listed = s[k].r.n_slow < BENCH_SLOW_LIST ? s[k].r.n_slow
+                                                      : BENCH_SLOW_LIST;
+    for (uint32_t j = 0U; j < listed; j++) {
+      if (j > 0U) {
+        print(", ");
+      }
+      print_u32(s[k].r.slow_at[j]);
+    }
+    print(s[k].r.n_slow > BENCH_SLOW_LIST ? ", ... |\r\n" : " |\r\n");
+  }
+}
+
 static void run_all(void) {
   static const char *const golden_str[] = {"ok", "**FAIL**", "missing", "-"};
+  static SlowCase slow[32];
+  unsigned n_slow = 0U;
   unsigned count[4] = {0U, 0U, 0U, 0U};
 
   __disable_irq();
@@ -129,7 +160,15 @@ static void run_all(void) {
       BenchGoldenStatus st = bench_golden_check(c, r.hash);
       count[st]++;
       print_row(c->name, c->impl, r.min, r.median, r.max, golden_str[st]);
+      if (r.n_slow > 0U && n_slow < BENCH_COUNT(slow)) {
+        slow[n_slow].c = c;
+        slow[n_slow].r = r;
+        n_slow++;
+      }
     }
+  }
+  if (n_slow > 0U) {
+    print_slow(slow, n_slow);
   }
 
   print("\r\ngolden: ");
