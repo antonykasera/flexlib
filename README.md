@@ -84,7 +84,8 @@ The bench needs the submodules: `git submodule update --init`.
 
 ## Results
 
-Pending.
+[docs/results-f103.md](docs/results-f103.md): the arch layer and the libm
+and CMSIS-DSP baselines. Library results follow with the modules.
 
 ## License
 
