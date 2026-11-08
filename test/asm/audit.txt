@@ -81,3 +81,12 @@ fu_cobs_rx_byte       no-calls  max=60
 # fu_debounce.h: the vertical counter is branch-free
 probe_fu_debounce32   max=16  no-calls  !b !cbz !cbnz
 probe_fu_debounce     max=36  no-calls
+
+# fu_rand: inline generators (xoshiro rotates fold into shifted operands);
+# below() is a UMULL, with UDIV only on rejection
+probe_fu_xorshift32   max=8   no-calls
+probe_fu_xoshiro128ss max=16  no-calls
+probe_fx_rotl32       max=4   ror
+probe_fu_xoshiro128_below  umull !udiv
+fu_xoshiro128_below_slow   no-calls  udiv
+fu_xoshiro128_jump    no-calls

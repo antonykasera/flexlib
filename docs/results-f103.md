@@ -60,7 +60,7 @@ rerun it. Method: the Bench section of README.md.
 | hex nibble loop, minimal | candidate | 40 | 67 | 103 | ok |
 | fu_fmt_dec_digits | flexlib | 20 | 20 | 20 | ok |
 | fu_fmt_q16, %.4f, log | flexlib | 151 | 154 | 190 | ok |
-| snprintf %.4f of q16, log | newlib | 1837 | 4358 | 6736 | ok |
+| snprintf %.4f of q16, log | newlib | 1837 | 4282 | 6350 | ok |
 | fu_fmt_f32, %.2f, 2^-7..2^13 | flexlib | 178 | 182 | 203 | ok |
 | snprintf %.2f, 2^-7..2^13 | newlib | 3230 | 4286 | 5449 | ok |
 | fu_fmt_f32, %.0f, >= 2^32 | flexlib | 334 | 746 | 1485 | ok |
@@ -131,6 +131,12 @@ rerun it. Method: the Bench section of README.md.
 | fu_debounce32, 32 inputs per tick (inline) | flexlib | 20 | 20 | 20 | ok |
 | fu_debounce, 1 input per tick (inline) | flexlib | 18 | 18 | 24 | ok |
 | 16 x fu_debounce, 16 inputs per tick | candidate | 361 | 379 | 404 | ok |
+| fu_xorshift32 (inline) | flexlib | 8 | 8 | 8 | ok |
+| fu_xoshiro128ss (inline) | flexlib | 22 | 22 | 22 | ok |
+| fu_xoshiro128_below(100), unbiased | flexlib | 33 | 33 | 33 | ok |
+| xoshiro128** % 100 (UDIV, biased) | candidate | 36 | 38 | 38 | ok |
+| rand() | newlib | 43 | 44 | 44 | - |
+| fu_xoshiro128_jump (2^64 steps) | flexlib | 3268 | 3268 | 3268 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -140,7 +146,7 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 118 ok, 0 FAIL, 0 missing
+golden: 123 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

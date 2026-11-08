@@ -47,6 +47,9 @@ void test_fx_rbit_rev(void) {
   ASSERT_EQ(fx_rbit(0x12345678U), 0x1E6A2C48U);
   ASSERT_EQ(fx_rev(0x12345678U), 0x78563412U);
   ASSERT_EQ(fx_rev16(0x12345678U), 0x34127856U);
+  ASSERT_EQ(fx_rotl32(0x80000001U, 1U), 0x00000003U);
+  ASSERT_EQ(fx_rotl32(0x12345678U, 0U), 0x12345678U);
+  ASSERT_EQ(fx_rotl32(0x12345678U, 8U), 0x34567812U);
 
   uint64_t s = 1U;
   for (int i = 0; i < 100000; i++) {

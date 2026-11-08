@@ -129,6 +129,11 @@ const BenchGolden bench_golden[] = {
     {"fu_debounce32, 32 inputs per tick (inline)", 0x1B107745U},
     {"fu_debounce, 1 input per tick (inline)", 0x1F116DC5U},
     {"16 x fu_debounce, 16 inputs per tick", 0x722DB875U},
+    {"fu_xorshift32 (inline)", 0x400E0CD4U},
+    {"fu_xoshiro128ss (inline)", 0x89C353F5U},
+    {"fu_xoshiro128_below(100), unbiased", 0xC3ED6D3AU},
+    {"xoshiro128** % 100 (UDIV, biased)", 0x52991E83U},
+    {"fu_xoshiro128_jump (2^64 steps)", 0x061C701AU},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

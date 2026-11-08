@@ -74,6 +74,10 @@ void test_fu_debounce32_vs_reference(void);
 void test_fu_debounce_vs_reference(void);
 void test_fu_debounce_glitch(void);
 
+/* --- fu_rand (test_fu_rand.c) --- */
+void test_fu_rand_known_answers(void);
+void test_fu_rand_below(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -121,6 +125,9 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fu_debounce32_vs_reference);
   TEST_RUN(test_fu_debounce_vs_reference);
   TEST_RUN(test_fu_debounce_glitch);
+
+  TEST_RUN(test_fu_rand_known_answers);
+  TEST_RUN(test_fu_rand_below);
 
   return TEST_SUMMARY();
 }

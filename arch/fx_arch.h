@@ -86,6 +86,11 @@ FX_INLINE uint32_t fx_rbit(uint32_t x) {
 
 FX_INLINE uint32_t fx_rev(uint32_t x) { return __builtin_bswap32(x); }
 
+/* rotate left by k (0..31); one ROR */
+FX_INLINE uint32_t fx_rotl32(uint32_t x, uint32_t k) {
+  return (x << (k & 31U)) | (x >> ((32U - k) & 31U));
+}
+
 /* swap the bytes within each halfword (REV16) */
 FX_INLINE uint32_t fx_rev16(uint32_t x) {
   return ((x & 0x00FF00FFU) << 8) | ((x >> 8) & 0x00FF00FFU);

@@ -15,8 +15,7 @@ on [flex](https://github.com/antonykasera/STM32F1-HAL).
 
 ## Status
 
-Early: the arch layer, test harness and bench firmware are in place, and
-flexutils is under way.
+flexutils is complete; flexmath is next.
 
 | Part | Host | Board |
 |---|---|---|
@@ -30,6 +29,7 @@ flexutils is under way.
 | `fu_parse` (u32, i32, hex, Q16.16 correctly rounded; bounded input, status return) | all 2^32 inputs read back from fu_fmt, Q16.16 against an exact reference and at every kind of rounding tie, asm-audit | bench + golden check |
 | `fu_cobs` (COBS encode, strict in-place decode, byte-at-a-time receiver) | reference vectors, random frames against a byte-wise encoder, malformed input, receiver against the block decoder, asm-audit | bench + golden check |
 | `fu_debounce` (integrator for one input, branch-free vertical counter for 32) | against per-input reference counters on bouncing streams, glitch properties, asm-audit | bench + golden check |
+| `fu_rand` (xorshift32, xoshiro128** with jump, unbiased bounded draws) | known answers from an independent implementation, jump checked against the transition matrix, xorshift32 period over all 2^32 states, uniformity and bias tests, asm-audit | bench + golden check |
 
 ## Layout
 
@@ -66,7 +66,7 @@ Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
 |---|---|
 | `make` | `host-test`, `cross`, `lint`, `asm-audit` |
 | `make host-test [HOST_CC=clang]` | host tests with ASan + UBSan |
-| `make exhaustive` | checks functions of one 32-bit input on every input (~2.5 min on 12 cores) |
+| `make exhaustive` | checks every 32-bit input or state where that is possible (~2.5 min on 12 cores) |
 | `make exhaustive-slow` | the same for q16 and float text, against the C library's `%.*f` (~13 min on 12 cores) |
 | `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |
