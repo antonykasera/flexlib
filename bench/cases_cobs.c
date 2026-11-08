@@ -61,28 +61,38 @@ BENCH_CALL static bool dec_bytes(uint8_t *d, const uint8_t *s, size_t n,
 /* ---- data: "random" has a 0 about 1 byte in 256, "sparse" 1 in 4 ---- */
 
 #define FRAMES 8U
-static uint8_t data_rand[FRAMES * 64U + 256U];
-static uint8_t data_sparse[FRAMES * 64U];
-static uint8_t enc_rand[FRAMES][FU_COBS_MAX(64U)];
-static uint8_t enc_sparse[FRAMES][FU_COBS_MAX(64U)];
+#define ENC_MAX FU_COBS_MAX(64U)
+#define RAND_LEN (FRAMES * 64U + 256U)
+/* in bench_scratch: data_rand, data_sparse, enc_rand, enc_sparse, out, rxbuf */
+static uint8_t *const data_rand = bench_scratch;
+static uint8_t *const data_sparse = bench_scratch + RAND_LEN;
+static uint8_t (*const enc_rand)[ENC_MAX] =
+    (uint8_t (*)[ENC_MAX])(bench_scratch + RAND_LEN + FRAMES * 64U);
+static uint8_t (*const enc_sparse)[ENC_MAX] =
+    (uint8_t (*)[ENC_MAX])(bench_scratch + RAND_LEN + FRAMES * (64U + ENC_MAX));
+static uint8_t *const out =
+    bench_scratch + RAND_LEN + FRAMES * (64U + 2U * ENC_MAX);
+static uint8_t *const rxbuf =
+    bench_scratch + RAND_LEN + FRAMES * (64U + 2U * ENC_MAX) + 300U;
+_Static_assert(RAND_LEN + FRAMES * (64U + 2U * ENC_MAX) + 364U <=
+                   BENCH_SCRATCH_SIZE,
+               "cobs data");
 static uint8_t enc_rand_len[FRAMES];
 static uint8_t enc_sparse_len[FRAMES];
-static uint8_t out[300];
-static uint8_t rxbuf[64];
 static FU_CobsRx rx;
 
 static void data_init(void) {
-  static bool done;
-  if (done) {
+  static const char id = 0;
+  if (!bench_scratch_claim(&id)) {
     return;
   }
   uint32_t s = 0x9E3779B9U;
-  for (size_t i = 0U; i < sizeof data_rand; i++) {
+  for (size_t i = 0U; i < RAND_LEN; i++) {
     s ^= s << 13;
     s ^= s >> 17;
     s ^= s << 5;
     data_rand[i] = (uint8_t)(s >> 24);
-    if (i < sizeof data_sparse) {
+    if (i < FRAMES * 64U) {
       data_sparse[i] = (s & 3U) == 0U ? 0U : (uint8_t)(1U + (s >> 8) % 255U);
     }
   }
@@ -92,8 +102,7 @@ static void data_init(void) {
     enc_sparse_len[f] =
         (uint8_t)fu_cobs_encode(enc_sparse[f], &data_sparse[64U * f], 64U);
   }
-  fu_cobs_rx_init(&rx, rxbuf, sizeof rxbuf);
-  done = true;
+  fu_cobs_rx_init(&rx, rxbuf, 64U);
 }
 
 /* the frame to use */
@@ -114,7 +123,7 @@ BENCH_CALL static uint32_t rx_frame(const uint8_t *e, size_t n) {
 }
 
 #define OUT_HASH h = bench_hash(h, out, (unsigned)dec_len)
-#define RX_HASH h = bench_hash(h, rxbuf, sizeof rxbuf)
+#define RX_HASH h = bench_hash(h, rxbuf, 64U)
 
 BENCH_TEXT(c_enc_rand, uint32_t, in_frame,
            fu_cobs_encode(out, &data_rand[64U * x], 64U), out)

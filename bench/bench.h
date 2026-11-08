@@ -33,6 +33,12 @@ extern volatile uint32_t bench_in[BENCH_N];
 extern uint8_t bench_arg_a[BENCH_N * 8U];
 extern uint8_t bench_arg_b[BENCH_N * 8U];
 
+/* Bytes the case groups share, since only one runs at a time. Claim it with
+ * an id of your own before use: true means another group wrote it since. */
+#define BENCH_SCRATCH_SIZE 3584U
+extern uint8_t bench_scratch[BENCH_SCRATCH_SIZE];
+bool bench_scratch_claim(const void *id);
+
 typedef uint32_t (*BenchFn)(uint32_t cyc[BENCH_N]); /* returns the hash */
 
 typedef struct {

@@ -82,12 +82,16 @@ BENCH_CALL static FU_ParseStatus hex_branch(const char *s, size_t len,
 
 /* ---- inputs: text made by fu_fmt, one entry per bench input ---- */
 
-static char text[BENCH_N][12]; /* "-32768.0000" is the longest */
-static uint8_t text_len[BENCH_N];
+/* in bench_scratch; "-32768.0000" is the longest text */
+static char (*const text)[12] = (char (*)[12])bench_scratch;
+static uint8_t *const text_len = bench_scratch + BENCH_N * 12U;
+_Static_assert(BENCH_N * 13U <= BENCH_SCRATCH_SIZE, "parse data");
 static unsigned slot;
 
 /* stores the text for the next input and returns its index */
 static uint32_t put_text(const char *s, size_t n) {
+  static const char id = 0;
+  (void)bench_scratch_claim(&id);
   unsigned k = slot++ % BENCH_N;
   memcpy(text[k], s, n);
   text[k][n] = '\0';

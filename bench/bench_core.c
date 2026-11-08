@@ -12,6 +12,14 @@
 volatile uint32_t bench_in[BENCH_N];
 uint8_t bench_arg_a[BENCH_N * 8U] __attribute__((aligned(8)));
 uint8_t bench_arg_b[BENCH_N * 8U] __attribute__((aligned(8)));
+uint8_t bench_scratch[BENCH_SCRATCH_SIZE] __attribute__((aligned(32)));
+
+bool bench_scratch_claim(const void *id) {
+  static const void *owner;
+  bool changed = owner != id;
+  owner = id;
+  return changed;
+}
 
 extern const BenchGroup bench_group_arch;
 extern const BenchGroup bench_group_bits;
@@ -20,6 +28,7 @@ extern const BenchGroup bench_group_crc;
 extern const BenchGroup bench_group_ring;
 extern const BenchGroup bench_group_parse;
 extern const BenchGroup bench_group_cobs;
+extern const BenchGroup bench_group_debounce;
 extern const BenchGroup bench_group_libm;
 #ifdef BENCH_HAVE_CMSIS_DSP
 extern const BenchGroup bench_group_cmsis;
@@ -33,6 +42,7 @@ const BenchGroup *const bench_groups[] = {
     &bench_group_ring,
     &bench_group_parse,
     &bench_group_cobs,
+    &bench_group_debounce,
     &bench_group_libm,
 #ifdef BENCH_HAVE_CMSIS_DSP
     &bench_group_cmsis,

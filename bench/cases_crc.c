@@ -209,19 +209,19 @@ BENCH_CALL static uint32_t maxim_byte(const uint8_t *p, size_t len) {
 
 /* ---- inputs: an offset into fixed pseudo-random data ---- */
 
-static uint8_t data[512];
+#define DATA_LEN 512U
+static uint8_t *const data = bench_scratch;
 
 static void data_init(void) {
-  static bool done;
-  if (!done) {
+  static const char id = 0;
+  if (bench_scratch_claim(&id)) {
     uint32_t s = 0x2545F491U;
-    for (size_t i = 0U; i < sizeof data; i++) {
+    for (size_t i = 0U; i < DATA_LEN; i++) {
       s ^= s << 13;
       s ^= s >> 17;
       s ^= s << 5;
       data[i] = (uint8_t)(s >> 24);
     }
-    done = true;
   }
 }
 

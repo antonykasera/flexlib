@@ -11,10 +11,12 @@
 #include "fu_bits.h"
 #include "fu_ring.h"
 
-static uint8_t rbuf[256] __attribute__((aligned(4)));
-static FU_Ring ring = {rbuf, 255U, 0U, 0U};
-static uint8_t src[64] __attribute__((aligned(4)));
-static uint8_t dst[64] __attribute__((aligned(4)));
+/* in bench_scratch: the ring's 256 B, src 64, dst 64, the queue's 96, dma 128 */
+static uint8_t *const src = bench_scratch + 256;
+static uint8_t *const dst = bench_scratch + 320;
+static uint8_t *const dma = bench_scratch + 480;
+_Static_assert(608U <= BENCH_SCRATCH_SIZE, "ring data");
+static FU_Ring ring = {bench_scratch, 255U, 0U, 0U};
 
 /* ---- candidates: fu_ring_write / fu_ring_read with another copy ---- */
 
@@ -106,8 +108,7 @@ static inline uint32_t put_get(uint32_t off) {
 }
 
 /* 12-byte elements, e.g. CAN frames */
-static uint8_t qbuf[8 * 12] __attribute__((aligned(4)));
-static FU_Queue queue = {qbuf, 7U, 12U, 0U, 0U};
+static FU_Queue queue = {bench_scratch + 384, 7U, 12U, 0U, 0U};
 
 BENCH_CALL static uint32_t q_lib(uint32_t off) {
   queue.head = off;
@@ -117,30 +118,31 @@ BENCH_CALL static uint32_t q_lib(uint32_t off) {
 }
 
 /* 64 new bytes in a 128-byte circular DMA buffer, moved and read dst */
-static uint8_t dma[128] __attribute__((aligned(4)));
 
 BENCH_CALL static uint32_t dma_lib(uint32_t off) {
   ring.head = off;
   ring.tail = off;
   size_t pos = off & 127U;
   size_t remaining = 128U - ((pos + 64U) & 127U);
-  size_t k = fu_ring_from_dma(&ring, dma, sizeof dma, &pos, remaining);
+  size_t k = fu_ring_from_dma(&ring, dma, 128U, &pos, remaining);
   return (uint32_t)(k + fu_ring_read(&ring, dst, 64U));
 }
 
 /* ---- inputs: the ring position, so 1 in 4 transfers of 64 B wraps ---- */
 
 static inline uint32_t in_off(uint32_t u) {
-  for (size_t i = 0U; i < sizeof src; i++) {
+  static const char id = 0;
+  (void)bench_scratch_claim(&id);
+  for (size_t i = 0U; i < 64U; i++) {
     src[i] = (uint8_t)(i * 7U + 3U);
   }
-  for (size_t i = 0U; i < sizeof dma; i++) {
+  for (size_t i = 0U; i < 128U; i++) {
     dma[i] = (uint8_t)(i * 13U + 5U);
   }
   return u;
 }
 
-#define OUT_HASH h = bench_hash(h, dst, sizeof dst)
+#define OUT_HASH h = bench_hash(h, dst, 64U)
 
 BENCH_UNARY_POST(b_rt64, uint32_t, in_off, uint32_t, rt_lib(x, 64U), OUT_HASH)
 BENCH_UNARY_POST(b_rt64_word, uint32_t, in_off, uint32_t, rt_word(x, 64U),
