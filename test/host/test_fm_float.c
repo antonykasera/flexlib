@@ -259,3 +259,85 @@ void test_fm_sinf_cosf(void) {
   ASSERT_STATS_MAX(&es, 0.515);
   ASSERT_STATS_MAX(&ec, 0.515);
 }
+
+static void check_atan2(float y, float x, ErrStats *es) {
+  float r = fm_atan2f(y, x);
+  double ref = atan2((double)y, (double)x);
+  stats_add(es, (double)y, ulp_err_f32(r, ref));
+}
+
+void test_fm_atan2f(void) {
+  const float pi = 3.14159265f;
+  const float pi2 = 1.57079633f;
+  const float pi4 = 0.785398163f;
+  ASSERT_EQ(f2u(fm_atan2f(0.0f, 1.0f)), 0x00000000U);
+  ASSERT_EQ(f2u(fm_atan2f(-0.0f, 1.0f)), 0x80000000U);
+  ASSERT_EQ(f2u(fm_atan2f(0.0f, -1.0f)), f2u(pi));
+  ASSERT_EQ(f2u(fm_atan2f(-0.0f, -0.0f)), f2u(-pi));
+  ASSERT_EQ(f2u(fm_atan2f(0.0f, 0.0f)), 0x00000000U);
+  ASSERT_EQ(f2u(fm_atan2f(-2.0f, 0.0f)), f2u(-pi2));
+  ASSERT_EQ(f2u(fm_atan2f(INFINITY, INFINITY)), f2u(pi4));
+  ASSERT_EQ(f2u(fm_atan2f(-INFINITY, -INFINITY)), f2u(-3.0f * pi4));
+  ASSERT_EQ(f2u(fm_atan2f(INFINITY, -5.0f)), f2u(pi2));
+  ASSERT_EQ(f2u(fm_atan2f(3.0f, -INFINITY)), f2u(pi));
+  ASSERT_EQ(f2u(fm_atan2f(-3.0f, INFINITY)), 0x80000000U);
+  ASSERT_EQ(f2u(fm_atan2f(u2f(0x7F800123U), 1.0f)), 0x7FC00123U);
+  ASSERT_EQ(f2u(fm_atan2f(1.0f, u2f(0xFF800321U))), 0xFFC00321U);
+  ASSERT_EQ(f2u(fm_atan2f(u2f(0x7FC00001U), u2f(0x7FC00002U))), 0x7FC00001U);
+  ASSERT_EQ(f2u(fm_atan2f(1.0f, 1.0f)), f2u(pi4));
+  ASSERT_EQ(f2u(fm_atan2f(1.0f, -1.0f)), f2u(3.0f * pi4));
+  ASSERT_EQ(f2u(fm_atan2f(0x1p-141f, 0x1p10f)), 0x00000000U); /* underflows */
+  ErrStats es;
+  stats_init(&es, "fm_atan2f, random pairs", "ulp");
+  check_atan2(0x1p-130f, 0x1.8p2f, &es); /* subnormal result */
+  for (int k = -40; k <= 40; k++) { /* equal mantissas, every gap */
+    check_atan2(ldexpf(1.25f, k), 1.25f, &es);
+    check_atan2(1.75f, ldexpf(-1.75f, k), &es);
+  }
+  check_atan2(u2f(0x00000001U), u2f(0x00000003U), &es);
+  check_atan2(u2f(0x7F7FFFFFU), u2f(0x00000001U), &es);
+  uint64_t st = 191U;
+  for (int i = 0; i < 1000000; i++) {
+    uint32_t u = test_rng_u32(&st);
+    uint32_t v = test_rng_u32(&st);
+    if ((i & 1) != 0) { /* close magnitudes */
+      v = (v & 0x80FFFFFFU) | ((u & 0x7F000000U) + 0x01000000U * (v >> 30));
+    }
+    float y = u2f(u);
+    float x = u2f(v);
+    if (isnan(y) || isnan(x) || isinf(y) || isinf(x)) {
+      continue;
+    }
+    check_atan2(y, x, &es);
+  }
+  ASSERT_STATS_MAX(&es, 0.545);
+}
+
+void test_fm_asinf_acosf(void) {
+  ASSERT_EQ(f2u(fm_asinf(-0.0f)), 0x80000000U);
+  ASSERT_EQ(f2u(fm_asinf(u2f(0x00000005U))), 0x00000005U);
+  ASSERT_EQ(f2u(fm_asinf(1.0f)), 0x3FC90FDBU);
+  ASSERT_EQ(f2u(fm_asinf(-1.0f)), 0xBFC90FDBU);
+  ASSERT_EQ(f2u(fm_acosf(1.0f)), 0x00000000U);
+  ASSERT_EQ(f2u(fm_acosf(-1.0f)), 0x40490FDBU);
+  ASSERT_EQ(f2u(fm_acosf(0.0f)), 0x3FC90FDBU);
+  ASSERT_EQ(f2u(fm_asinf(1.0000001f)), 0x7FC00000U);
+  ASSERT_EQ(f2u(fm_acosf(-INFINITY)), 0x7FC00000U);
+  ASSERT_EQ(f2u(fm_asinf(u2f(0xFF800001U))), 0xFFC00001U);
+  for (uint32_t b = 0x00800000U; b < 0x39800000U; b += 4099U) {
+    ASSERT_EQ(f2u(fm_asinf(u2f(b))), b); /* |x| < 2^-12 */
+  }
+  ErrStats es;
+  ErrStats ec;
+  stats_init(&es, "fm_asinf, every 64th float", "ulp");
+  stats_init(&ec, "fm_acosf, every 64th float", "ulp");
+  for (uint32_t b = 0U; b < 0x3F800000U; b += 64U) {
+    for (uint32_t sg = 0U; sg < 2U; sg++) {
+      float x = u2f(b | sg << 31);
+      stats_add(&es, (double)x, ulp_err_f32(fm_asinf(x), asin((double)x)));
+      stats_add(&ec, (double)x, ulp_err_f32(fm_acosf(x), acos((double)x)));
+    }
+  }
+  ASSERT_STATS_MAX(&es, 0.545);
+  ASSERT_STATS_MAX(&ec, 0.545);
+}

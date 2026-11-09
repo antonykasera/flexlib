@@ -84,6 +84,14 @@ def trig_poly():
             [round(abs(c) * 2**31) for c in u], tu, uu)
 
 
+def atan_poly():
+    """atan s = s (1 - z T(z)), z = s^2 <= tan^2(pi/8), T degree 4 fitted for
+    relative error; |coefficients| in Q31 (the signs alternate)."""
+    z = np.linspace(0.0, math.tan(math.pi / 8) ** 2, 8001)
+    t = sum((-1) ** k * z**k / (2 * k + 3) for k in range(60))
+    return [round(abs(c) * 2**31) for c in lawson(t, z, z, 4)]
+
+
 def main():
     # x normalized to [2^30, 2^32), indexed by its top 7 bits (32..127):
     # sqrt at the bucket's midpoint, and 1/sqrt / 2 in Q15
@@ -122,6 +130,7 @@ def main():
         emit("fm_cosf_poly", "uint32_t", cosf_poly),
         emit("fm_sinf_upoly", "uint32_t", sinf_upoly),
         emit("fm_cosf_upoly", "uint32_t", cosf_upoly),
+        emit("fm_atanf_poly", "uint32_t", atan_poly()),
     ]))
 
 

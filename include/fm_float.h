@@ -28,4 +28,13 @@ float fm_sinf(float x);
 float fm_cosf(float x);
 void fm_sincosf(float x, float *s, float *c);
 
+/* atan2(y, x) in radians, (-pi, pi], within 0.545 ULP, with C's special cases
+ * (signed zeros, infinities); a NaN comes back quieted, y's first */
+float fm_atan2f(float y, float x);
+
+/* asin in [-pi/2, pi/2], acos in [0, pi], within 0.545 ULP; asin x = x for |x|
+ * < 2^-12. |x| > 1 gives the default NaN, and a NaN comes back quieted. */
+float fm_asinf(float x);
+float fm_acosf(float x);
+
 #endif /* FM_FLOAT_H */

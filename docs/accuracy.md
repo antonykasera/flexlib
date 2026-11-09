@@ -51,3 +51,11 @@ default flags (no ARM_MATH_ROUNDING), as on the bench.
 | sinf, absolute (2^-24) | CMSIS-DSP | 10^7 random, abs(x) pi/4 .. 2^22 | 3.04e+06 | 6.17e+04 | +62 |
 | cosf, absolute (2^-24) | flexmath | 10^7 random, abs(x) pi/4 .. 2^22 | 0.507 | 0.193 | -0.00017 |
 | cosf, absolute (2^-24) | CMSIS-DSP | 10^7 random, abs(x) pi/4 .. 2^22 | 3.03e+06 | 6.18e+04 | -25 |
+| atan2f | flexmath | 10^7 random pairs in [-1, 1] | 0.535 | 0.25 | +5.8e-05 |
+| atan2f | CMSIS-DSP | 10^7 random pairs in [-1, 1] | 5.18 | 0.743 | +0.00022 |
+| atan2f, absolute (2^-24) | flexmath | 10^7 random pairs in [-1, 1] | 2.02 | 0.586 | +0.00013 |
+| atan2f, absolute (2^-24) | CMSIS-DSP | 10^7 random pairs in [-1, 1] | 7.24 | 1.28 | +0.00071 |
+| atan2f | flexmath | 10^7 random pairs, any magnitudes | 0.529 | 0.335 | -0.029 |
+| atan2f | CMSIS-DSP | 10^7 random pairs, any magnitudes | 4.83 | 0.508 | +0.092 |
+| atan2f, absolute (2^-24) | flexmath | 10^7 random pairs, any magnitudes | 2.02 | 0.865 | +0.058 |
+| atan2f, absolute (2^-24) | CMSIS-DSP | 10^7 random pairs, any magnitudes | 7 | 0.928 | +0.00051 |

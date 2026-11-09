@@ -218,6 +218,12 @@ const BenchGolden bench_golden[] = {
     {"fm_cosf", 0x58F2E612U},
     {"fm_sincosf", 0xFA606211U},
     {"fm_sinf + fm_cosf", 0xFA606211U},
+    {"fm_atan2f", 0xC1AF209EU},
+    {"fm_atan2f, any magnitudes", 0x6D63CF22U},
+    {"atan2f division core: divlu", 0x9C7F104CU},
+    {"atan2f division core: UDIV reciprocal + correction (shipped)", 0x27945577U},
+    {"fm_asinf", 0xAB1F200BU},
+    {"fm_acosf", 0xD1B4E9EAU},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

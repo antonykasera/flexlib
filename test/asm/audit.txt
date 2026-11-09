@@ -149,3 +149,6 @@ fm_rsqrtf             umull !udiv
 fm_sinf               umull clz
 fm_cosf               umull clz
 fm_sincosf            umull clz
+fm_atan2f             udiv umull
+fm_asinf              udiv umull clz
+fm_acosf              udiv umull clz

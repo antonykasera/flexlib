@@ -26,6 +26,16 @@ FX_INLINE uint32_t sqrt_norm32(uint32_t x) {
   return s * s > x ? s - 1U : s;
 }
 
+/* floor(sqrt(x)) for x in [2^62, 2^64): isqrt32 of the top word, then a Newton
+ * step on the remainder (32-bit divide) that never undershoots: floor or +1 */
+FX_INLINE uint32_t sqrt_norm64(uint64_t x) {
+  uint32_t h = sqrt_norm32((uint32_t)(x >> 32));
+  uint64_t d = x - ((uint64_t)(h * h) << 32);
+  uint64_t s = ((uint64_t)h << 16) + (uint32_t)(d >> 17) / h;
+  uint32_t r = s > 0xFFFFFFFFU ? 0xFFFFFFFFU : (uint32_t)s;
+  return (uint64_t)r * r > x ? r - 1U : r;
+}
+
 /* floor(m 2^16 / d) and remainder, d >= 2^31, m < d 2^16: divlu (Hacker's
  * Delight), two UDIV digits; a digit >= 2^16 always fails the product test */
 FX_INLINE uint32_t udiv_norm(uint64_t m, uint32_t d, uint32_t *rem) {

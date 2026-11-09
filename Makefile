@@ -87,6 +87,7 @@ ACC_CMSIS = $(addprefix bench/cmsis-dsp/Source/, \
               FastMathFunctions/arm_divide_q31.c \
               FastMathFunctions/arm_atan2_q15.c \
               FastMathFunctions/arm_atan2_q31.c \
+              FastMathFunctions/arm_atan2_f32.c \
               FastMathFunctions/arm_vlog_q15.c \
               FastMathFunctions/arm_vlog_q31.c \
               BasicMathFunctions/arm_abs_q15.c \
@@ -220,6 +221,7 @@ CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
                    FastMathFunctions/arm_divide_q31.c \
                    FastMathFunctions/arm_atan2_q15.c \
                    FastMathFunctions/arm_atan2_q31.c \
+                   FastMathFunctions/arm_atan2_f32.c \
                    FastMathFunctions/arm_vlog_q15.c \
                    FastMathFunctions/arm_vlog_q31.c \
                    BasicMathFunctions/arm_abs_q15.c \

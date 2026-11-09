@@ -54,4 +54,8 @@ extern const uint32_t fm_cosf_poly[4];
 extern const uint32_t fm_sinf_upoly[5];
 extern const uint32_t fm_cosf_upoly[4];
 
+/* atan s = s (1 - z T(z)), z = s^2 <= tan^2(pi/8): |T's coefficients| in Q31,
+ * constant first, signs alternating from + */
+extern const uint32_t fm_atanf_poly[5];
+
 #endif /* FM_TABLES_H */

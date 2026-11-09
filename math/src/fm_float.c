@@ -8,6 +8,7 @@
 
 #include "fm_float.h"
 #include "fm_internal.h"
+#include "fu_bits.h"
 #include <string.h>
 
 #define F32_QNAN 0x7FC00000U
@@ -332,4 +333,188 @@ void fm_sincosf(float x, float *s, float *c) {
   /* cos x = sin of a quarter turn more: the other polynomial, sign from q + 1 */
   *s = u2f((sign ^ (t.q & 2U) << 30) | (t.cos ? cb : sb));
   *c = u2f(((t.q + 1U) & 2U) << 30 | (t.cos ? sb : cb));
+}
+
+/* about n 2^32 / d for n < d, d >= 2^31: 0 to 7 units below the floor. A
+ * 16-bit reciprocal by one UDIV, then one remainder correction. */
+FX_INLINE uint32_t div_q32(uint32_t n, uint32_t d) {
+  uint32_t y = 0xFFFFFFFFU / ((d >> 15) + 1U); /* 2^47 / d from below */
+  uint32_t q = (uint32_t)(fx_umull(n, y) >> 15);
+  uint64_t r = ((uint64_t)n << 32) - fx_umull(q, d);
+  return q + (uint32_t)(fx_umull((uint32_t)(r >> 18), y) >> 29);
+}
+
+#define TAN8_Q32 1779033704U /* tan(pi/8) */
+#define PI4_Q31 1686629713U
+#define PI2_Q31 3373259426U
+#define PI_Q30 3373259426U
+#define F32_PI 0x40490FDBU
+#define F32_PI2 0x3FC90FDBU
+#define F32_3PI4 0x4016CBE4U
+
+/* atan s / s = 1 - z T(z) in Q31, z = s^2 in Q32 */
+FX_INLINE uint32_t atan_p(uint32_t z) {
+  const uint32_t *c = fm_atanf_poly;
+  uint32_t t = c[3] - umul_hi(z, c[4]);
+  t = c[2] - umul_hi(z, t);
+  t = c[1] - umul_hi(z, t);
+  t = c[0] - umul_hi(z, t);
+  return 0x80000000U - umul_hi(z, t);
+}
+
+/* float bits of v / 2^31, v >= 2^28 */
+FX_INLINE uint32_t q31_bits(uint32_t v) {
+  uint32_t n = fx_clz(v);
+  return ((126U - n) << 23) + ((((v << n) >> 7) + 1U) >> 1);
+}
+
+/* atan2(y, x) as positive float bits, y = ny 2^(ey - 158) > 0, |x| = nx 2^(ex -
+ * 158) > 0, x < 0 if xneg; ny, nx in [2^31, 2^32). With mn <= mx and gap d, s =
+ * t = mn / mx (base 0) or s = (mx 2^d - mn) / (mx 2^d + mn) (base pi/4) has |s|
+ * <= tan(pi/8); the result is A +- atan s, and only A = 0 can be small: the rest
+ * are >= pi/8, in Q31 (below 2) or Q30. */
+FX_INLINE uint32_t atan2_core(uint32_t ny, int32_t ey, uint32_t nx, int32_t ex,
+                              uint32_t xneg) {
+  uint32_t swap = ey > ex || (ey == ex && ny > nx);
+  uint32_t mn = swap ? nx : ny;
+  uint32_t mx = swap ? ny : nx;
+  uint32_t d = (uint32_t)(swap ? ey - ex : ex - ey);
+  uint32_t phi;
+  if (d <= 2U && ((uint64_t)mn << 32) >> d > fx_umull(mx, TAN8_Q32)) {
+    uint64_t m2 = (uint64_t)mx << d;
+    uint64_t den = m2 + mn; /* [2^32, 2^35) */
+    uint32_t sh = 32U - fx_clz((uint32_t)(den >> 32));
+    uint32_t s = div_q32((uint32_t)((m2 - mn) >> sh), (uint32_t)(den >> sh));
+    phi = PI4_Q31 - umul_hi(s, atan_p(umul_hi(s, s)));
+  } else {
+    /* t = s 2^(-32 - dd), s in [2^31, 2^32), dd >= 1 */
+    uint32_t dd = d;
+    if (mn >= mx) {
+      mn >>= 1;
+      dd--;
+    }
+    uint32_t s = div_q32(mn, mx);
+    uint32_t zs = 2U * dd;
+    uint32_t y = umul_hi(s, atan_p(zs < 32U ? umul_hi(s, s) >> zs : 0U));
+    if ((swap | xneg) == 0U) { /* y 2^(-31 - dd): top bit 29 or 30 */
+      uint32_t n = fx_clz(y) - 1U;
+      int32_t ef = 126 - (int32_t)(dd + n);
+      y <<= n;
+      if (ef >= 1) {
+        return ((uint32_t)(ef - 1) << 23) + ((y + 64U) >> 7);
+      }
+      uint32_t r = (uint32_t)(7 - ef); /* subnormal */
+      return r < 32U ? ((y >> r) + 1U) >> 1 : 0U;
+    }
+    phi = dd < 32U ? y >> dd : 0U;
+  }
+  if (swap != 0U) {
+    phi = PI2_Q31 - phi;
+  }
+  if (xneg != 0U) { /* >= pi/2: Q30 is enough */
+    return q31_bits(PI_Q30 - (phi >> 1)) + (1U << 23);
+  }
+  return q31_bits(phi);
+}
+
+/* a float's magnitude as n 2^(e - 158), n in [2^31, 2^32); a != 0, finite */
+FX_INLINE uint32_t atan_unpack(uint32_t a, int32_t *e) {
+  if (a < 0x00800000U) {
+    uint32_t lz = fx_clz(a);
+    *e = 9 - (int32_t)lz;
+    return a << lz;
+  }
+  *e = (int32_t)(a >> 23);
+  return (a << 8) | 0x80000000U;
+}
+
+/* zeros, subnormals, inf and NaN */
+FX_COLD static float atan2f_special(uint32_t by, uint32_t bx) {
+  uint32_t ay = by & 0x7FFFFFFFU;
+  uint32_t ax = bx & 0x7FFFFFFFU;
+  uint32_t xneg = bx >> 31;
+  uint32_t r;
+  if (ay > 0x7F800000U || ax > 0x7F800000U) {
+    return u2f((ay > 0x7F800000U ? by : bx) | 0x00400000U);
+  }
+  if (ay == 0x7F800000U) {
+    r = ax != 0x7F800000U ? F32_PI2 : (xneg != 0U ? F32_3PI4 : F32_PI4);
+  } else if (ax == 0x7F800000U || ay == 0U) {
+    r = xneg != 0U ? F32_PI : 0U;
+  } else if (ax == 0U) {
+    r = F32_PI2;
+  } else {
+    int32_t ey;
+    int32_t ex;
+    uint32_t ny = atan_unpack(ay, &ey);
+    uint32_t nx = atan_unpack(ax, &ex);
+    r = atan2_core(ny, ey, nx, ex, xneg);
+  }
+  return u2f((by & 0x80000000U) | r);
+}
+
+float fm_atan2f(float y, float x) {
+  uint32_t by = f2u(y);
+  uint32_t bx = f2u(x);
+  uint32_t ay = by & 0x7FFFFFFFU;
+  uint32_t ax = bx & 0x7FFFFFFFU;
+  if (ay - 0x00800000U >= 0x7F000000U || ax - 0x00800000U >= 0x7F000000U) {
+    return atan2f_special(by, bx);
+  }
+  return u2f((by & 0x80000000U) |
+             atan2_core((ay << 8) | 0x80000000U, (int32_t)(ay >> 23),
+                        (ax << 8) | 0x80000000U, (int32_t)(ax >> 23), bx >> 31));
+}
+
+/* sqrt(1 - x^2) as n 2^(e - 158), |x| = m 2^(ex - 150) in [2^-126, 1): 1 - x^2
+ * in Q62 (exact for |x| >= 2^-4), its root to 32 bits */
+FX_INLINE uint32_t asin_root(uint32_t m, uint32_t ex, int32_t *e) {
+  uint64_t sq = fx_umull(m, m);
+  int32_t sh = 2 * (int32_t)ex - 238;
+  uint64_t x2 = sh >= 0 ? sq << sh : (sh > -64 ? sq >> -sh : 0U);
+  uint64_t w = (1ULL << 62) - x2;
+  uint32_t lz = fu_clz64(w) & 62U;
+  *e = 127 - (int32_t)(lz >> 1);
+  return sqrt_norm64(w << lz);
+}
+
+/* |x| >= 1, zeros, subnormals and NaN: the value for asin (acos: 1) */
+FX_COLD static float asinf_special(uint32_t b, uint32_t acos) {
+  uint32_t a = b & 0x7FFFFFFFU;
+  uint32_t neg = b & 0x80000000U;
+  if (a > 0x7F800000U) {
+    return u2f(b | 0x00400000U);
+  }
+  if (a > 0x3F800000U) {
+    return u2f(F32_QNAN);
+  }
+  if (a == 0x3F800000U) {
+    return u2f(acos != 0U ? (neg != 0U ? F32_PI : 0U) : neg | F32_PI2);
+  }
+  return u2f(acos != 0U ? F32_PI2 : b); /* |x| < 2^-126 */
+}
+
+float fm_asinf(float x) {
+  uint32_t b = f2u(x);
+  uint32_t a = b & 0x7FFFFFFFU;
+  if (a - 0x00800000U >= 0x3F000000U) { /* not normal, or |x| >= 1 */
+    return asinf_special(b, 0U);
+  }
+  int32_t ec;
+  uint32_t m = (a & 0x7FFFFFU) | 0x800000U;
+  uint32_t c = asin_root(m, a >> 23, &ec);
+  return u2f((b & 0x80000000U) |
+             atan2_core(m << 8, (int32_t)(a >> 23), c, ec, 0U));
+}
+
+float fm_acosf(float x) {
+  uint32_t b = f2u(x);
+  uint32_t a = b & 0x7FFFFFFFU;
+  if (a - 0x00800000U >= 0x3F000000U) { /* not normal, or |x| >= 1 */
+    return asinf_special(b, 1U);
+  }
+  int32_t ec;
+  uint32_t m = (a & 0x7FFFFFU) | 0x800000U;
+  uint32_t c = asin_root(m, a >> 23, &ec);
+  return u2f(atan2_core(c, ec, m << 8, (int32_t)(a >> 23), b >> 31));
 }

@@ -11,16 +11,6 @@
 #include "fm_tables.h"
 #include "fu_bits.h"
 
-/* floor(sqrt(x)) for x in [2^62, 2^64): isqrt32 of the top word, then a Newton
- * step on the remainder (32-bit divide) that never undershoots: floor or +1 */
-FX_INLINE uint32_t sqrt_norm64(uint64_t x) {
-  uint32_t h = sqrt_norm32((uint32_t)(x >> 32));
-  uint64_t d = x - ((uint64_t)(h * h) << 32);
-  uint64_t s = ((uint64_t)h << 16) + (uint32_t)(d >> 17) / h;
-  uint32_t r = s > 0xFFFFFFFFU ? 0xFFFFFFFFU : (uint32_t)s;
-  return (uint64_t)r * r > x ? r - 1U : r;
-}
-
 /* With x << 2k normalized, s = floor(sqrt(x) 2^k): the floor is s >> k and the
  * nearest is exactly (s + 2^(k-1)) >> k, as floor commutes with adding 2^(k-1)
  */

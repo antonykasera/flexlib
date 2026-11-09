@@ -180,3 +180,7 @@ const uint32_t fm_sinf_upoly[5] = {
 const uint32_t fm_cosf_upoly[4] = {
     1324675871U, 68093814U, 1399902U, 15163U,
 };
+
+const uint32_t fm_atanf_poly[5] = {
+    715827500U, 429464289U, 305884291U, 227547151U, 130640502U,
+};

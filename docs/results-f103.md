@@ -283,6 +283,12 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | fm_cosf | flexmath | 71 | 140 | 154 | ok |
 | fm_sincosf | flexmath | 131 | 204 | 212 | ok |
 | fm_sinf + fm_cosf | flexmath | 162 | 293 | 297 | ok |
+| fm_atan2f | flexmath | 168 | 193 | 216 | ok |
+| fm_atan2f, any magnitudes | flexmath | 148 | 161 | 216 | ok |
+| atan2f division core: divlu | candidate | 52 | 56 | 84 | ok |
+| atan2f division core: UDIV reciprocal + correction (shipped) | candidate | 45 | 45 | 45 | ok |
+| fm_asinf | flexmath | 238 | 267 | 293 | ok |
+| fm_acosf | flexmath | 254 | 276 | 295 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -294,6 +300,7 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 | arm_cos_f32 | CMSIS-DSP | 471 | 581 | 649 | - |
+| arm_atan2_f32 | CMSIS-DSP | 1275 | 1461 | 1649 | - |
 | arm_sin_q31 | CMSIS-DSP | 44 | 46 | 46 | - |
 | arm_sqrt_q15 | CMSIS-DSP | 65 | 65 | 68 | - |
 | arm_sqrt_q31 | CMSIS-DSP | 25 | 122 | 126 | - |
@@ -310,7 +317,7 @@ slow samples (above 2 x median + 4), by input index:
 |---|--:|--:|---|
 | fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
 
-golden: 84 ok, 0 FAIL, 0 missing
+golden: 90 ok, 0 FAIL, 0 missing
 
 ### Cold calls
 
@@ -318,10 +325,10 @@ Each sample follows a flush of the flash cache (32 KB read from SRAM code), so t
 
 | case | impl | warm median | min | median | max | golden |
 |---|---|--:|--:|--:|--:|---|
-| fm_isqrt32 | flexmath | 33 | 232 | 481 | 482 | ok |
+| fm_isqrt32 | flexmath | 33 | 232 | 482 | 483 | ok |
 | isqrt32 digit by digit | candidate | 130 | 300 | 351 | 408 | ok |
-| fm_sqrt_q15 | flexmath | 42 | 606 | 607 | 607 | ok |
-| fm_rsqrt_q16 | flexmath | 115 | 233 | 1002 | 1006 | ok |
+| fm_sqrt_q15 | flexmath | 42 | 598 | 598 | 598 | ok |
+| fm_rsqrt_q16 | flexmath | 115 | 233 | 997 | 999 | ok |
 | fm_sin_q15 | flexmath | 29 | 480 | 480 | 593 | ok |
 | sin q15, degree-7 polynomial | candidate | 57 | 501 | 503 | 503 | ok |
 | sin q15, table in SRAM | candidate | 30 | 363 | 363 | 363 | ok |
@@ -335,19 +342,21 @@ Each sample follows a flush of the flash cache (32 KB read from SRAM code), so t
 | log2 q16, degree-8 polynomial | candidate | 95 | 753 | 758 | 758 | ok |
 | fm_exp2_q16 | flexmath | 67 | 961 | 966 | 966 | ok |
 | exp2 q16, degree-7 polynomial | candidate | 82 | 749 | 749 | 749 | ok |
-| fm_sqrtf | flexmath | 63 | 735 | 738 | 739 | ok |
-| sqrtf, same inputs | libm | 595 | 3293 | 3293 | 3293 | - |
-| fm_recipf | flexmath | 41 | 378 | 378 | 378 | ok |
-| 1.0f / x | libgcc | 150 | 937 | 937 | 937 | - |
-| fm_rsqrtf | flexmath | 65 | 979 | 1068 | 1092 | ok |
-| 1.0f / sqrtf(x) | libm | 746 | 4230 | 4230 | 4230 | - |
-| fm_sinf | flexmath | 139 | 1093 | 1708 | 1811 | ok |
-| fm_sincosf | flexmath | 204 | 1470 | 2321 | 2441 | ok |
-| sinf | libm | 1348 | 3519 | 5516 | 6855 | - |
-| float multiply | libgcc | 40 | 714 | 714 | 714 | - |
+| fm_sqrtf | flexmath | 63 | 732 | 735 | 736 | ok |
+| sqrtf, same inputs | libm | 595 | 3288 | 3288 | 3288 | - |
+| fm_recipf | flexmath | 41 | 491 | 491 | 491 | ok |
+| 1.0f / x | libgcc | 150 | 939 | 939 | 939 | - |
+| fm_rsqrtf | flexmath | 65 | 850 | 850 | 985 | ok |
+| 1.0f / sqrtf(x) | libm | 746 | 4227 | 4227 | 4227 | - |
+| fm_sinf | flexmath | 139 | 1094 | 1830 | 1937 | ok |
+| fm_sincosf | flexmath | 204 | 1363 | 2330 | 2339 | ok |
+| fm_atan2f | flexmath | 193 | 2047 | 2314 | 2561 | ok |
+| fm_asinf | flexmath | 267 | 2797 | 3266 | 3403 | ok |
+| sinf | libm | 1348 | 3626 | 5512 | 6970 | - |
+| float multiply | libgcc | 40 | 826 | 826 | 826 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 481 | 481 | 594 | - |
 | arm_sin_q31 | CMSIS-DSP | 46 | 489 | 491 | 604 | - |
 | arm_sqrt_q15 | CMSIS-DSP | 65 | 966 | 966 | 969 | - |
 | arm_atan2_q15 | CMSIS-DSP | 215 | 1785 | 2023 | 2252 | - |
-| arm_atan2_q31 | CMSIS-DSP | 513 | 3966 | 4306 | 4665 | - |
+| arm_atan2_q31 | CMSIS-DSP | 513 | 4074 | 4415 | 4653 | - |
 <!-- bench end -->

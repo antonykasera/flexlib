@@ -137,6 +137,21 @@ BENCH_CALL static float rsqrtf_third(float x) {
   return u2f((((378U - e) >> 1) << 23) + r);
 }
 
+/* atan2f's division as cores: floor(n 2^32 / d) for n < d, d >= 2^31 */
+BENCH_CALL static uint32_t div_divlu(uint32_t n, uint32_t d) {
+  uint32_t rem;
+  return udiv_norm((uint64_t)n << 16, d, &rem);
+}
+
+/* y ~ 2^47 / d from below (16 bits) by one UDIV, then one remainder
+ * correction: 0 to 7 units below the floor */
+BENCH_CALL static uint32_t div_recip(uint32_t n, uint32_t d) {
+  uint32_t y = 0xFFFFFFFFU / ((d >> 15) + 1U);
+  uint32_t q = (uint32_t)(fx_umull(n, y) >> 15);
+  uint64_t r = ((uint64_t)n << 32) - fx_umull(q, d);
+  return q + (uint32_t)(fx_umull((uint32_t)(r >> 18), y) >> 29);
+}
+
 static inline uint32_t sincos_xor(float x) {
   float s, c;
   fm_sincosf(x, &s, &c);
@@ -149,6 +164,12 @@ static inline uint32_t sincos_xor(float x) {
 static inline float in_posf(uint32_t u) { return u2f(0x30000000U + (u >> 3)); }
 static inline float in_subf(uint32_t u) { return u2f((u >> 9) | 1U); }
 static inline float in_sgnf(uint32_t u) { return u2f((u << 31) | f2u(in_posf(u))); }
+/* +-1, as the libm rows */
+static inline float in_unit(uint32_t u) {
+  return (float)(int32_t)u * 4.65661287e-10f;
+}
+static inline uint32_t in_num(uint32_t u) { return (u >> 1) | 0x40000000U; }
+static inline uint32_t in_den(uint32_t u) { return u | 0x80000000U; }
 /* +-pi, as the libm rows */
 static inline float in_angle(uint32_t u) {
   return (float)(int32_t)u * 1.46291807926716e-9f;
@@ -180,6 +201,16 @@ BENCH_UNARY(f_cos, float, in_angle, float, fm_cosf(x))
 BENCH_UNARY_COLD(f_sincos, float, in_angle, uint32_t, sincos_xor(x))
 BENCH_UNARY(f_sincos_split, float, in_angle, uint32_t,
             f2u(fm_sinf(x)) ^ f2u(fm_cosf(x)))
+BENCH_BINARY_COLD(f_atan2, float, in_unit, float, in_unit, float,
+                  fm_atan2f(a, b))
+BENCH_BINARY(f_atan2_wide, float, in_sgnf, float, in_sgnf, float,
+             fm_atan2f(a, b))
+BENCH_BINARY(f_div_divlu, uint32_t, in_num, uint32_t, in_den, uint32_t,
+             div_divlu(a, b))
+BENCH_BINARY(f_div_recip, uint32_t, in_num, uint32_t, in_den, uint32_t,
+             div_recip(a, b))
+BENCH_UNARY_COLD(f_asin, float, in_unit, float, fm_asinf(x))
+BENCH_UNARY(f_acos, float, in_unit, float, fm_acosf(x))
 
 static const BenchCase cases[] = {
     {"fm_sqrtf", "flexmath", f_sqrt, true},
@@ -205,6 +236,13 @@ static const BenchCase cases[] = {
     {"fm_cosf", "flexmath", f_cos, true},
     {"fm_sincosf", "flexmath", f_sincos, true},
     {"fm_sinf + fm_cosf", "flexmath", f_sincos_split, true},
+    {"fm_atan2f", "flexmath", f_atan2, true},
+    {"fm_atan2f, any magnitudes", "flexmath", f_atan2_wide, true},
+    {"atan2f division core: divlu", "candidate", f_div_divlu, true},
+    {"atan2f division core: UDIV reciprocal + correction (shipped)", "candidate",
+     f_div_recip, true},
+    {"fm_asinf", "flexmath", f_asin, true},
+    {"fm_acosf", "flexmath", f_acos, true},
 };
 
 const BenchGroup bench_group_float = {cases, BENCH_COUNT(cases)};
@@ -218,6 +256,8 @@ static const BenchCase cold[] = {
     {"1.0f / sqrtf(x)", "libm", f_rsqrt_libm_cold, false},
     {"fm_sinf", "flexmath", f_sin_cold, true},
     {"fm_sincosf", "flexmath", f_sincos_cold, true},
+    {"fm_atan2f", "flexmath", f_atan2_cold, true},
+    {"fm_asinf", "flexmath", f_asin_cold, true},
 };
 
 const BenchGroup bench_group_float_cold = {cold, BENCH_COUNT(cold)};

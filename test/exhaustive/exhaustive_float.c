@@ -1,8 +1,9 @@
 /**
  * @file exhaustive_float.c
  * @brief fm_float.h on every one of the 2^32 floats: sqrt, 1/x, 1/sqrt bit for
- *        bit against correctly rounded references; sin, cos within their ULP
- *        bound against double, and sincos bit for bit (`make exhaustive`)
+ *        bit against correctly rounded references; sin, cos, asin, acos within
+ *        their ULP bounds against double, sincos bit for bit; atan2 on 2^32
+ *        hashed pairs (`make exhaustive`)
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -103,12 +104,34 @@ static double ulp_abs(float got, double ref) {
   return fabs(((double)got - ref) / ldexp(1.0, (e - 1 < -126 ? -126 : e - 1) - 23));
 }
 
+static uint64_t mix(uint64_t z) {
+  z += 0x9E3779B97F4A7C15ULL;
+  z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+  z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+  return z ^ (z >> 31);
+}
+
+/* pair i: any two floats, or close magnitudes, or one exponent apart */
+static void atan2_pair(long long i, float *y, float *x) {
+  uint64_t h = mix((uint64_t)i);
+  uint32_t by = (uint32_t)h;
+  uint32_t bx = (uint32_t)(h >> 32);
+  if ((i & 3) == 1) {
+    bx = ((by & 0x807FFFFFU) ^ (bx & 0x80000000U)) |
+         ((by + (bx & 0x03800000U) - 0x01C00000U) & 0x7F800000U);
+  } else if ((i & 3) == 2) {
+    bx = (by ^ (bx & 0x8000003FU)) + ((bx >> 8) & 0xFFU);
+  }
+  *y = u2f(by);
+  *x = u2f(bx);
+}
+
 int main(void) {
   unsigned long long bs = 0U, br = 0U, bq = 0U, bsc = 0U;
-  double es = 0.0, ec = 0.0;
+  double es = 0.0, ec = 0.0, eas = 0.0, eac = 0.0, eat = 0.0;
 
 #pragma omp parallel for reduction(+ : bs, br, bq, bsc)                       \
-    reduction(max : es, ec) schedule(dynamic, 65536)
+    reduction(max : es, ec, eas, eac, eat) schedule(dynamic, 65536)
   for (long long i = 0; i <= 0xFFFFFFFFLL; i++) {
     uint32_t b = (uint32_t)i;
     float x = u2f(b);
@@ -124,6 +147,15 @@ int main(void) {
     double e2 = ulp_abs(c, cos((double)x));
     es = e1 > es ? e1 : es;
     ec = e2 > ec ? e2 : ec;
+    e1 = ulp_abs(fm_asinf(x), asin((double)x));
+    e2 = ulp_abs(fm_acosf(x), acos((double)x));
+    eas = e1 > eas ? e1 : eas;
+    eac = e2 > eac ? e2 : eac;
+    float py;
+    float px;
+    atan2_pair(i, &py, &px);
+    e1 = ulp_abs(fm_atan2f(py, px), atan2((double)py, (double)px));
+    eat = e1 > eat ? e1 : eat;
   }
   printf("exhaustive: fm_sqrtf %llu bad, fm_recipf %llu, fm_rsqrtf %llu (all "
          "2^32, bit for bit)\n",
@@ -131,5 +163,11 @@ int main(void) {
   printf("exhaustive: fm_sinf max %.4f ulp, fm_cosf %.4f (bound 0.515), "
          "fm_sincosf %llu differ (all 2^32)\n",
          es, ec, bsc);
-  return (bs | br | bq | bsc) == 0U && es <= 0.515 && ec <= 0.515 ? 0 : 1;
+  printf("exhaustive: fm_asinf max %.4f ulp, fm_acosf %.4f (all 2^32), "
+         "fm_atan2f %.4f (2^32 hashed pairs) (bound 0.545)\n",
+         eas, eac, eat);
+  return (bs | br | bq | bsc) == 0U && es <= 0.515 && ec <= 0.515 &&
+                 eas <= 0.545 && eac <= 0.545 && eat <= 0.545
+             ? 0
+             : 1;
 }
