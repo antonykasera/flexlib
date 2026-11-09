@@ -42,11 +42,16 @@ def main():
     # (read times zero at the quarter's end)
     sin_tab = [round(math.sin(k * math.pi / 512) * 2**31) for k in range(257)]
     sin_tab.append(sin_tab[255])
+    # atan(k / 128) in Q34 turns, k = 0..128 (2^31 at 128), and one pad entry
+    atan_tab = [round(math.atan(k / 128) / (2 * math.pi) * 2**34)
+                for k in range(129)]
+    atan_tab.append(atan_tab[128])
     sys.stdout.write("\n".join([
         HEADER,
         emit("fm_sqrt_seed", "uint16_t", sqrt_seed),
         emit("fm_rsqrt_seed", "uint16_t", rsqrt_seed),
         emit("fm_sin_tab", "uint32_t", sin_tab, per_line=6),
+        emit("fm_atan_tab", "uint32_t", atan_tab, per_line=6),
     ]))
 
 

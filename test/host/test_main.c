@@ -96,6 +96,11 @@ void test_fm_recip_q16(void);
 void test_fm_trig_q15(void);
 void test_fm_trig_q31(void);
 
+/* --- fm_atan (test_fm_atan.c) --- */
+void test_fm_atan2_q15(void);
+void test_fm_asin_q15(void);
+void test_fm_atan_q31(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -160,6 +165,10 @@ int main(int argc, char **argv) {
 
   TEST_RUN(test_fm_trig_q15);
   TEST_RUN(test_fm_trig_q31);
+
+  TEST_RUN(test_fm_atan2_q15);
+  TEST_RUN(test_fm_asin_q15);
+  TEST_RUN(test_fm_atan_q31);
 
   return TEST_SUMMARY();
 }

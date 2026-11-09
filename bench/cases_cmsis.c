@@ -60,11 +60,29 @@ static inline q31_t divide_q31(q31_t a, q31_t b) {
   return q;
 }
 
+static inline q15_t atan2_q15(q15_t y, q15_t x) {
+  q15_t r;
+  (void)arm_atan2_q15(y, x, &r);
+  return r;
+}
+static inline q31_t atan2_q31(q31_t y, q31_t x) {
+  q31_t r;
+  (void)arm_atan2_q31(y, x, &r);
+  return r;
+}
+/* the inputs of the fm_atan cases */
+static inline q15_t in_q15_any(uint32_t u) { return (q15_t)(u >> 16); }
+static inline q31_t in_q31_any(uint32_t u) { return (q31_t)u >> (u & 15U); }
+
 BENCH_UNARY_COLD(b_arm_sin_q15, q15_t, in_q15_turn, q15_t, arm_sin_q15(x))
 BENCH_UNARY(b_arm_sin_f32, float, in_angle, float, arm_sin_f32(x))
 BENCH_UNARY_COLD(b_arm_sin_q31, q31_t, in_q31_turn, q31_t, arm_sin_q31(x))
 BENCH_UNARY_COLD(b_arm_sqrt_q15, q15_t, in_q15_pos, q15_t, sqrt_q15(x))
 BENCH_UNARY(b_arm_sqrt_q31, q31_t, in_q31_mag, q31_t, sqrt_q31(x))
+BENCH_BINARY_COLD(b_arm_atan2_q15, q15_t, in_q15_any, q15_t, in_q15_any, q15_t,
+                  atan2_q15(a, b))
+BENCH_BINARY_COLD(b_arm_atan2_q31, q31_t, in_q31_any, q31_t, in_q31_any, q31_t,
+                  atan2_q31(a, b))
 BENCH_BINARY(b_arm_divide_q15, q15_t, in_q15_num, q15_t, in_q15_den, q15_t,
              divide_q15(a, b))
 BENCH_BINARY(b_arm_divide_q31, q31_t, in_q31_num, q31_t, in_q31_den, q31_t,
@@ -79,6 +97,8 @@ static const BenchCase cases[] = {
     {"arm_sqrt_q31", "CMSIS-DSP", b_arm_sqrt_q31, false},
     {"arm_divide_q15", "CMSIS-DSP", b_arm_divide_q15, false},
     {"arm_divide_q31", "CMSIS-DSP", b_arm_divide_q31, false},
+    {"arm_atan2_q15", "CMSIS-DSP", b_arm_atan2_q15, false},
+    {"arm_atan2_q31", "CMSIS-DSP", b_arm_atan2_q31, false},
 };
 
 const BenchGroup bench_group_cmsis = {cases, BENCH_COUNT(cases)};
@@ -87,6 +107,8 @@ static const BenchCase cold[] = {
     {"arm_sin_q15", "CMSIS-DSP", b_arm_sin_q15_cold, false},
     {"arm_sin_q31", "CMSIS-DSP", b_arm_sin_q31_cold, false},
     {"arm_sqrt_q15", "CMSIS-DSP", b_arm_sqrt_q15_cold, false},
+    {"arm_atan2_q15", "CMSIS-DSP", b_arm_atan2_q15_cold, false},
+    {"arm_atan2_q31", "CMSIS-DSP", b_arm_atan2_q31_cold, false},
 };
 
 const BenchGroup bench_group_cmsis_cold = {cold, BENCH_COUNT(cold)};

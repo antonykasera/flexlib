@@ -239,10 +239,20 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | fm_cos_q31 | flexmath | 68 | 71 | 71 | ok |
 | fm_sincos_q31 | flexmath | 101 | 105 | 107 | ok |
 | fm_sin_q31 + fm_cos_q31 | candidate | 140 | 143 | 144 | ok |
+| fm_atan2_q15 | flexmath | 61 | 63 | 64 | ok |
+| atan2 q15, degree-11 polynomial | candidate | 105 | 115 | 119 | ok |
+| atan2 q15, CORDIC 18 steps | candidate | 304 | 310 | 312 | ok |
+| fm_asin_q15 | flexmath | 96 | 98 | 99 | ok |
+| fm_acos_q15 | flexmath | 97 | 99 | 100 | ok |
+| fm_atan2_q31 | flexmath | 169 | 181 | 206 | ok |
+| fm_asin_q31 | flexmath | 271 | 284 | 304 | ok |
+| fm_acos_q31 | flexmath | 270 | 283 | 306 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
 | atan2f | libm | 1130 | 1839 | 2005 | - |
+| asinf | libm | 1299 | 1342 | 2586 | - |
+| acosf | libm | 1416 | 1463 | 2308 | - |
 | float multiply | libgcc | 40 | 40 | 40 | - |
 | float divide | libgcc | 149 | 149 | 149 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
@@ -252,6 +262,8 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | arm_sqrt_q31 | CMSIS-DSP | 25 | 122 | 126 | - |
 | arm_divide_q15 | CMSIS-DSP | 86 | 92 | 102 | - |
 | arm_divide_q31 | CMSIS-DSP | 190 | 198 | 255 | - |
+| arm_atan2_q15 | CMSIS-DSP | 203 | 215 | 222 | - |
+| arm_atan2_q31 | CMSIS-DSP | 488 | 513 | 532 | - |
 
 slow samples (above 2 x median + 4), by input index:
 
@@ -259,7 +271,7 @@ slow samples (above 2 x median + 4), by input index:
 |---|--:|--:|---|
 | fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
 
-golden: 49 ok, 0 FAIL, 0 missing
+golden: 57 ok, 0 FAIL, 0 missing
 
 ### Cold calls
 
@@ -267,19 +279,24 @@ Each sample follows a flush of the flash cache (32 KB read from SRAM code), so t
 
 | case | impl | warm median | min | median | max | golden |
 |---|---|--:|--:|--:|--:|---|
-| fm_isqrt32 | flexmath | 33 | 232 | 369 | 370 | ok |
+| fm_isqrt32 | flexmath | 33 | 232 | 481 | 482 | ok |
 | isqrt32 digit by digit | candidate | 130 | 300 | 351 | 408 | ok |
-| fm_sqrt_q15 | flexmath | 42 | 492 | 493 | 493 | ok |
-| fm_rsqrt_q16 | flexmath | 115 | 458 | 1120 | 1124 | ok |
+| fm_sqrt_q15 | flexmath | 42 | 606 | 607 | 607 | ok |
+| fm_rsqrt_q16 | flexmath | 115 | 233 | 1002 | 1006 | ok |
 | fm_sin_q15 | flexmath | 29 | 480 | 480 | 593 | ok |
 | sin q15, degree-7 polynomial | candidate | 57 | 501 | 503 | 503 | ok |
 | sin q15, table in SRAM | candidate | 30 | 363 | 363 | 363 | ok |
 | fm_sin_q31 | flexmath | 67 | 850 | 851 | 852 | ok |
 | sin q31, table in SRAM | candidate | 69 | 618 | 619 | 620 | ok |
 | fm_sincos_q31 | flexmath | 105 | 1109 | 1226 | 1228 | ok |
-| sinf | libm | 1348 | 3737 | 5722 | 7178 | - |
-| float multiply | libgcc | 40 | 596 | 596 | 596 | - |
+| fm_atan2_q15 | flexmath | 63 | 733 | 733 | 846 | ok |
+| atan2 q15, degree-11 polynomial | candidate | 115 | 886 | 894 | 899 | ok |
+| fm_atan2_q31 | flexmath | 181 | 1966 | 1974 | 2001 | ok |
+| sinf | libm | 1348 | 3517 | 5511 | 6736 | - |
+| float multiply | libgcc | 40 | 825 | 825 | 825 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 481 | 481 | 594 | - |
 | arm_sin_q31 | CMSIS-DSP | 46 | 489 | 491 | 604 | - |
 | arm_sqrt_q15 | CMSIS-DSP | 65 | 966 | 966 | 969 | - |
+| arm_atan2_q15 | CMSIS-DSP | 215 | 1783 | 2021 | 2250 | - |
+| arm_atan2_q31 | CMSIS-DSP | 513 | 4286 | 4629 | 4876 | - |
 <!-- bench end -->

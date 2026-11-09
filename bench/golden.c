@@ -183,6 +183,14 @@ const BenchGolden bench_golden[] = {
     {"fm_cos_q31", 0x312B8A4BU},
     {"fm_sincos_q31", 0x57D3E6D3U},
     {"fm_sin_q31 + fm_cos_q31", 0x57D3E6D3U},
+    {"fm_atan2_q15", 0x79C7B781U},
+    {"atan2 q15, degree-11 polynomial", 0x6A275558U},
+    {"atan2 q15, CORDIC 18 steps", 0xDCBE4E0BU},
+    {"fm_asin_q15", 0xC9AAAEE2U},
+    {"fm_acos_q15", 0xD86554A1U},
+    {"fm_atan2_q31", 0x678C2857U},
+    {"fm_asin_q31", 0xFF47069AU},
+    {"fm_acos_q31", 0xD89D0D06U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

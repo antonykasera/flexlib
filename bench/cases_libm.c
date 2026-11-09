@@ -31,6 +31,8 @@ BENCH_UNARY_COLD(b_sinf, float, in_angle, float, sinf(x))
 BENCH_UNARY(b_cosf, float, in_angle, float, cosf(x))
 BENCH_UNARY(b_sqrtf, float, in_pos, float, sqrtf(x))
 BENCH_BINARY(b_atan2f, float, in_unit, float, in_unit, float, atan2f(a, b))
+BENCH_UNARY(b_asinf, float, in_unit, float, asinf(x))
+BENCH_UNARY(b_acosf, float, in_unit, float, acosf(x))
 BENCH_BINARY_COLD(b_fmul, float, in_unit, float, in_unit, float, a * b)
 BENCH_BINARY(b_fdiv, float, in_unit, float, in_one_two, float, a / b)
 
@@ -39,6 +41,8 @@ static const BenchCase cases[] = {
     {"cosf", "libm", b_cosf, false},
     {"sqrtf", "libm", b_sqrtf, false},
     {"atan2f", "libm", b_atan2f, false},
+    {"asinf", "libm", b_asinf, false},
+    {"acosf", "libm", b_acosf, false},
     {"float multiply", "libgcc", b_fmul, false},
     {"float divide", "libgcc", b_fdiv, false},
 };

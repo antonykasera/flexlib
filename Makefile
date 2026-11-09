@@ -83,6 +83,8 @@ ACC_CMSIS = $(addprefix bench/cmsis-dsp/Source/, \
               FastMathFunctions/arm_sin_q31.c \
               FastMathFunctions/arm_divide_q15.c \
               FastMathFunctions/arm_divide_q31.c \
+              FastMathFunctions/arm_atan2_q15.c \
+              FastMathFunctions/arm_atan2_q31.c \
               BasicMathFunctions/arm_abs_q15.c \
               BasicMathFunctions/arm_abs_q31.c \
               CommonTables/arm_common_tables.c)
@@ -133,13 +135,13 @@ size: $(M3_OBJS)
 # ---- lint: -Wpedantic over everything, and each header on its own ----
 
 LINT_FLAGS   = $(STD) $(WARN) -Wpedantic -Werror -fsyntax-only
-LINT_HEADERS = $(wildcard include/*.h arch/*.h utils/src/*.h) bench/bench.h
+LINT_HEADERS = $(wildcard include/*.h arch/*.h utils/src/*.h math/src/*.h) bench/bench.h
 BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
                  bench/cases_fmt.c bench/cases_crc.c bench/cases_ring.c \
                  bench/cases_parse.c bench/cases_cobs.c bench/cases_debounce.c \
                  bench/cases_rand.c bench/cases_fixed.c bench/cases_sqrt.c \
                  bench/cases_div.c bench/cases_trig.c \
-                 bench/cases_libm.c
+                 bench/cases_atan.c bench/cases_libm.c
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src -Imath/src $(CROSS_SRCS) \
@@ -189,7 +191,7 @@ BENCH_CASES_utils = bench/cases_arch.c bench/cases_bits.c bench/cases_fmt.c \
                     bench/cases_crc.c bench/cases_ring.c bench/cases_parse.c \
                     bench/cases_cobs.c bench/cases_debounce.c bench/cases_rand.c
 BENCH_CASES_math  = bench/cases_fixed.c bench/cases_sqrt.c bench/cases_div.c \
-                    bench/cases_trig.c bench/cases_libm.c
+                    bench/cases_trig.c bench/cases_atan.c bench/cases_libm.c
 
 BENCH_SRCS = bench/main.c bench/cache_probe.c bench/bench_core.c \
              $(BENCH_CASES_$(BENCH_SET)) bench/golden.c $(LIB_SRCS)
@@ -209,6 +211,8 @@ CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
                    FastMathFunctions/arm_sqrt_q31.c \
                    FastMathFunctions/arm_divide_q15.c \
                    FastMathFunctions/arm_divide_q31.c \
+                   FastMathFunctions/arm_atan2_q15.c \
+                   FastMathFunctions/arm_atan2_q31.c \
                    BasicMathFunctions/arm_abs_q15.c \
                    BasicMathFunctions/arm_abs_q31.c \
                    CommonTables/arm_common_tables.c)

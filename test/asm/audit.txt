@@ -126,3 +126,9 @@ fm_cos_q15            no-calls  mul ssat
 fm_sin_q31            no-calls  umull !udiv
 fm_cos_q31            max=3  # a tail call into fm_sin_q31
 fm_sincos_q31         no-calls  umull !udiv
+
+# fm_atan: atan2 inlines its divides (UDIV only); asin calls the isqrt
+fm_atan2_q15          no-calls  udiv
+fm_atan2_q31          no-calls  udiv umull
+fm_asin_q15           calls-ok  udiv !call=__aeabi_uidiv
+fm_asin_q31           calls-ok  udiv umull !call=__aeabi_uldivmod

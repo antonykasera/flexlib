@@ -28,3 +28,7 @@ default flags (no ARM_MATH_ROUNDING), as on the bench.
 | sin q15 | CMSIS-DSP | all 32768 even angles | 4.58 | 1.94 | -1.9 |
 | sin q31 | flexmath | 10^7 random even angles | 1.09 | 0.336 | +0.00011 |
 | sin q31 | CMSIS-DSP | 10^7 random even angles | 4.04e+04 | 1.72e+04 | -0.68 |
+| atan2 q15 | flexmath | every 3rd y, 5th x | 0.615 | 0.252 | -1.3e-07 |
+| atan2 q15 | CMSIS-DSP | every 3rd y, 5th x | 3.68 | 1.22 | +1.2e-06 |
+| atan2 q31 | flexmath | 10^7 random, every magnitude, not (0, 0) | 0.643 | 0.237 | -0.00014 |
+| atan2 q31 | CMSIS-DSP | 10^7 random, every magnitude, not (0, 0) | 4.81 | 1.15 | -0.0014 |
