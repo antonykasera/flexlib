@@ -262,6 +262,11 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | expf via float | libm | 1141 | 1566 | 1580 | - |
 | fm_pow_q16 | flexmath | 100 | 153 | 154 | ok |
 | powf via float | libm | 4592 | 5183 | 5331 | - |
+| fm_sqrtf | flexmath | 60 | 63 | 64 | ok |
+| fm_sqrtf, subnormal inputs | flexmath | 74 | 77 | 85 | ok |
+| sqrtf, s^2 test on every input | candidate | 68 | 71 | 72 | ok |
+| sqrtf by divide-free 1/sqrt Newton | candidate | 92 | 103 | 103 | ok |
+| sqrtf, same inputs | libm | 595 | 595 | 595 | - |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -288,7 +293,7 @@ slow samples (above 2 x median + 4), by input index:
 |---|--:|--:|---|
 | fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
 
-golden: 67 ok, 0 FAIL, 0 missing
+golden: 71 ok, 0 FAIL, 0 missing
 
 ### Cold calls
 
@@ -313,6 +318,8 @@ Each sample follows a flush of the flash cache (32 KB read from SRAM code), so t
 | log2 q16, degree-8 polynomial | candidate | 95 | 753 | 758 | 758 | ok |
 | fm_exp2_q16 | flexmath | 67 | 961 | 966 | 966 | ok |
 | exp2 q16, degree-7 polynomial | candidate | 82 | 749 | 749 | 749 | ok |
+| fm_sqrtf | flexmath | 63 | 732 | 735 | 736 | ok |
+| sqrtf, same inputs | libm | 595 | 3293 | 3293 | 3293 | - |
 | sinf | libm | 1348 | 3519 | 5516 | 6855 | - |
 | float multiply | libgcc | 40 | 714 | 714 | 714 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 481 | 481 | 594 | - |

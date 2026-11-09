@@ -106,6 +106,9 @@ void test_fm_log(void);
 void test_fm_exp(void);
 void test_fm_pow(void);
 
+/* --- fm_float (test_fm_float.c) --- */
+void test_fm_sqrtf(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -178,6 +181,8 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fm_log);
   TEST_RUN(test_fm_exp);
   TEST_RUN(test_fm_pow);
+
+  TEST_RUN(test_fm_sqrtf);
 
   return TEST_SUMMARY();
 }

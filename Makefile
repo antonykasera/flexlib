@@ -143,7 +143,8 @@ BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
                  bench/cases_parse.c bench/cases_cobs.c bench/cases_debounce.c \
                  bench/cases_rand.c bench/cases_fixed.c bench/cases_sqrt.c \
                  bench/cases_div.c bench/cases_trig.c \
-                 bench/cases_atan.c bench/cases_exp.c bench/cases_libm.c
+                 bench/cases_atan.c bench/cases_exp.c bench/cases_float.c \
+                 bench/cases_libm.c
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src -Imath/src $(CROSS_SRCS) \
@@ -194,7 +195,7 @@ BENCH_CASES_utils = bench/cases_arch.c bench/cases_bits.c bench/cases_fmt.c \
                     bench/cases_cobs.c bench/cases_debounce.c bench/cases_rand.c
 BENCH_CASES_math  = bench/cases_fixed.c bench/cases_sqrt.c bench/cases_div.c \
                     bench/cases_trig.c bench/cases_atan.c bench/cases_exp.c \
-                    bench/cases_libm.c
+                    bench/cases_float.c bench/cases_libm.c
 
 BENCH_SRCS = bench/main.c bench/cache_probe.c bench/bench_core.c \
              $(BENCH_CASES_$(BENCH_SET)) bench/golden.c $(LIB_SRCS)

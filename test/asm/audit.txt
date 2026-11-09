@@ -140,3 +140,7 @@ fm_db_q16             no-calls  clz umull
 fm_exp2_q16           no-calls  umull
 fm_exp_q16            no-calls  umull
 fm_pow_q16            no-calls  clz umull smull
+
+# fm_float: integer internals only, no soft-float (the special cases are one
+# out-of-line call)
+fm_sqrtf              udiv umull

@@ -7,17 +7,9 @@
  */
 
 #include "fm_sqrt.h"
+#include "fm_internal.h"
 #include "fm_tables.h"
 #include "fu_bits.h"
-
-/* floor(sqrt(x)) for x in [2^30, 2^32): a table seed and one Newton step,
- * which lands on the floor or one above */
-FX_INLINE uint32_t sqrt_norm32(uint32_t x) {
-  uint32_t s = fm_sqrt_seed[(x >> 25) - 32U];
-  s = (s + x / s) >> 1;
-  s -= s >> 16; /* 65536 -> 65535, so s * s can't wrap */
-  return s * s > x ? s - 1U : s;
-}
 
 /* floor(sqrt(x)) for x in [2^62, 2^64): isqrt32 of the top word, then a Newton
  * step on the remainder (32-bit divide) that never undershoots: floor or +1 */

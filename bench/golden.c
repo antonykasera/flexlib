@@ -201,6 +201,10 @@ const BenchGolden bench_golden[] = {
     {"exp2 q16, degree-7 polynomial", 0x414E7A4AU},
     {"fm_exp_q16", 0xFC8CC701U},
     {"fm_pow_q16", 0x807849D5U},
+    {"fm_sqrtf", 0x56D846FAU},
+    {"fm_sqrtf, subnormal inputs", 0xACF4E5C3U},
+    {"sqrtf, s^2 test on every input", 0x56D846FAU},
+    {"sqrtf by divide-free 1/sqrt Newton", 0x56D846FAU},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

@@ -9,11 +9,21 @@
 #ifndef FM_INTERNAL_H
 #define FM_INTERNAL_H
 
+#include "fm_tables.h"
 #include "fx_arch.h"
 #include <stdint.h>
 
 FX_INLINE uint32_t mag(int32_t x) {
   return x < 0 ? 0U - (uint32_t)x : (uint32_t)x;
+}
+
+/* floor(sqrt(x)) for x in [2^30, 2^32): a table seed and one Newton step,
+ * which lands on the floor or one above */
+FX_INLINE uint32_t sqrt_norm32(uint32_t x) {
+  uint32_t s = fm_sqrt_seed[(x >> 25) - 32U];
+  s = (s + x / s) >> 1;
+  s -= s >> 16; /* 65536 -> 65535, so s * s can't wrap */
+  return s * s > x ? s - 1U : s;
 }
 
 /* floor(m 2^16 / d) and remainder, d >= 2^31, m < d 2^16: divlu (Hacker's
