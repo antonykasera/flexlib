@@ -308,6 +308,84 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | acosf | libm | 1416 | 1463 | 2308 | - |
 | float multiply | libgcc | 40 | 40 | 40 | - |
 | float divide | libgcc | 149 | 149 | 149 | - |
+| arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
+| arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
+| arm_cos_f32 | CMSIS-DSP | 471 | 581 | 649 | - |
+| arm_atan2_f32 | CMSIS-DSP | 1275 | 1461 | 1649 | - |
+| arm_sin_q31 | CMSIS-DSP | 44 | 46 | 46 | - |
+| arm_sqrt_q15 | CMSIS-DSP | 65 | 65 | 68 | - |
+| arm_sqrt_q31 | CMSIS-DSP | 25 | 122 | 126 | - |
+| arm_divide_q15 | CMSIS-DSP | 86 | 92 | 102 | - |
+| arm_divide_q31 | CMSIS-DSP | 190 | 198 | 255 | - |
+| arm_atan2_q15 | CMSIS-DSP | 203 | 215 | 222 | - |
+| arm_atan2_q31 | CMSIS-DSP | 488 | 513 | 532 | - |
+| arm_vlog_q31, one value (ln, q5.26 out) | CMSIS-DSP | 546 | 548 | 548 | - |
+| arm_vlog_q15, one value (ln, q4.11 out) | CMSIS-DSP | 276 | 276 | 276 | - |
+
+slow samples (above 2 x median + 4), by input index:
+
+| case | samples | max | at input |
+|---|--:|--:|---|
+| fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
+
+golden: 97 ok, 0 FAIL, 0 missing
+
+### Cold calls
+
+Each sample follows a flush of the flash cache (32 KB read from SRAM code), so the function's code and tables come from flash; the case's own loop is read back first. Same inputs and overhead as above; the empty case cold reads 1.
+
+| case | impl | warm median | min | median | max | golden |
+|---|---|--:|--:|--:|--:|---|
+| fm_isqrt32 | flexmath | 33 | 232 | 482 | 483 | ok |
+| isqrt32 digit by digit | candidate | 130 | 300 | 351 | 408 | ok |
+| fm_sqrt_q15 | flexmath | 42 | 598 | 598 | 598 | ok |
+| fm_rsqrt_q16 | flexmath | 115 | 233 | 997 | 999 | ok |
+| fm_sin_q15 | flexmath | 29 | 480 | 480 | 593 | ok |
+| sin q15, degree-7 polynomial | candidate | 57 | 501 | 503 | 503 | ok |
+| sin q15, table in SRAM | candidate | 30 | 363 | 363 | 363 | ok |
+| fm_sin_q31 | flexmath | 67 | 850 | 851 | 852 | ok |
+| sin q31, table in SRAM | candidate | 69 | 618 | 619 | 620 | ok |
+| fm_sincos_q31 | flexmath | 105 | 1109 | 1226 | 1228 | ok |
+| fm_atan2_q15 | flexmath | 63 | 733 | 733 | 846 | ok |
+| atan2 q15, degree-11 polynomial | candidate | 115 | 886 | 894 | 899 | ok |
+| fm_atan2_q31 | flexmath | 181 | 1966 | 1974 | 2001 | ok |
+| fm_log2_q16 | flexmath | 72 | 852 | 853 | 853 | ok |
+| log2 q16, degree-8 polynomial | candidate | 95 | 753 | 758 | 758 | ok |
+| fm_exp2_q16 | flexmath | 67 | 961 | 966 | 966 | ok |
+| exp2 q16, degree-7 polynomial | candidate | 82 | 749 | 749 | 749 | ok |
+| fm_sqrtf | flexmath | 63 | 735 | 738 | 739 | ok |
+| sqrtf, same inputs | libm | 595 | 3288 | 3288 | 3288 | - |
+| fm_recipf | flexmath | 41 | 378 | 378 | 378 | ok |
+| 1.0f / x | libgcc | 150 | 939 | 939 | 939 | - |
+| fm_rsqrtf | flexmath | 65 | 979 | 1068 | 1092 | ok |
+| 1.0f / sqrtf(x) | libm | 746 | 4227 | 4227 | 4227 | - |
+| fm_sinf | flexmath | 139 | 1206 | 1583 | 1708 | ok |
+| fm_sincosf | flexmath | 204 | 1470 | 2208 | 2328 | ok |
+| fm_atan2f | flexmath | 193 | 1963 | 2215 | 2448 | ok |
+| fm_asinf | flexmath | 267 | 2696 | 3295 | 3320 | ok |
+| fm_log2f | flexmath | 107 | 1672 | 1672 | 1672 | ok |
+| fm_exp2f | flexmath | 87 | 1312 | 1321 | 1322 | ok |
+| fm_expf | flexmath | 112 | 1444 | 1453 | 1453 | ok |
+| expf, same inputs | libm | 1292 | 6151 | 6579 | 7830 | - |
+| sinf | libm | 1348 | 3626 | 5512 | 6970 | - |
+| float multiply | libgcc | 40 | 826 | 826 | 826 | - |
+| arm_sin_q15 | CMSIS-DSP | 29 | 481 | 481 | 594 | - |
+| arm_sin_q31 | CMSIS-DSP | 46 | 489 | 491 | 604 | - |
+| arm_sqrt_q15 | CMSIS-DSP | 65 | 966 | 966 | 969 | - |
+| arm_atan2_q15 | CMSIS-DSP | 215 | 1785 | 2023 | 2252 | - |
+| arm_atan2_q31 | CMSIS-DSP | 513 | 4074 | 4415 | 4653 | - |
+<!-- bench end -->
+
+<!-- bench begin -->
+## flexlib bench, struct image, STM32F103 @ 72 MHz
+
+- build: -O2, GCC 16.2.0, newlib-nano
+- CPUID 0x412FC230, flash 2 WS, prefetch on
+- cycles per call over 256 inputs, CYCCNT read cost (1) subtracted; interrupts off while timing
+
+| case | impl | min | median | max | golden |
+|---|---|--:|--:|--:|---|
+| CYCCNT read (raw) | - | 1 | 1 | 1 | - |
 | fm_dot3_q31 | flexmath | 66 | 66 | 66 | ok |
 | fm_cross3_q31 | flexmath | 131 | 131 | 131 | ok |
 | fm_mat3_vec_q31 | flexmath | 189 | 189 | 189 | ok |
@@ -339,27 +417,14 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | fm_quat_integrate | flexmath | 2064 | 2083 | 2140 | ok |
 | quat integrate, first order + normalise | candidate | 1507 | 1522 | 1534 | ok |
 | quat integrate, float with sqrtf / sinf / cosf | libm | 4962 | 5108 | 5462 | - |
-| arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
-| arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
-| arm_cos_f32 | CMSIS-DSP | 471 | 581 | 649 | - |
-| arm_atan2_f32 | CMSIS-DSP | 1275 | 1461 | 1649 | - |
-| arm_sin_q31 | CMSIS-DSP | 44 | 46 | 46 | - |
-| arm_sqrt_q15 | CMSIS-DSP | 65 | 65 | 68 | - |
-| arm_sqrt_q31 | CMSIS-DSP | 25 | 122 | 126 | - |
-| arm_divide_q15 | CMSIS-DSP | 86 | 92 | 102 | - |
-| arm_divide_q31 | CMSIS-DSP | 190 | 198 | 255 | - |
-| arm_atan2_q15 | CMSIS-DSP | 203 | 215 | 222 | - |
-| arm_atan2_q31 | CMSIS-DSP | 488 | 513 | 532 | - |
-| arm_vlog_q31, one value (ln, q5.26 out) | CMSIS-DSP | 546 | 548 | 548 | - |
-| arm_vlog_q15, one value (ln, q4.11 out) | CMSIS-DSP | 276 | 276 | 276 | - |
+| fm_pid_q16 | flexmath | 137 | 147 | 149 | ok |
+| pid q16, e and d saturated to int32 | candidate | 132 | 136 | 136 | ok |
+| arm_pid_q31 (no clamps, no anti-windup) | CMSIS-DSP | 39 | 39 | 39 | - |
+| fm_pid_f32 | flexmath | 436 | 442 | 451 | ok |
+| pid f32, the same in plain float | libgcc | 634 | 695 | 713 | ok |
+| arm_pid_f32 (no clamps, no anti-windup) | CMSIS-DSP | 192 | 192 | 192 | - |
 
-slow samples (above 2 x median + 4), by input index:
-
-| case | samples | max | at input |
-|---|--:|--:|---|
-| fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
-
-golden: 122 ok, 0 FAIL, 0 missing
+golden: 29 ok, 0 FAIL, 0 missing
 
 ### Cold calls
 
@@ -367,45 +432,30 @@ Each sample follows a flush of the flash cache (32 KB read from SRAM code), so t
 
 | case | impl | warm median | min | median | max | golden |
 |---|---|--:|--:|--:|--:|---|
-| fm_isqrt32 | flexmath | 33 | 232 | 369 | 370 | ok |
-| isqrt32 digit by digit | candidate | 130 | 300 | 351 | 408 | ok |
-| fm_sqrt_q15 | flexmath | 42 | 492 | 493 | 493 | ok |
-| fm_rsqrt_q16 | flexmath | 115 | 458 | 1120 | 1124 | ok |
-| fm_sin_q15 | flexmath | 29 | 480 | 480 | 593 | ok |
-| sin q15, degree-7 polynomial | candidate | 57 | 501 | 503 | 503 | ok |
-| sin q15, table in SRAM | candidate | 30 | 363 | 363 | 363 | ok |
-| fm_sin_q31 | flexmath | 67 | 850 | 851 | 852 | ok |
-| sin q31, table in SRAM | candidate | 69 | 618 | 619 | 620 | ok |
-| fm_sincos_q31 | flexmath | 105 | 1109 | 1226 | 1228 | ok |
-| fm_atan2_q15 | flexmath | 63 | 733 | 733 | 846 | ok |
-| atan2 q15, degree-11 polynomial | candidate | 115 | 886 | 894 | 899 | ok |
-| fm_atan2_q31 | flexmath | 181 | 1966 | 1974 | 2001 | ok |
-| fm_log2_q16 | flexmath | 72 | 852 | 853 | 853 | ok |
-| log2 q16, degree-8 polynomial | candidate | 95 | 753 | 758 | 758 | ok |
-| fm_exp2_q16 | flexmath | 67 | 961 | 966 | 966 | ok |
-| exp2 q16, degree-7 polynomial | candidate | 82 | 749 | 749 | 749 | ok |
-| fm_sqrtf | flexmath | 63 | 735 | 738 | 739 | ok |
-| sqrtf, same inputs | libm | 595 | 3290 | 3290 | 3290 | - |
-| fm_recipf | flexmath | 41 | 378 | 378 | 378 | ok |
-| 1.0f / x | libgcc | 150 | 938 | 938 | 938 | - |
-| fm_rsqrtf | flexmath | 65 | 979 | 1068 | 1092 | ok |
-| 1.0f / sqrtf(x) | libm | 746 | 4228 | 4228 | 4228 | - |
-| fm_sinf | flexmath | 139 | 1093 | 1583 | 1708 | ok |
-| fm_sincosf | flexmath | 204 | 1470 | 2208 | 2328 | ok |
-| fm_atan2f | flexmath | 193 | 2076 | 2328 | 2561 | ok |
-| fm_asinf | flexmath | 267 | 2809 | 3408 | 3433 | ok |
-| fm_log2f | flexmath | 107 | 1559 | 1559 | 1559 | ok |
-| fm_exp2f | flexmath | 87 | 1312 | 1321 | 1322 | ok |
-| fm_expf | flexmath | 112 | 1444 | 1453 | 1453 | ok |
-| expf, same inputs | libm | 1292 | 5924 | 6576 | 8052 | - |
-| sinf | libm | 1348 | 3516 | 5502 | 6973 | - |
-| float multiply | libgcc | 40 | 710 | 710 | 710 | - |
-| fm_mat4_mul_q31 | flexmath | 992 | 3448 | 3448 | 3450 | ok |
-| fm_mat4_mul_f32 | flexmath | 2986 | 13119 | 13124 | 13129 | ok |
-| fm_quat_integrate | flexmath | 2083 | 21018 | 21147 | 21205 | ok |
-| arm_sin_q15 | CMSIS-DSP | 29 | 481 | 481 | 594 | - |
-| arm_sin_q31 | CMSIS-DSP | 46 | 491 | 491 | 604 | - |
-| arm_sqrt_q15 | CMSIS-DSP | 65 | 966 | 966 | 969 | - |
-| arm_atan2_q15 | CMSIS-DSP | 215 | 1783 | 2021 | 2250 | - |
-| arm_atan2_q31 | CMSIS-DSP | 513 | 4074 | 4415 | 4654 | - |
+| fm_mat4_mul_q31 | flexmath | 992 | 3331 | 3331 | 3333 | ok |
+| fm_mat4_mul_f32 | flexmath | 2986 | 13145 | 13150 | 13154 | ok |
+| fm_quat_integrate | flexmath | 2083 | 20796 | 20925 | 20979 | ok |
+
+### Flash read cost
+
+Cycles per 32-bit load from flash, loop included, first pass after a flush (cold) and second pass (warm). The same loop over SRAM: 8.3.
+
+| block, one load per 32 B | cold | warm |
+|--:|--:|--:|
+| 256 B | 122.1 | 9.1 |
+| 512 B | 121.5 | 8.5 |
+| 1 KB | 121.2 | 8.2 |
+| 2 KB | 121.1 | 8.1 |
+| 4 KB | 121.0 | 8.0 |
+| 8 KB | 121.0 | 8.0 |
+| 16 KB | 121.0 | 8.0 |
+| 32 KB | 121.0 | 121.0 |
+
+| stride, 1 KB block | cold | warm |
+|--:|--:|--:|
+| 4 B | 22.1 | 8.0 |
+| 8 B | 36.3 | 8.0 |
+| 16 B | 64.6 | 8.1 |
+| 32 B | 121.2 | 8.2 |
+| 64 B | 121.5 | 8.5 |
 <!-- bench end -->

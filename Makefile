@@ -151,7 +151,8 @@ BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
                  bench/cases_rand.c bench/cases_fixed.c bench/cases_sqrt.c \
                  bench/cases_div.c bench/cases_trig.c \
                  bench/cases_atan.c bench/cases_exp.c bench/cases_float.c \
-                 bench/cases_libm.c bench/cases_linalg.c bench/cases_quat.c
+                 bench/cases_libm.c bench/cases_linalg.c bench/cases_quat.c \
+                 bench/cases_pid.c
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src -Imath/src $(CROSS_SRCS) \
@@ -181,9 +182,10 @@ golden:
 
 # ---- bench firmware ----
 
-# Two images, each flashed and read in turn: utils (flexutils, with newlib's
-# printf and strtod baselines) and math (flexmath, with CMSIS-DSP and libm).
-BENCH_SETS     = utils math
+# Three images, each flashed and read in turn: utils (flexutils, with newlib's
+# printf and strtod baselines), math (flexmath's functions, with CMSIS-DSP and
+# libm) and struct (vectors, matrices, quaternions, PID, with CMSIS-DSP).
+BENCH_SETS     = utils math struct
 BENCH_SET     ?=
 BENCH_OPT     ?= -O2
 BENCH_BUILD    = $(BUILD)/bench$(BENCH_OPT)-$(BENCH_SET)
@@ -202,17 +204,17 @@ BENCH_CASES_utils = bench/cases_arch.c bench/cases_bits.c bench/cases_fmt.c \
                     bench/cases_cobs.c bench/cases_debounce.c bench/cases_rand.c
 BENCH_CASES_math  = bench/cases_fixed.c bench/cases_sqrt.c bench/cases_div.c \
                     bench/cases_trig.c bench/cases_atan.c bench/cases_exp.c \
-                    bench/cases_float.c bench/cases_libm.c bench/cases_linalg.c \
-                    bench/cases_quat.c
+                    bench/cases_float.c bench/cases_libm.c
+BENCH_CASES_struct = bench/cases_linalg.c bench/cases_quat.c bench/cases_pid.c
 
 BENCH_SRCS = bench/main.c bench/cache_probe.c bench/bench_core.c \
              $(BENCH_CASES_$(BENCH_SET)) bench/golden.c $(LIB_SRCS)
 BENCH_DEFS = -DSTM32F103xB -DBENCH_OPT_NAME='"$(BENCH_OPT)"' \
              -DBENCH_SET_$(BENCH_SET) -DBENCH_SET_NAME='"$(BENCH_SET)"'
 
-ifeq ($(BENCH_SET),math)
+ifneq ($(filter math struct,$(BENCH_SET)),)
 ifneq ($(wildcard $(CMSIS_DSP_DIR)/Include/arm_math.h),)
-BENCH_SRCS    += bench/cases_cmsis.c
+BENCH_SRCS    += $(if $(filter math,$(BENCH_SET)),bench/cases_cmsis.c)
 BENCH_DEFS    += -DBENCH_HAVE_CMSIS_DSP
 CMSIS_DSP_INC  = -isystem $(CMSIS_DSP_DIR)/Include -isystem $(CMSIS_DSP_DIR)/PrivateInclude
 CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
@@ -233,6 +235,8 @@ CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
                    MatrixFunctions/arm_mat_mult_f32.c \
                    QuaternionMathFunctions/arm_quaternion_product_single_f32.c \
                    QuaternionMathFunctions/arm_quaternion_normalize_f32.c \
+                   ControllerFunctions/arm_pid_init_q31.c \
+                   ControllerFunctions/arm_pid_init_f32.c \
                    BasicMathFunctions/arm_abs_q15.c \
                    BasicMathFunctions/arm_abs_q31.c \
                    CommonTables/arm_common_tables.c)

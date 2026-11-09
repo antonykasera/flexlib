@@ -174,3 +174,7 @@ fm_quat_mul           smull clz !udiv
 fm_quat_normalize     umull smull
 fm_quat_rotate        smull clz !udiv
 fm_quat_integrate     smull
+
+# fm_pid: exact integer sums, no soft-float, no calls
+fm_pid_q16            no-calls  smull !udiv
+fm_pid_f32            no-calls  smull clz !udiv

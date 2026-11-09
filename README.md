@@ -39,6 +39,7 @@ flexutils is complete; flexmath is under way.
 | `fm_float` (without an FPU: `fm_sqrtf`, `fm_recipf`, `fm_rsqrtf` correctly rounded; `fm_sinf`, `fm_cosf`, `fm_sincosf` within 0.515 ULP with exact reduction of any argument; `fm_atan2f`, `fm_asinf`, `fm_acosf` within 0.545 ULP; `fm_log2f`, `fm_logf`, `fm_exp2f`, `fm_expf` within 0.52 ULP; subnormals, inf and NaN) | all 2^32 floats: sqrt, 1/x, 1/sqrt bit for bit against correctly rounded references (1/sqrt by an exact midpoint test), sin/cos/asin/acos/log2/ln/exp2/exp against double; atan2 on 2^32 hashed pairs; accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_linalg` (dot, cross, 3x3 and 4x4 matrix times matrix or vector, in q31 and float; each output one exact sum of products rounded once: q31 saturated for every input, float within 0.5 ULP + 2^-32 sum of the products' magnitudes) | q31 bit for bit against exact 128-bit sums, float against long double sums of exact products (random, near-cancelling, subnormal, inf / NaN), accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_quat` (float quaternions: product rounded once per component, normalise within 0.6 ULP for any finite q, rotate a vector, integrate gyro rates by the exact rotation rather than first order) | against long double references (random, any magnitude, drift over 10^5 steps, inf / NaN), accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
+| `fm_pid` (PID in Q16.16 and float: anti-windup by integrator clamping, output clamping, derivative on measurement; Q16.16 exact for every input with one rounding, float with one rounding per sum) | Q16.16 bit for bit against 128-bit arithmetic on random controllers (full-scale gains, limits, inputs), float against long double sums, saturation and kick behaviour, inf / NaN, asm-audit | bench + golden check |
 
 ## Layout
 
@@ -96,7 +97,7 @@ runs rarely, or for parts whose flash has wait states and no cache.
 | `make tables` | regenerates the CRC tables (`utils/src/fu_crc_tab.c`) |
 | `make accuracy` | flexmath and the CMSIS-DSP functions it replaces against a `double` reference; writes `docs/accuracy.md` (~1 min) |
 | `make golden` | runs the bench cases on the host and writes `bench/golden.c` |
-| `make bench [BENCH_OPT=-Os]` | builds the bench firmware: a flexutils image and a flexmath image |
+| `make bench [BENCH_OPT=-Os]` | builds the bench firmware: flexutils, flexmath's functions, and its structures (`BENCH_SET=utils\|math\|struct` for one) |
 | `make bench-run` | flashes each image over ST-Link in turn, reads `/dev/ttyACM0`, writes `docs/results-f103.md` |
 | `make bench-windows` | lists the instructions each bench case actually times |
 
@@ -137,9 +138,10 @@ The bench needs the submodules: `git submodule update --init`.
 - A "Flash read cost" section measures the board's flash: cycles per load,
   cold and warm, by block size and by stride. The loop runs from SRAM so its
   own fetches don't disturb the result.
-- The firmware is two images, flexutils (with newlib's printf and strtod
-  baselines) and flexmath (with CMSIS-DSP and libm), each run in turn. The
-  flexutils one needs about 86 KB of flash: an F103CB, or a C8 that has
+- The firmware is three images, each run in turn: flexutils (with newlib's
+  printf and strtod baselines), flexmath's scalar functions (with CMSIS-DSP
+  and libm), and its vectors, matrices, quaternions and PID (with CMSIS-DSP).
+  The largest needs about 92 KB of flash: an F103CB, or a C8 that has
   128 KB, as most clones do (`st-info --probe` shows the size).
 
 ## Results

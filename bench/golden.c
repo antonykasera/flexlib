@@ -256,6 +256,10 @@ const BenchGolden bench_golden[] = {
     {"quat rotate, float", 0x37FD3A2BU},
     {"fm_quat_integrate", 0xE22941A1U},
     {"quat integrate, first order + normalise", 0xF5B1DC3FU},
+    {"fm_pid_q16", 0x2189583EU},
+    {"pid q16, e and d saturated to int32", 0x2189583EU},
+    {"fm_pid_f32", 0x9ABF36C2U},
+    {"pid f32, the same in plain float", 0x038DD16DU},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);
