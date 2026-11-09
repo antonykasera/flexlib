@@ -113,6 +113,8 @@ void test_fm_rsqrtf(void);
 void test_fm_sinf_cosf(void);
 void test_fm_atan2f(void);
 void test_fm_asinf_acosf(void);
+void test_fm_log2f_logf(void);
+void test_fm_exp2f_expf(void);
 
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
@@ -193,6 +195,8 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fm_sinf_cosf);
   TEST_RUN(test_fm_atan2f);
   TEST_RUN(test_fm_asinf_acosf);
+  TEST_RUN(test_fm_log2f_logf);
+  TEST_RUN(test_fm_exp2f_expf);
 
   return TEST_SUMMARY();
 }

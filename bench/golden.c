@@ -224,6 +224,13 @@ const BenchGolden bench_golden[] = {
     {"atan2f division core: UDIV reciprocal + correction (shipped)", 0x27945577U},
     {"fm_asinf", 0xAB1F200BU},
     {"fm_acosf", 0xD1B4E9EAU},
+    {"fm_log2f", 0x47780569U},
+    {"fm_log2f, within 2^-7 of 1", 0x8429FBD8U},
+    {"log2f without a table (atanh series, one division)", 0x47780569U},
+    {"fm_logf", 0x5D22F122U},
+    {"fm_exp2f", 0xE06D5893U},
+    {"exp2f without a table (degree-7 polynomial)", 0xE06D5893U},
+    {"fm_expf", 0xF5592FF9U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

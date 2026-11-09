@@ -7,14 +7,13 @@
  */
 
 #include "fm_exp.h"
-#include "fm_tables.h"
+#include "fm_internal.h"
 
 /* log2(1 + u) = u (A1 - u (A2 - u (A3 - u A4))), A_i = 1 / (i ln 2) */
 #define A1 1549082005 /* Q30 */
 #define A2 1549082005 /* Q31 */
 #define A3 1032721336 /* Q31 */
 #define A4 774541002  /* Q31 */
-#define LN2_Q32 2977044472U
 #define LOG10_2_Q32 1292913986U
 #define DB_Q29 3232284966U  /* 20 log10 2 */
 #define LOG2E_HI 1549082004 /* log2 e in Q62, as hi:lo words */
@@ -68,9 +67,8 @@ fm_q16 fm_db_q16(fm_q16 x) {
   return x <= 0 ? INT32_MIN : scale_log(log2_core((uint32_t)x), DB_Q29, 3U);
 }
 
-/* 2^e for e = i + k/64 + r38 / 2^38 (k < 64, r < 1/64), as Q16.16:
- * 2^(k/64) from the table times 2^r = 1 + a + a^2/2 + a^3/6 + a^4/24, a = r ln
- * 2, all in Q38, rounded once */
+/* 2^e for e = i + k/64 + r38 / 2^38 (k < 64, r < 1/64), as Q16.16, rounded
+ * once */
 FX_INLINE int32_t exp2_core(int32_t i, uint32_t k, uint32_t r38) {
   if (i >= 15) {
     return INT32_MAX;
@@ -78,14 +76,7 @@ FX_INLINE int32_t exp2_core(int32_t i, uint32_t k, uint32_t r38) {
   if (i <= -17) { /* 2^i (1 + f) is 1/2 .. 1 LSB at -17: rounds up */
     return i == -17 ? 1 : 0;
   }
-  uint32_t a = fx_umull_hi(r38, LN2_Q32);
-  uint32_t a2 = fx_umull_hi(a, a); /* a^2, Q44 */
-  uint32_t a3 = (((a2 >> 16) * (a >> 16)) >> 12) * 10923U >> 16;
-  uint32_t a4 = (a3 * (a >> 16)) >> 24;
-  uint32_t q = a + (a2 >> 7) + a3 + a4;
-  uint32_t t = fm_exp2_tab[k];
-  uint64_t v =
-      (1ULL << 38) + ((uint64_t)t << 6) + fm_exp2_lo[k] + q + fx_umull_hi(t, q);
+  uint64_t v = exp2_q38(k, r38);
   /* round(v / 2^(22 - i)) exactly from v >> 7, as 22 - i >= 8 */
   uint32_t w = (uint32_t)(v >> 7) >> (14 - i);
   return (int32_t)((w + 1U) >> 1);

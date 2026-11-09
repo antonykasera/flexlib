@@ -518,3 +518,212 @@ float fm_acosf(float x) {
   uint32_t c = asin_root(m, a >> 23, &ec);
   return u2f(atan2_core(c, ec, m << 8, (int32_t)(a >> 23), b >> 31));
 }
+
+/* |result| = n 2^(e - 158), n in [2^31, 2^32) */
+typedef struct {
+  uint32_t n, e, neg;
+} LogVal;
+
+/* log2(1 + u) / u - 1 in Q31, u in Q38, |u| <= 2^-7; the u^3 term by MUL */
+FX_INLINE int32_t log2_p1(int32_t u) {
+  const uint32_t *c = fm_log2f_poly;
+  int32_t t = (int32_t)c[2] - (((u >> 16) * (int32_t)(c[3] >> 16)) >> 6);
+  t = (int32_t)c[1] - (fx_smull_hi(u, t) >> 6);
+  return (int32_t)c[0] - (fx_smull_hi(u, t) >> 6);
+}
+
+/* log2(1 + d 2^-24), 0 < |d| <= 2^17: relative, from the normalised d */
+FX_INLINE LogVal log2_near1(int32_t d) {
+  LogVal r;
+  uint32_t ad = mag(d);
+  uint32_t lz = fx_clz(ad);
+  uint32_t p = 0x80000000U + (uint32_t)log2_p1(d * 16384);
+  uint32_t h = umul_hi(ad << lz, p); /* top bit 30 or 31 */
+  uint32_t j = fx_clz(h);
+  r.n = h << j;
+  r.e = 135U - lz - j;
+  r.neg = (uint32_t)d >> 31;
+  return r;
+}
+
+/* log2 x, x = nm 2^(E - 31) with nm in [2^31, 2^32) and |x - 1| >= 2^-7: E +
+ * T_k + log2(1 + u) in Q40, which is >= 2^33.5 in magnitude */
+FX_INLINE LogVal log2_table(uint32_t nm, int32_t E) {
+  uint32_t k = (nm >> 25) & 63U;
+  int32_t u =
+      (int32_t)((int64_t)(fx_umull(nm, fm_log2_rcp[k]) - (1ULL << 63)) >> 25);
+  int64_t l = ((int64_t)u * 2147483648LL + fx_smull(u, log2_p1(u))) >> 29;
+  int64_t s = (int64_t)E * 1099511627776LL + ((int64_t)fm_log2_tab[k] << 8) +
+              fm_log2_lo[k] + l;
+  LogVal r;
+  r.neg = (uint32_t)((uint64_t)s >> 63);
+  uint64_t a = r.neg != 0U ? 0U - (uint64_t)s : (uint64_t)s;
+  uint32_t hi = (uint32_t)(a >> 32);
+  uint32_t lz = fx_clz(hi);
+  r.n = (hi << lz) | ((uint32_t)a >> (32U - lz));
+  r.e = 150U - lz;
+  return r;
+}
+
+/* times ln 2 */
+FX_INLINE LogVal ln_scale(LogVal r) {
+  uint64_t p = fx_umull(r.n, LN2_Q32);
+  if ((p >> 63) != 0U) {
+    r.n = (uint32_t)(p >> 32);
+  } else {
+    r.n = (uint32_t)(p >> 31);
+    r.e--;
+  }
+  return r;
+}
+
+FX_INLINE uint32_t log_bits(LogVal r) {
+  return (r.neg << 31) + ((r.e - 1U) << 23) + (((r.n >> 7) + 1U) >> 1);
+}
+
+/* zeros, subnormals, negatives, inf and NaN */
+FX_COLD static float logf_special(uint32_t b, uint32_t ln) {
+  if ((b << 1) == 0U) {
+    return u2f(0xFF800000U);
+  }
+  if ((b & 0x7FFFFFFFU) > 0x7F800000U) {
+    return u2f(b | 0x00400000U);
+  }
+  if ((int32_t)b < 0) {
+    return u2f(F32_QNAN);
+  }
+  if (b == 0x7F800000U) {
+    return u2f(b);
+  }
+  uint32_t lz = fx_clz(b); /* subnormal: b 2^-149 */
+  LogVal r = log2_table(b << lz, -118 - (int32_t)lz);
+  return u2f(log_bits(ln != 0U ? ln_scale(r) : r));
+}
+
+/* x within 2^-7 of 1: x = 1 + d 2^-24 */
+FX_INLINE int32_t near1_d(uint32_t b) {
+  int32_t t = (int32_t)(b - 0x3F800000U);
+  return t > 0 ? 2 * t : t;
+}
+
+float fm_log2f(float x) {
+  uint32_t b = f2u(x);
+  if (b - 0x00800000U >= 0x7F000000U) {
+    return logf_special(b, 0U);
+  }
+  if (b - 0x3F7E0000U < 0x00030000U) {
+    int32_t d = near1_d(b);
+    return d != 0 ? u2f(log_bits(log2_near1(d))) : 0.0f;
+  }
+  return u2f(
+      log_bits(log2_table((b << 8) | 0x80000000U, (int32_t)(b >> 23) - 127)));
+}
+
+float fm_logf(float x) {
+  uint32_t b = f2u(x);
+  if (b - 0x00800000U >= 0x7F000000U) {
+    return logf_special(b, 1U);
+  }
+  if (b - 0x3F7E0000U < 0x00030000U) {
+    int32_t d = near1_d(b);
+    return d != 0 ? u2f(log_bits(ln_scale(log2_near1(d)))) : 0.0f;
+  }
+  return u2f(log_bits(
+      ln_scale(log2_table((b << 8) | 0x80000000U, (int32_t)(b >> 23) - 127))));
+}
+
+#define LOG2E_HI 3098164009U /* log2 e in Q63 */
+#define LOG2E_LO 1545072828U
+
+/* 2^(i + f 2^-32) as float bits, -150 <= i < 128; subnormal results by a shift
+ * of the 32-bit value */
+FX_INLINE uint32_t exp2_bits(int32_t i, uint32_t f) {
+  uint64_t v = exp2_q38(f >> 26, (f & 0x3FFFFFFU) << 6);
+  if (i >= -126) {
+    return ((uint32_t)(i + 126) << 23) + (uint32_t)((v + (1U << 14)) >> 15);
+  }
+  uint32_t s = (uint32_t)(-119 - i); /* 8..31 */
+  return (((uint32_t)(v >> 7) >> s) + 1U) >> 1;
+}
+
+/* 2^(-(ip + f 2^-32)) as 2^i 2^(f' 2^-32) */
+FX_INLINE int32_t exp2_neg(uint32_t ip, uint32_t *f) {
+  int32_t i = -(int32_t)ip - (*f != 0U ? 1 : 0);
+  *f = 0U - *f;
+  return i;
+}
+
+/* NaN, inf, |x| < 2^-25 and |x| >= 128 */
+FX_COLD static float exp2f_special(uint32_t b) {
+  uint32_t a = b & 0x7FFFFFFFU;
+  if (a > 0x7F800000U) {
+    return u2f(b | 0x00400000U);
+  }
+  if (a < 0x33000000U) {
+    return 1.0f;
+  }
+  if ((int32_t)b >= 0) {
+    return u2f(0x7F800000U);
+  }
+  if (b >= 0xC3160000U) { /* x <= -150 */
+    return 0.0f;
+  }
+  uint32_t f = b << 16; /* -150 < x <= -128: x = M 2^-16 */
+  int32_t i = exp2_neg(((b & 0x7FFFFFU) | 0x800000U) >> 16, &f);
+  return u2f(exp2_bits(i, f));
+}
+
+float fm_exp2f(float x) {
+  uint32_t b = f2u(x);
+  uint32_t a = b << 1;
+  if (a - 0x66000000U >= 0x20000000U) { /* |x| < 2^-25 or >= 128 */
+    return exp2f_special(b);
+  }
+  int32_t E = (int32_t)(a >> 24) - 127;
+  uint32_t y = (b << 8) | 0x80000000U;
+  uint32_t ip = 0U;
+  uint32_t f;
+  if (E >= 0) {
+    ip = y >> (31 - E);
+    f = y << (E + 1);
+  } else {
+    f = y >> (-1 - E);
+  }
+  int32_t i = (int32_t)b < 0 ? exp2_neg(ip, &f) : (int32_t)ip;
+  return u2f(exp2_bits(i, f));
+}
+
+/* NaN, inf, |x| < 2^-25 and |x| >= 128 */
+FX_COLD static float expf_special(uint32_t b) {
+  uint32_t a = b & 0x7FFFFFFFU;
+  if (a > 0x7F800000U) {
+    return u2f(b | 0x00400000U);
+  }
+  if (a < 0x33000000U) {
+    return 1.0f;
+  }
+  return u2f((int32_t)b >= 0 ? 0x7F800000U : 0U);
+}
+
+float fm_expf(float x) {
+  uint32_t b = f2u(x);
+  uint32_t a = b << 1;
+  if (a - 0x66000000U >= 0x20000000U) {
+    return expf_special(b);
+  }
+  /* |x| log2 e in Q32: y (Q31) times log2 e (Q63) is that times 2^(30 - E) */
+  uint32_t y = (b << 8) | 0x80000000U;
+  uint64_t p = fx_umull(y, LOG2E_HI) + umul_hi(y, LOG2E_LO);
+  p >>= 157U - (a >> 24);
+  uint32_t f = (uint32_t)p;
+  int32_t i = (int32_t)(p >> 32);
+  if ((int32_t)b < 0) {
+    i = exp2_neg((uint32_t)i, &f);
+    if (i < -150) {
+      return 0.0f;
+    }
+  } else if (i >= 128) {
+    return u2f(0x7F800000U);
+  }
+  return u2f(exp2_bits(i, f));
+}

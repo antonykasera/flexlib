@@ -341,3 +341,85 @@ void test_fm_asinf_acosf(void) {
   ASSERT_STATS_MAX(&es, 0.545);
   ASSERT_STATS_MAX(&ec, 0.545);
 }
+
+/* ulp_err_f32, with an overflowed result matching a reference beyond FLT_MAX */
+static double exp_err(float got, double ref) {
+  return isinf(got) && (double)got == (double)(float)ref ? 0.0
+                                                          : ulp_err_f32(got, ref);
+}
+
+void test_fm_log2f_logf(void) {
+  ASSERT_EQ(f2u(fm_log2f(0.0f)), 0xFF800000U);
+  ASSERT_EQ(f2u(fm_logf(-0.0f)), 0xFF800000U);
+  ASSERT_EQ(f2u(fm_log2f(-1.0f)), 0x7FC00000U);
+  ASSERT_EQ(f2u(fm_logf(-INFINITY)), 0x7FC00000U);
+  ASSERT_EQ(f2u(fm_log2f(INFINITY)), 0x7F800000U);
+  ASSERT_EQ(f2u(fm_logf(u2f(0xFF800005U))), 0xFFC00005U);
+  ASSERT_EQ(f2u(fm_log2f(1.0f)), 0x00000000U);
+  ASSERT_EQ(f2u(fm_logf(1.0f)), 0x00000000U);
+  for (int k = -149; k <= 127; k++) {
+    ASSERT_EQ(f2u(fm_log2f(ldexpf(1.0f, k))), f2u((float)k));
+  }
+  ErrStats e2;
+  ErrStats el;
+  stats_init(&e2, "fm_log2f, random bits + near 1", "ulp");
+  stats_init(&el, "fm_logf, random bits + near 1", "ulp");
+  for (uint32_t b = 0x3F7C0000U; b < 0x3F820000U; b += 7U) { /* both paths */
+    float x = u2f(b);
+    stats_add(&e2, (double)x, ulp_err_f32(fm_log2f(x), log2((double)x)));
+    stats_add(&el, (double)x, ulp_err_f32(fm_logf(x), log((double)x)));
+  }
+  uint64_t st = 307U;
+  for (int i = 0; i < 1000000; i++) {
+    float x = u2f(test_rng_u32(&st) & 0x7FFFFFFFU);
+    if (x >= INFINITY || isnan(x)) {
+      continue;
+    }
+    stats_add(&e2, (double)x, ulp_err_f32(fm_log2f(x), log2((double)x)));
+    stats_add(&el, (double)x, ulp_err_f32(fm_logf(x), log((double)x)));
+  }
+  ASSERT_STATS_MAX(&e2, 0.52);
+  ASSERT_STATS_MAX(&el, 0.52);
+}
+
+void test_fm_exp2f_expf(void) {
+  ASSERT_EQ(f2u(fm_exp2f(-INFINITY)), 0x00000000U);
+  ASSERT_EQ(f2u(fm_expf(INFINITY)), 0x7F800000U);
+  ASSERT_EQ(f2u(fm_exp2f(u2f(0x7F800001U))), 0x7FC00001U);
+  ASSERT_EQ(f2u(fm_expf(u2f(0xFFC00002U))), 0xFFC00002U);
+  ASSERT_EQ(f2u(fm_exp2f(-0.0f)), 0x3F800000U);
+  ASSERT_EQ(f2u(fm_expf(0x1.fffffep-26f)), 0x3F800000U);
+  ASSERT_EQ(f2u(fm_expf(-0x1.fffffep-26f)), 0x3F800000U);
+  ASSERT_EQ(f2u(fm_exp2f(128.0f)), 0x7F800000U);
+  ASSERT_EQ(f2u(fm_exp2f(0x1.fffffep6f)), 0x7F7FFFA7U);
+  ASSERT_EQ(f2u(fm_exp2f(-150.0f)), 0x00000000U); /* the tie rounds to even */
+  ASSERT_EQ(f2u(fm_exp2f(-149.99998f)), 0x00000001U);
+  ASSERT_EQ(f2u(fm_exp2f(-128.0f)), 0x00200000U);
+  ASSERT_EQ(f2u(fm_expf(88.72284f)), 0x7F800000U);
+  ASSERT_EQ(f2u(fm_expf(88.72283f)), 0x7F7FFF84U);
+  ASSERT_EQ(f2u(fm_expf(-103.98f)), 0x00000000U);
+  ASSERT_EQ(f2u(fm_expf(-103.97f)), 0x00000001U);
+  ASSERT_EQ(f2u(fm_expf(-127.9f)), 0x00000000U);
+  for (int k = -149; k <= 127; k++) {
+    ASSERT_EQ(f2u(fm_exp2f((float)k)), f2u(ldexpf(1.0f, k)));
+  }
+  ErrStats e2;
+  ErrStats ee;
+  stats_init(&e2, "fm_exp2f, random bits", "ulp");
+  stats_init(&ee, "fm_expf, random bits", "ulp");
+  uint64_t st = 409U;
+  for (int i = 0; i < 1000000; i++) {
+    uint32_t b = test_rng_u32(&st);
+    if ((i & 1) != 0) { /* |x| in [2^-26, 256) */
+      b = (b & 0x807FFFFFU) | ((101U + (b >> 23) % 34U) << 23);
+    }
+    float x = u2f(b);
+    if (isnan(x)) {
+      continue;
+    }
+    stats_add(&e2, (double)x, exp_err(fm_exp2f(x), exp2((double)x)));
+    stats_add(&ee, (double)x, exp_err(fm_expf(x), exp((double)x)));
+  }
+  ASSERT_STATS_MAX(&e2, 0.52);
+  ASSERT_STATS_MAX(&ee, 0.52);
+}

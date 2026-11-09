@@ -29,11 +29,14 @@ HEADER = """/**
 
 
 def emit(name, ctype, values, per_line=8):
-    size = len(values) * {"uint8_t": 1, "uint16_t": 2, "uint32_t": 4}[ctype]
+    size = len(values) * {"int8_t": 1, "uint8_t": 1, "uint16_t": 2,
+                          "uint32_t": 4}[ctype]
     align = " FM_LUT" if size >= 64 else ""
+    sfx = "" if ctype.startswith("int") else "U"
     out = [f"const {ctype} {name}[{len(values)}]{align} = {{"]
     for i in range(0, len(values), per_line):
-        out.append("    " + ", ".join(f"{v}U" for v in values[i:i + per_line]) + ",")
+        out.append("    " + ", ".join(f"{v}{sfx}" for v in values[i:i + per_line])
+                   + ",")
     out.append("};\n")
     return "\n".join(out)
 
@@ -92,6 +95,24 @@ def atan_poly():
     return [round(abs(c) * 2**31) for c in lawson(t, z, z, 4)]
 
 
+def log2_lo(rcp, tab):
+    """The 8 bits below each Q32 -log2 r_k (so the pair is Q40), signed."""
+    getcontext().prec = 50
+    ln2 = Decimal(2).ln()
+    q40 = [int(((Decimal(2**32).ln() - Decimal(r).ln()) / ln2 * 2**40)
+               .to_integral_value()) for r in rcp]
+    return [v - (t << 8) for v, t in zip(q40, tab)]
+
+
+def log2f_poly():
+    """log2(1 + u) = u P(u), |u| <= 2^-7, cubic P fitted for relative error;
+    P - 1 and the |coefficients| after it in Q31 (the signs alternate)."""
+    u = np.linspace(-2.0**-7, 2.0**-7, 4001)
+    p = sum((-1) ** k * u**k / (k + 1) for k in range(12)) / math.log(2)
+    c = lawson(p, 1 / p, u, 3)
+    return [round((c[0] - 1) * 2**31)] + [round(abs(v) * 2**31) for v in c[1:]]
+
+
 def main():
     # x normalized to [2^30, 2^32), indexed by its top 7 bits (32..127):
     # sqrt at the bucket's midpoint, and 1/sqrt / 2 in Q15
@@ -123,6 +144,7 @@ def main():
         emit("fm_atan_tab", "uint32_t", atan_tab, per_line=6),
         emit("fm_log2_rcp", "uint32_t", log2_rcp, per_line=6),
         emit("fm_log2_tab", "uint32_t", log2_tab, per_line=6),
+        emit("fm_log2_lo", "int8_t", log2_lo(log2_rcp, log2_tab), per_line=16),
         emit("fm_exp2_tab", "uint32_t", exp2_tab, per_line=6),
         emit("fm_exp2_lo", "uint8_t", exp2_lo, per_line=16),
         emit("fm_inv2pi_tab", "uint32_t", inv2pi_words(8), per_line=4),
@@ -131,6 +153,7 @@ def main():
         emit("fm_sinf_upoly", "uint32_t", sinf_upoly),
         emit("fm_cosf_upoly", "uint32_t", cosf_upoly),
         emit("fm_atanf_poly", "uint32_t", atan_poly()),
+        emit("fm_log2f_poly", "uint32_t", log2f_poly()),
     ]))
 
 

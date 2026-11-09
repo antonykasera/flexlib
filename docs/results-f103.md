@@ -289,6 +289,17 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | atan2f division core: UDIV reciprocal + correction (shipped) | candidate | 45 | 45 | 45 | ok |
 | fm_asinf | flexmath | 238 | 267 | 293 | ok |
 | fm_acosf | flexmath | 254 | 276 | 295 | ok |
+| fm_log2f | flexmath | 107 | 107 | 107 | ok |
+| fm_log2f, within 2^-7 of 1 | flexmath | 69 | 76 | 77 | ok |
+| log2f without a table (atanh series, one division) | candidate | 174 | 198 | 203 | ok |
+| log2f, same inputs | libm | 1484 | 1701 | 1822 | - |
+| fm_logf | flexmath | 119 | 121 | 121 | ok |
+| logf, same inputs | libm | 1323 | 1540 | 1661 | - |
+| fm_exp2f | flexmath | 78 | 87 | 88 | ok |
+| exp2f without a table (degree-7 polynomial) | candidate | 97 | 108 | 114 | ok |
+| exp2f, same inputs | libm | 3448 | 3546 | 3707 | - |
+| fm_expf | flexmath | 103 | 112 | 112 | ok |
+| expf, same inputs | libm | 1091 | 1292 | 1530 | - |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -317,7 +328,7 @@ slow samples (above 2 x median + 4), by input index:
 |---|--:|--:|---|
 | fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
 
-golden: 90 ok, 0 FAIL, 0 missing
+golden: 97 ok, 0 FAIL, 0 missing
 
 ### Cold calls
 
@@ -342,16 +353,20 @@ Each sample follows a flush of the flash cache (32 KB read from SRAM code), so t
 | log2 q16, degree-8 polynomial | candidate | 95 | 753 | 758 | 758 | ok |
 | fm_exp2_q16 | flexmath | 67 | 961 | 966 | 966 | ok |
 | exp2 q16, degree-7 polynomial | candidate | 82 | 749 | 749 | 749 | ok |
-| fm_sqrtf | flexmath | 63 | 732 | 735 | 736 | ok |
+| fm_sqrtf | flexmath | 63 | 735 | 738 | 739 | ok |
 | sqrtf, same inputs | libm | 595 | 3288 | 3288 | 3288 | - |
-| fm_recipf | flexmath | 41 | 491 | 491 | 491 | ok |
+| fm_recipf | flexmath | 41 | 378 | 378 | 378 | ok |
 | 1.0f / x | libgcc | 150 | 939 | 939 | 939 | - |
-| fm_rsqrtf | flexmath | 65 | 850 | 850 | 985 | ok |
+| fm_rsqrtf | flexmath | 65 | 979 | 1068 | 1092 | ok |
 | 1.0f / sqrtf(x) | libm | 746 | 4227 | 4227 | 4227 | - |
-| fm_sinf | flexmath | 139 | 1094 | 1830 | 1937 | ok |
-| fm_sincosf | flexmath | 204 | 1363 | 2330 | 2339 | ok |
-| fm_atan2f | flexmath | 193 | 2047 | 2314 | 2561 | ok |
-| fm_asinf | flexmath | 267 | 2797 | 3266 | 3403 | ok |
+| fm_sinf | flexmath | 139 | 1206 | 1583 | 1708 | ok |
+| fm_sincosf | flexmath | 204 | 1470 | 2208 | 2328 | ok |
+| fm_atan2f | flexmath | 193 | 1963 | 2215 | 2448 | ok |
+| fm_asinf | flexmath | 267 | 2696 | 3295 | 3320 | ok |
+| fm_log2f | flexmath | 107 | 1672 | 1672 | 1672 | ok |
+| fm_exp2f | flexmath | 87 | 1312 | 1321 | 1322 | ok |
+| fm_expf | flexmath | 112 | 1444 | 1453 | 1453 | ok |
+| expf, same inputs | libm | 1292 | 6151 | 6579 | 7830 | - |
 | sinf | libm | 1348 | 3626 | 5512 | 6970 | - |
 | float multiply | libgcc | 40 | 826 | 826 | 826 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 481 | 481 | 594 | - |

@@ -152,3 +152,7 @@ fm_sincosf            umull clz
 fm_atan2f             udiv umull
 fm_asinf              udiv umull clz
 fm_acosf              udiv umull clz
+fm_log2f              umull smull clz
+fm_logf               umull smull clz
+fm_exp2f              umull !udiv
+fm_expf               umull !udiv

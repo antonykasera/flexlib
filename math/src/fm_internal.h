@@ -36,6 +36,21 @@ FX_INLINE uint32_t sqrt_norm64(uint64_t x) {
   return (uint64_t)r * r > x ? r - 1U : r;
 }
 
+#define LN2_Q32 2977044472U
+
+/* 2^(k / 64 + r) in Q38, r = r38 2^-38 < 2^-6: the table times 2^r = 1 + a +
+ * a^2/2 + a^3/6 + a^4/24, a = r ln 2, in Q38 (the small terms by MUL) */
+FX_INLINE uint64_t exp2_q38(uint32_t k, uint32_t r38) {
+  uint32_t a = fx_umull_hi(r38, LN2_Q32);
+  uint32_t a2 = fx_umull_hi(a, a); /* a^2, Q44 */
+  uint32_t a3 = (((a2 >> 16) * (a >> 16)) >> 12) * 10923U >> 16;
+  uint32_t a4 = (a3 * (a >> 16)) >> 24;
+  uint32_t q = a + (a2 >> 7) + a3 + a4;
+  uint32_t t = fm_exp2_tab[k];
+  return (1ULL << 38) + ((uint64_t)t << 6) + fm_exp2_lo[k] + q +
+         fx_umull_hi(t, q);
+}
+
 /* floor(m 2^16 / d) and remainder, d >= 2^31, m < d 2^16: divlu (Hacker's
  * Delight), two UDIV digits; a digit >= 2^16 always fails the product test */
 FX_INLINE uint32_t udiv_norm(uint64_t m, uint32_t d, uint32_t *rem) {

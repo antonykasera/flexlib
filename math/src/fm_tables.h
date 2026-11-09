@@ -35,6 +35,8 @@ extern const uint32_t fm_atan_tab[130];
  * 2^-7 of 1, with r_k = fm_log2_rcp[k] / 2^32 and -log2 r_k in fm_log2_tab */
 extern const uint32_t fm_log2_rcp[64];
 extern const uint32_t fm_log2_tab[64];
+/* the 8 bits below fm_log2_tab (Q40 together), signed */
+extern const int8_t fm_log2_lo[64];
 
 /* 2^(k / 64) - 1 in Q38: the top 32 bits, then the low 6 */
 extern const uint32_t fm_exp2_tab[64];
@@ -57,5 +59,9 @@ extern const uint32_t fm_cosf_upoly[4];
 /* atan s = s (1 - z T(z)), z = s^2 <= tan^2(pi/8): |T's coefficients| in Q31,
  * constant first, signs alternating from + */
 extern const uint32_t fm_atanf_poly[5];
+
+/* log2(1 + u) = u P(u), |u| <= 2^-7: P - 1, then |the u, u^2, u^3
+ * coefficients|, Q31, signs alternating */
+extern const uint32_t fm_log2f_poly[4];
 
 #endif /* FM_TABLES_H */

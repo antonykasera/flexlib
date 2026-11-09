@@ -37,4 +37,15 @@ float fm_atan2f(float y, float x);
 float fm_asinf(float x);
 float fm_acosf(float x);
 
+/* log2, ln within 0.52 ULP: +-0 gives -inf, x < 0 the default NaN, +inf +inf,
+ * 1 +0, log2(2^k) = k exactly; a NaN comes back quieted */
+float fm_log2f(float x);
+float fm_logf(float x);
+
+/* 2^x, e^x within 0.52 ULP, subnormal results included: overflow gives +inf,
+ * underflow +0, |x| < 2^-25 1, exp2(k) = 2^k exactly; a NaN comes back quieted
+ */
+float fm_exp2f(float x);
+float fm_expf(float x);
+
 #endif /* FM_FLOAT_H */
