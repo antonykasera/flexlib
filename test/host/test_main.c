@@ -78,6 +78,10 @@ void test_fu_debounce_glitch(void);
 void test_fu_rand_known_answers(void);
 void test_fu_rand_below(void);
 
+/* --- fm_fixed (test_fm_fixed.c) --- */
+void test_fm_fixed_arith(void);
+void test_fm_fixed_convert(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -128,6 +132,9 @@ int main(int argc, char **argv) {
 
   TEST_RUN(test_fu_rand_known_answers);
   TEST_RUN(test_fu_rand_below);
+
+  TEST_RUN(test_fm_fixed_arith);
+  TEST_RUN(test_fm_fixed_convert);
 
   return TEST_SUMMARY();
 }

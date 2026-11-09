@@ -90,3 +90,18 @@ probe_fx_rotl32       max=4   ror
 probe_fu_xoshiro128_below  umull !udiv
 fu_xoshiro128_below_slow   no-calls  udiv
 fu_xoshiro128_jump    no-calls
+
+# fm_fixed.h: saturating ops without QADD (M3); conversions without soft-float
+probe_fm_add_q15      max=5   ssat
+probe_fm_add_q31      max=6   no-calls  !b !cbz !cbnz
+probe_fm_sub_q31      max=6   no-calls  !b !cbz !cbnz
+probe_fm_mul_q15      max=6   ssat
+probe_fm_mul_q31      max=11  smlal !b !cbz !cbnz
+probe_fm_mul_q16      no-calls  smlal !b !cbz !cbnz
+probe_fm_mac_q31      max=2   smlal
+fm_f32_to_q15         no-calls
+fm_f32_to_q31         no-calls
+fm_f32_to_q16         no-calls
+fm_q15_to_f32         no-calls  clz
+fm_q31_to_f32         no-calls  clz
+fm_q16_to_f32         no-calls  clz

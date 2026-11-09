@@ -69,6 +69,29 @@ exhaustive:
 exhaustive-slow:
 	$(call RUN_EXHAUSTIVE,$(EXHAUSTIVE_SLOW))
 
+# ---- accuracy: flexmath and CMSIS-DSP against a double reference ----
+
+ACC_BUILD = $(BUILD)/accuracy
+ACC_CMSIS = $(addprefix bench/cmsis-dsp/Source/, \
+              BasicMathFunctions/arm_mult_q15.c \
+              BasicMathFunctions/arm_mult_q31.c \
+              SupportFunctions/arm_float_to_q15.c \
+              SupportFunctions/arm_q31_to_float.c)
+ACC_CMSIS_INC = -isystem bench/cmsis-dsp/Include \
+                -isystem bench/cmsis-dsp/PrivateInclude -isystem $(FLEX_DIR)/cmsis/inc
+
+accuracy:
+	@mkdir -p $(ACC_BUILD)
+	@for f in $(ACC_CMSIS); do \
+		$(HOST_CC) -O2 -w $(ACC_CMSIS_INC) -c $$f \
+			-o $(ACC_BUILD)/$$(basename $$f .c).o || exit 1; \
+	done
+	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 $(LIB_INC) -Itest/host $(ACC_CMSIS_INC) \
+		test/accuracy/accuracy.c test/host/test_stats.c $(LIB_SRCS) \
+		$(patsubst %.c,$(ACC_BUILD)/%.o,$(notdir $(ACC_CMSIS))) -lm \
+		-o $(ACC_BUILD)/accuracy
+	./$(ACC_BUILD)/accuracy > docs/accuracy.md
+
 # ---- Arm cross-builds: M3 is the target; M4/M7 keep those arch paths building ----
 
 ARM_CFLAGS = $(STD) $(WARN) $(WERROR) -O2 -g -ffunction-sections -fdata-sections \
@@ -105,7 +128,7 @@ LINT_HEADERS = $(wildcard include/*.h arch/*.h utils/src/*.h) bench/bench.h
 BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
                  bench/cases_fmt.c bench/cases_crc.c bench/cases_ring.c \
                  bench/cases_parse.c bench/cases_cobs.c bench/cases_debounce.c \
-                 bench/cases_rand.c bench/cases_libm.c
+                 bench/cases_rand.c bench/cases_fixed.c bench/cases_libm.c
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src $(CROSS_SRCS) \
@@ -244,5 +267,5 @@ clean:
 
 -include $(CROSS_OBJS:.o=.d) $(BENCH_OBJS:.o=.d) $(FLEX_OBJS:.o=.d) $(CMSIS_OBJS:.o=.d)
 
-.PHONY: all check host-test exhaustive exhaustive-slow cross tables asm-audit size lint golden bench bench-flash \
+.PHONY: all check host-test exhaustive exhaustive-slow accuracy cross tables asm-audit size lint golden bench bench-flash \
         bench-run bench-windows compdb clean

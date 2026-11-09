@@ -137,6 +137,21 @@ rerun it. Method: the Bench section of README.md.
 | xoshiro128** % 100 (UDIV, biased) | candidate | 36 | 38 | 38 | ok |
 | rand() | newlib | 43 | 44 | 44 | - |
 | fu_xoshiro128_jump (2^64 steps) | flexlib | 3268 | 3268 | 3268 | ok |
+| fm_add_q31 (inline) | flexmath | 3 | 3 | 3 | ok |
+| add q31, 64-bit clamp | candidate | 11 | 11 | 15 | ok |
+| add q31, sign xor + IT | candidate | 8 | 8 | 8 | ok |
+| fm_mul_q15 (inline) | flexmath | 6 | 6 | 6 | ok |
+| fm_mul_q31 (inline) | flexmath | 15 | 17 | 17 | ok |
+| fm_mul_q16 (inline) | flexmath | 16 | 18 | 18 | ok |
+| mul q16, 64-bit clamp | candidate | 17 | 21 | 23 | ok |
+| fm_f32_to_q15 | flexmath | 33 | 33 | 33 | ok |
+| (q15)(x * 32768.0f), saturated | soft-float | 47 | 47 | 47 | ok |
+| fm_q15_to_f32 | flexmath | 19 | 19 | 19 | ok |
+| (float)q * 2^-15 | soft-float | 60 | 60 | 60 | ok |
+| fm_f32_to_q31 | flexmath | 26 | 26 | 33 | ok |
+| (q31)(x * 2^31), saturated | soft-float | 301 | 308 | 312 | ok |
+| fm_q31_to_f32 | flexmath | 24 | 24 | 26 | ok |
+| (float)q * 2^-31 | soft-float | 59 | 59 | 59 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -146,7 +161,7 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 
-golden: 123 ok, 0 FAIL, 0 missing
+golden: 138 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

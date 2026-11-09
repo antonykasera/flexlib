@@ -134,6 +134,21 @@ const BenchGolden bench_golden[] = {
     {"fu_xoshiro128_below(100), unbiased", 0xC3ED6D3AU},
     {"xoshiro128** % 100 (UDIV, biased)", 0x52991E83U},
     {"fu_xoshiro128_jump (2^64 steps)", 0x061C701AU},
+    {"fm_add_q31 (inline)", 0xDDD40849U},
+    {"add q31, 64-bit clamp", 0xDDD40849U},
+    {"add q31, sign xor + IT", 0xDDD40849U},
+    {"fm_mul_q15 (inline)", 0xD6E06C58U},
+    {"fm_mul_q31 (inline)", 0x94714EFEU},
+    {"fm_mul_q16 (inline)", 0x84BA68DFU},
+    {"mul q16, 64-bit clamp", 0x84BA68DFU},
+    {"fm_f32_to_q15", 0xB838CE51U},
+    {"(q15)(x * 32768.0f), saturated", 0x414786B0U},
+    {"fm_q15_to_f32", 0x72B283FEU},
+    {"(float)q * 2^-15", 0x72B283FEU},
+    {"fm_f32_to_q31", 0x64EEFA6CU},
+    {"(q31)(x * 2^31), saturated", 0xECD4A2EDU},
+    {"fm_q31_to_f32", 0xE4F9B527U},
+    {"(float)q * 2^-31", 0xE4F9B527U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

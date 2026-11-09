@@ -15,7 +15,7 @@ on [flex](https://github.com/antonykasera/STM32F1-HAL).
 
 ## Status
 
-flexutils is complete; flexmath is next.
+flexutils is complete; flexmath is under way.
 
 | Part | Host | Board |
 |---|---|---|
@@ -30,6 +30,7 @@ flexutils is complete; flexmath is next.
 | `fu_cobs` (COBS encode, strict in-place decode, byte-at-a-time receiver) | reference vectors, random frames against a byte-wise encoder, malformed input, receiver against the block decoder, asm-audit | bench + golden check |
 | `fu_debounce` (integrator for one input, branch-free vertical counter for 32) | against per-input reference counters on bouncing streams, glitch properties, asm-audit | bench + golden check |
 | `fu_rand` (xorshift32, xoshiro128** with jump, unbiased bounded draws) | known answers from an independent implementation, jump checked against the transition matrix, xorshift32 period over all 2^32 states, uniformity and bias tests, asm-audit | bench + golden check |
+| `fm_fixed.h` (Q15/Q31/Q16.16: saturating add/sub, rounding multiply, MAC; exact float conversion without soft-float) | add/sub/mul q15 on all 2^32 pairs, conversions on all 2^32 floats and values, accuracy against CMSIS-DSP, asm-audit | bench + golden check |
 
 ## Layout
 
@@ -40,9 +41,10 @@ utils/src/    flexutils sources
 math/src/     flexmath sources
 test/host/    host tests: harness, error statistics, ULP error
 test/asm/     asm-audit spec and probes
+test/accuracy/ error statistics against CMSIS-DSP (make accuracy)
 bench/        F103 bench firmware (flex and CMSIS-DSP as submodules)
 tools/        asm_audit.py, bench_run.py, bench_windows.py, gen_crc_tables.py
-docs/         results-f103.md
+docs/         results-f103.md, accuracy.md
 ```
 
 ## Using it
@@ -66,12 +68,13 @@ Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
 |---|---|
 | `make` | `host-test`, `cross`, `lint`, `asm-audit` |
 | `make host-test [HOST_CC=clang]` | host tests with ASan + UBSan |
-| `make exhaustive` | checks every 32-bit input or state where that is possible (~2.5 min on 12 cores) |
+| `make exhaustive` | checks every 32-bit input or state where that is possible (~3.5 min on 12 cores) |
 | `make exhaustive-slow` | the same for q16 and float text, against the C library's `%.*f` (~13 min on 12 cores) |
 | `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |
 | `make asm-audit` | checks the M3 disassembly for the expected instructions and for no soft-float or libgcc calls |
 | `make tables` | regenerates the CRC tables (`utils/src/fu_crc_tab.c`) |
+| `make accuracy` | flexmath and the CMSIS-DSP functions it replaces against a `double` reference; writes `docs/accuracy.md` (~1 min) |
 | `make golden` | runs the bench cases on the host and writes `bench/golden.c` |
 | `make bench [BENCH_OPT=-Os]` | builds the bench firmware |
 | `make bench-run` | flashes it over ST-Link, reads `/dev/ttyACM0`, writes `docs/results-f103.md` |
@@ -115,7 +118,8 @@ The bench needs the submodules: `git submodule update --init`.
 
 [docs/results-f103.md](docs/results-f103.md): every bench case, with the
 newlib, libm and CMSIS-DSP baselines and the candidates each function was
-chosen from.
+chosen from. [docs/accuracy.md](docs/accuracy.md): flexmath's errors next to
+CMSIS-DSP's.
 
 ## License
 
