@@ -16,12 +16,22 @@
 
 #define BENCH_N 256U
 
+/* Code and tables timed cold: placed with the library, above the flash that
+ * the cold flush reads (bench/linker.ld) */
+#ifdef BENCH_HOST
+#define BENCH_MEASURED_TEXT
+#define BENCH_TABLE
+#else
+#define BENCH_MEASURED_TEXT __attribute__((section(".bench_measured.text")))
+#define BENCH_TABLE __attribute__((section(".bench_measured.rodata")))
+#endif
+
 /* For candidates timed as calls: no inlining, and no GCC clone specialised on
  * constant arguments, so they pay the same argument setup as the library. */
 #if defined(__GNUC__) && !defined(__clang__)
-#define BENCH_CALL __attribute__((noinline, noipa))
+#define BENCH_CALL __attribute__((noinline, noipa)) BENCH_MEASURED_TEXT
 #else
-#define BENCH_CALL __attribute__((noinline))
+#define BENCH_CALL __attribute__((noinline)) BENCH_MEASURED_TEXT
 #endif
 #define BENCH_COUNT(a) ((unsigned)(sizeof(a) / sizeof((a)[0])))
 
@@ -56,6 +66,10 @@ typedef struct {
 extern const BenchGroup *const bench_groups[];
 extern const unsigned bench_groups_n;
 
+/* cases also timed cold: the flash cache flushed before every sample */
+extern const BenchGroup *const bench_cold_groups[];
+extern const unsigned bench_cold_groups_n;
+
 typedef struct {
   const char *name;
   uint32_t hash;
@@ -84,10 +98,11 @@ typedef struct {
 
 void bench_inputs_init(void);
 
-/* Both run their case once untimed first, so samples are warm. */
+/* Both run their case once untimed first, which leaves a warm case's code and
+ * tables cached (a _cold case flushes before every sample). */
 
 /* Runs the empty case: the cycles a pair of CYCCNT reads adds to a sample. */
-uint32_t bench_overhead(uint32_t cyc[BENCH_N]);
+uint32_t bench_overhead(uint32_t cyc[BENCH_N], bool cold);
 
 /* Runs c, subtracts overhead from every sample (clamped at 0). cyc keeps the
  * samples in input order. */
@@ -108,11 +123,17 @@ static inline uint32_t bench_hash(uint32_t h, const void *p, unsigned n) {
   return h;
 }
 
+extern uintptr_t bench_cold_keep; /* the running case's code, kept warm */
+
 #ifdef BENCH_HOST
+static inline void bench_cold_flush(void) {}
 static inline uint32_t bench_now(void) { return 0U; }
 #define BENCH_PIN(x) ((void)0)
 #define BENCH_USE(y) ((void)(y))
 #else
+/* reads the low 32 KB of flash, then bench_cold_keep's lines (from SRAM) */
+void bench_cold_flush(void);
+
 /* DWT->CYCCNT, by address so case files don't need CMSIS */
 static inline uint32_t bench_now(void) {
   return *(volatile const uint32_t *)0xE0001004U;
@@ -126,7 +147,7 @@ static inline uint32_t bench_now(void) {
 /* Defines `static uint32_t name(uint32_t *cyc)`, timing `expr` (of x) once
  * per input. conv maps the raw uint32_t input to x and runs untimed. */
 #define BENCH_UNARY(name, Tx, conv, Tr, expr)                                  \
-  BENCH_UNARY_POST(name, Tx, conv, Tr, expr, (void)0)
+  BENCH_UNARY_DEF(name, Tx, conv, Tr, expr, (void)0, (void)0)
 
 /* for a call that writes text to buf and returns its length; the hash covers
  * the text too */
@@ -136,6 +157,23 @@ static inline uint32_t bench_now(void) {
 
 /* BENCH_UNARY, plus `post` (which sees h and res) after each hash */
 #define BENCH_UNARY_POST(name, Tx, conv, Tr, expr, post)                       \
+  BENCH_UNARY_DEF(name, Tx, conv, Tr, expr, post, (void)0)
+
+/* Same, for `expr` of a and b; b comes from the next input along. */
+#define BENCH_BINARY(name, Ta, conva, Tb, convb, Tr, expr)                     \
+  BENCH_BINARY_DEF(name, Ta, conva, Tb, convb, Tr, expr, (void)0)
+
+/* Both, plus name##_cold, which flushes the flash cache before each sample.
+ * The warm function is the same code as without it. */
+#define BENCH_UNARY_COLD(name, Tx, conv, Tr, expr)                             \
+  BENCH_UNARY(name, Tx, conv, Tr, expr)                                        \
+  BENCH_UNARY_DEF(name##_cold, Tx, conv, Tr, expr, (void)0, bench_cold_flush())
+#define BENCH_BINARY_COLD(name, Ta, conva, Tb, convb, Tr, expr)                \
+  BENCH_BINARY(name, Ta, conva, Tb, convb, Tr, expr)                           \
+  BENCH_BINARY_DEF(name##_cold, Ta, conva, Tb, convb, Tr, expr,                \
+                   bench_cold_flush())
+
+#define BENCH_UNARY_DEF(name, Tx, conv, Tr, expr, post, before)                \
   static uint32_t name(uint32_t *cyc) {                                        \
     _Static_assert(sizeof(Tx) <= 8U, "argument wider than its slot");          \
     for (unsigned i = 0U; i < BENCH_N; i++) {                                  \
@@ -144,6 +182,7 @@ static inline uint32_t bench_now(void) {
     }                                                                          \
     uint32_t h = BENCH_HASH_INIT;                                              \
     for (unsigned i = 0U; i < BENCH_N; i++) {                                  \
+      before;                                                                  \
       Tx x;                                                                    \
       memcpy(&x, &bench_arg_a[8U * i], sizeof x);                              \
       BENCH_PIN(x);                                                            \
@@ -161,8 +200,7 @@ static inline uint32_t bench_now(void) {
     return h;                                                                  \
   }
 
-/* Same, for `expr` of a and b; b comes from the next input along. */
-#define BENCH_BINARY(name, Ta, conva, Tb, convb, Tr, expr)                     \
+#define BENCH_BINARY_DEF(name, Ta, conva, Tb, convb, Tr, expr, before)         \
   static uint32_t name(uint32_t *cyc) {                                        \
     _Static_assert(sizeof(Ta) <= 8U && sizeof(Tb) <= 8U,                       \
                    "argument wider than its slot");                            \
@@ -174,6 +212,7 @@ static inline uint32_t bench_now(void) {
     }                                                                          \
     uint32_t h = BENCH_HASH_INIT;                                              \
     for (unsigned i = 0U; i < BENCH_N; i++) {                                  \
+      before;                                                                  \
       Ta a;                                                                    \
       Tb b;                                                                    \
       memcpy(&a, &bench_arg_a[8U * i], sizeof a);                              \

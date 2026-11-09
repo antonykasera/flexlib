@@ -27,11 +27,11 @@ static inline float in_one_two(uint32_t u) {
   return 1.0f + (float)(u >> 8) * (1.0f / 16777216.0f);
 }
 
-BENCH_UNARY(b_sinf, float, in_angle, float, sinf(x))
+BENCH_UNARY_COLD(b_sinf, float, in_angle, float, sinf(x))
 BENCH_UNARY(b_cosf, float, in_angle, float, cosf(x))
 BENCH_UNARY(b_sqrtf, float, in_pos, float, sqrtf(x))
 BENCH_BINARY(b_atan2f, float, in_unit, float, in_unit, float, atan2f(a, b))
-BENCH_BINARY(b_fmul, float, in_unit, float, in_unit, float, a * b)
+BENCH_BINARY_COLD(b_fmul, float, in_unit, float, in_unit, float, a * b)
 BENCH_BINARY(b_fdiv, float, in_unit, float, in_one_two, float, a / b)
 
 static const BenchCase cases[] = {
@@ -44,3 +44,10 @@ static const BenchCase cases[] = {
 };
 
 const BenchGroup bench_group_libm = {cases, BENCH_COUNT(cases)};
+
+static const BenchCase cold[] = {
+    {"sinf", "libm", b_sinf_cold, false},
+    {"float multiply", "libgcc", b_fmul_cold, false},
+};
+
+const BenchGroup bench_group_libm_cold = {cold, BENCH_COUNT(cold)};

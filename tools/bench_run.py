@@ -46,7 +46,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--settle", type=float, default=1.5,
                     help="seconds to wait after flashing for re-enumeration")
-    ap.add_argument("--timeout", type=float, default=60.0)
+    ap.add_argument("--timeout", type=float, default=180.0)
     args = ap.parse_args()
 
     time.sleep(args.settle)  # else we may open the old, disconnecting device

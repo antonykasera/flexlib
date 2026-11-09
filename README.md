@@ -33,6 +33,7 @@ flexutils is complete; flexmath is under way.
 | `fm_fixed.h` (Q15/Q31/Q16.16: saturating add/sub, rounding multiply, MAC; exact float conversion without soft-float) | add/sub/mul q15 on all 2^32 pairs, conversions on all 2^32 floats and values, accuracy against CMSIS-DSP, asm-audit | bench + golden check |
 | `fm_sqrt` (isqrt32/64 exact; sqrt q15/q31/Q16.16 and 1/sqrt Q16.16 correctly rounded) | isqrt32 on all 2^32 inputs, the Q functions on every positive input, accuracy against CMSIS-DSP, asm-audit | bench + golden check |
 | `fm_div` (divide q15/q31/Q16.16 and 1/x Q16.16, correctly rounded and saturated, no 64-bit libgcc divide) | q15 on all 2^32 pairs, 1/x on all 2^32 inputs, q31/Q16.16 on 2^32 hashed pairs and constructed near-half cases, accuracy against CMSIS-DSP, asm-audit | bench + golden check |
+| `fm_trig` (sin, cos, sincos of binary angles in q15 and q31, from one 1 KB quarter-wave table) | q15 on all 65536 angles, q31 on all 2^32 angles, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 
 ## Layout
 
@@ -63,6 +64,12 @@ Build with `-ffunction-sections -fdata-sections` and link with
 Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
 `FX_ASSERT_FAIL(file, line)` to call your own handler instead, or
 `FX_DISABLE_ASSERT` to compile the checks out.
+
+Define `FM_LUT_IN_RAM` to put flexmath's tables (1.4 KB) in `.data`, so the
+startup code copies them to SRAM. Warm calls run at the same speed. Calls that
+find the flash cold, or a part whose flash has wait states, skip the table
+fetches: on the bench board a cold `fm_sin_q15` drops from 480 to 368 cycles
+and `fm_sin_q31` from 851 to 738.
 
 ## Building and testing
 
@@ -110,6 +117,12 @@ The bench needs the submodules: `git submodule update --init`.
   measures both effects.
 - Samples above 2 x median + 4 are counted per case and listed by input
   index under the table, so data-dependent timing stands out.
+- A "Cold calls" table repeats chosen cases with the flash cache flushed
+  before every sample (32 KB read from SRAM code). The function's code and
+  tables then come from flash, as on a first call. The bench links everything
+  it times above that 32 KB, and the case's own loop is read back first, so
+  the window holds only the call. A function's lines can straddle differently
+  from build to build, so cold numbers move by about one line (113 cycles).
 - A "Flash read cost" section measures the board's flash: cycles per load,
   cold and warm, by block size and by stride. The loop runs from SRAM so its
   own fetches don't disturb the result.

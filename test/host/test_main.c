@@ -92,6 +92,10 @@ void test_fm_div_q31_q16(void);
 void test_fm_div_near_half(void);
 void test_fm_recip_q16(void);
 
+/* --- fm_trig (test_fm_trig.c) --- */
+void test_fm_trig_q15(void);
+void test_fm_trig_q31(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -153,6 +157,9 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fm_div_q31_q16);
   TEST_RUN(test_fm_div_near_half);
   TEST_RUN(test_fm_recip_q16);
+
+  TEST_RUN(test_fm_trig_q15);
+  TEST_RUN(test_fm_trig_q31);
 
   return TEST_SUMMARY();
 }

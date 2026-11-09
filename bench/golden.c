@@ -172,6 +172,17 @@ const BenchGolden bench_golden[] = {
     {"fm_div_q16(1, x)", 0x44252D41U},
     {"2^32 / (int64_t)x, truncating", 0x33711B45U},
     {"1 / x in float, to Q16.16", 0x03F70588U},
+    {"fm_sin_q15", 0xAC6F89CCU},
+    {"sin q15, degree-7 polynomial", 0x3AFA06C3U},
+    {"sin q15, table in SRAM", 0xAC6F89CCU},
+    {"fm_cos_q15", 0x5FFD969CU},
+    {"fm_sincos_q15", 0x8238645DU},
+    {"fm_sin_q15 + fm_cos_q15", 0x8238645DU},
+    {"fm_sin_q31", 0xF75E9561U},
+    {"sin q31, table in SRAM", 0xF75E9561U},
+    {"fm_cos_q31", 0x312B8A4BU},
+    {"fm_sincos_q31", 0x57D3E6D3U},
+    {"fm_sin_q31 + fm_cos_q31", 0x57D3E6D3U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

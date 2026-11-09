@@ -24,7 +24,7 @@ HEADER = """/**
 
 def emit(name, ctype, values, per_line=8):
     size = len(values) * {"uint16_t": 2, "uint32_t": 4}[ctype]
-    align = " FX_ALIGN_LINE" if size >= 64 else ""
+    align = " FM_LUT" if size >= 64 else ""
     out = [f"const {ctype} {name}[{len(values)}]{align} = {{"]
     for i in range(0, len(values), per_line):
         out.append("    " + ", ".join(f"{v}U" for v in values[i:i + per_line]) + ",")
@@ -38,10 +38,15 @@ def main():
     mids = [(i + 0.5) / 128 for i in range(32, 128)]
     sqrt_seed = [round(65536 * math.sqrt(t)) for t in mids]
     rsqrt_seed = [round(32768 / math.sqrt(t) / 2) for t in mids]
+    # sin(k pi / 512) in Q31 for a quarter turn, k = 0..256, and one pad entry
+    # (read times zero at the quarter's end)
+    sin_tab = [round(math.sin(k * math.pi / 512) * 2**31) for k in range(257)]
+    sin_tab.append(sin_tab[255])
     sys.stdout.write("\n".join([
         HEADER,
         emit("fm_sqrt_seed", "uint16_t", sqrt_seed),
         emit("fm_rsqrt_seed", "uint16_t", rsqrt_seed),
+        emit("fm_sin_tab", "uint32_t", sin_tab, per_line=6),
     ]))
 
 

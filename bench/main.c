@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifndef BENCH_OPT_NAME
 #define BENCH_OPT_NAME "?"
@@ -159,6 +160,59 @@ static void print_slow(const SlowCase *s, unsigned n) {
   }
 }
 
+/* the warm case of the same name */
+static const BenchCase *find_case(const char *name) {
+  for (unsigned g = 0U; g < bench_groups_n; g++) {
+    for (unsigned i = 0U; i < bench_groups[g]->n; i++) {
+      const BenchCase *c = &bench_groups[g]->cases[i];
+      if (strcmp(c->name, name) == 0) {
+        return c;
+      }
+    }
+  }
+  return NULL;
+}
+
+static void run_cold(uint32_t overhead, const char *const golden_str[]) {
+  __disable_irq();
+  uint32_t cold_overhead = bench_overhead(cyc, true);
+  __enable_irq();
+  print("\r\n### Cold calls\r\n\r\n");
+  print("Each sample follows a flush of the flash cache (32 KB read from SRAM "
+        "code), so the function's code and tables come from flash; the case's "
+        "own loop is read back first. Same inputs and overhead as above; the "
+        "empty case cold reads ");
+  print_u32(cold_overhead);
+  print(".\r\n\r\n");
+  print("| case | impl | warm median | min | median | max | golden |\r\n");
+  print("|---|---|--:|--:|--:|--:|---|\r\n");
+  for (unsigned g = 0U; g < bench_cold_groups_n && port_open; g++) {
+    for (unsigned i = 0U; i < bench_cold_groups[g]->n && port_open; i++) {
+      const BenchCase *c = &bench_cold_groups[g]->cases[i];
+      const BenchCase *wc = find_case(c->name);
+      __disable_irq();
+      BenchResult w = bench_run(wc != NULL ? wc : c, overhead, cyc);
+      BenchResult r = bench_run(c, overhead, cyc);
+      __enable_irq();
+      print("| ");
+      print(c->name);
+      print(" | ");
+      print(c->impl);
+      print(" | ");
+      print_u32(w.median);
+      print(" | ");
+      print_u32(r.min);
+      print(" | ");
+      print_u32(r.median);
+      print(" | ");
+      print_u32(r.max);
+      print(" | ");
+      print(golden_str[bench_golden_check(c, r.hash)]);
+      print(" |\r\n");
+    }
+  }
+}
+
 static void run_all(void) {
   static const char *const golden_str[] = {"ok", "**FAIL**", "missing", "-"};
   static SlowCase slow[32];
@@ -166,7 +220,7 @@ static void run_all(void) {
   unsigned count[4] = {0U, 0U, 0U, 0U};
 
   __disable_irq();
-  uint32_t overhead = bench_overhead(cyc);
+  uint32_t overhead = bench_overhead(cyc, false);
   __enable_irq();
 
   print("<!-- bench begin -->\r\n");
@@ -215,6 +269,7 @@ static void run_all(void) {
   print(" FAIL, ");
   print_u32(count[BENCH_GOLDEN_MISSING]);
   print(" missing\r\n");
+  run_cold(overhead, golden_str);
   print_cache_probe();
   print("<!-- bench end -->\r\n");
 }

@@ -79,6 +79,8 @@ ACC_CMSIS = $(addprefix bench/cmsis-dsp/Source/, \
               SupportFunctions/arm_q31_to_float.c \
               FastMathFunctions/arm_sqrt_q15.c \
               FastMathFunctions/arm_sqrt_q31.c \
+              FastMathFunctions/arm_sin_q15.c \
+              FastMathFunctions/arm_sin_q31.c \
               FastMathFunctions/arm_divide_q15.c \
               FastMathFunctions/arm_divide_q31.c \
               BasicMathFunctions/arm_abs_q15.c \
@@ -136,15 +138,17 @@ BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
                  bench/cases_fmt.c bench/cases_crc.c bench/cases_ring.c \
                  bench/cases_parse.c bench/cases_cobs.c bench/cases_debounce.c \
                  bench/cases_rand.c bench/cases_fixed.c bench/cases_sqrt.c \
-                 bench/cases_div.c bench/cases_libm.c
+                 bench/cases_div.c bench/cases_trig.c \
+                 bench/cases_libm.c
 
 lint:
-	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src $(CROSS_SRCS) \
+	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src -Imath/src $(CROSS_SRCS) \
 		$(BENCH_PORTABLE) bench/golden.c
 	$(HOST_CC) $(LINT_FLAGS) $(LIB_INC) -Itest/host $(wildcard test/host/*.c)
-	$(HOST_CC) $(LINT_FLAGS) -DBENCH_HOST $(LIB_INC) -Ibench -Iutils/src \
+	$(HOST_CC) $(LINT_FLAGS) -DBENCH_HOST $(LIB_INC) -Ibench -Iutils/src -Imath/src \
 		$(BENCH_PORTABLE) bench/golden_gen.c
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFU_CRC_SMALL $(LIB_INC) utils/src/fu_crc.c
+	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFM_LUT_IN_RAM $(LIB_INC) math/src/fm_tables.c
 	@for h in $(LINT_HEADERS); do \
 		echo "  header $$h"; \
 		echo "#include \"$$h\"" | $(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) \
@@ -157,7 +161,7 @@ GOLDEN_BUILD = $(BUILD)/golden
 
 golden:
 	@mkdir -p $(GOLDEN_BUILD)
-	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST $(LIB_INC) -Ibench -Iutils/src \
+	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST $(LIB_INC) -Ibench -Iutils/src -Imath/src \
 		bench/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS) -lm \
 		-o $(GOLDEN_BUILD)/golden_gen
 	./$(GOLDEN_BUILD)/golden_gen > $(GOLDEN_BUILD)/golden.c
@@ -187,6 +191,7 @@ BENCH_DEFS    += -DBENCH_HAVE_CMSIS_DSP
 CMSIS_DSP_INC  = -isystem $(CMSIS_DSP_DIR)/Include -isystem $(CMSIS_DSP_DIR)/PrivateInclude
 CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
                    FastMathFunctions/arm_sin_q15.c \
+                   FastMathFunctions/arm_sin_q31.c \
                    FastMathFunctions/arm_sin_f32.c \
                    FastMathFunctions/arm_sqrt_q15.c \
                    FastMathFunctions/arm_sqrt_q31.c \
@@ -199,7 +204,7 @@ endif
 
 BENCH_BASE_CFLAGS = $(M3_FLAGS) $(STD) $(BENCH_OPT) -g3 \
                     -ffunction-sections -fdata-sections $(BENCH_DEFS) \
-                    $(LIB_INC) -Ibench -Iutils/src $(FLEX_INC) $(CMSIS_DSP_INC)
+                    $(LIB_INC) -Ibench -Iutils/src -Imath/src $(FLEX_INC) $(CMSIS_DSP_INC)
 # _printf_float: newlib-nano's %f, for the fu_fmt_f32 baseline
 BENCH_LDFLAGS = $(M3_FLAGS) -Tbench/linker.ld -Wl,--gc-sections \
                 -Wl,--no-warn-rwx-segments --specs=nano.specs --specs=nosys.specs \

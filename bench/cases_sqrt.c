@@ -75,18 +75,18 @@ static inline int32_t in_q31(uint32_t u) {
   return (int32_t)(u >> 1) >> (u & 31U);
 }
 
-BENCH_UNARY(s_i32, uint32_t, in_u32, uint32_t, fm_isqrt32(x))
-BENCH_UNARY(s_i32_bits, uint32_t, in_u32, uint32_t, isqrt32_bits(x))
+BENCH_UNARY_COLD(s_i32, uint32_t, in_u32, uint32_t, fm_isqrt32(x))
+BENCH_UNARY_COLD(s_i32_bits, uint32_t, in_u32, uint32_t, isqrt32_bits(x))
 BENCH_UNARY(s_i32_newton, uint32_t, in_u32, uint32_t, isqrt32_newton(x))
 BENCH_UNARY(s_i32_sf, uint32_t, in_u32, uint32_t, (uint32_t)sqrtf((float)x))
 BENCH_UNARY(s_i64, uint64_t, in_u64, uint32_t, fm_isqrt64(x))
 BENCH_UNARY(s_i64_bits, uint64_t, in_u64, uint32_t, isqrt64_bits(x))
-BENCH_UNARY(s_q15, int16_t, in_q15, int16_t, fm_sqrt_q15(x))
+BENCH_UNARY_COLD(s_q15, int16_t, in_q15, int16_t, fm_sqrt_q15(x))
 BENCH_UNARY(s_q31, int32_t, in_q31, int32_t, fm_sqrt_q31(x))
 BENCH_UNARY(s_q16, int32_t, in_q31, int32_t, fm_sqrt_q16(x))
 BENCH_UNARY(s_q16_sf, int32_t, in_q31, int32_t,
             (int32_t)(sqrtf((float)x * (1.0f / 65536.0f)) * 65536.0f))
-BENCH_UNARY(s_rq16, int32_t, in_q31, int32_t, fm_rsqrt_q16(x))
+BENCH_UNARY_COLD(s_rq16, int32_t, in_q31, int32_t, fm_rsqrt_q16(x))
 BENCH_UNARY(s_rq16_sf, int32_t, in_q31, int32_t,
             (int32_t)(65536.0f / sqrtf((float)x * (1.0f / 65536.0f))))
 
@@ -107,3 +107,12 @@ static const BenchCase cases[] = {
 };
 
 const BenchGroup bench_group_sqrt = {cases, BENCH_COUNT(cases)};
+
+static const BenchCase cold[] = {
+    {"fm_isqrt32", "flexmath", s_i32_cold, true},
+    {"isqrt32 digit by digit", "candidate", s_i32_bits_cold, true},
+    {"fm_sqrt_q15", "flexmath", s_q15_cold, true},
+    {"fm_rsqrt_q16", "flexmath", s_rq16_cold, true},
+};
+
+const BenchGroup bench_group_sqrt_cold = {cold, BENCH_COUNT(cold)};

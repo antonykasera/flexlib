@@ -60,11 +60,11 @@ rerun it. Method: the Bench section of README.md.
 | hex nibble loop, minimal | candidate | 40 | 67 | 103 | ok |
 | fu_fmt_dec_digits | flexlib | 20 | 20 | 20 | ok |
 | fu_fmt_q16, %.4f, log | flexlib | 151 | 154 | 190 | ok |
-| snprintf %.4f of q16, log | newlib | 1837 | 4282 | 6350 | ok |
+| snprintf %.4f of q16, log | newlib | 1836 | 4281 | 6349 | ok |
 | fu_fmt_f32, %.2f, 2^-7..2^13 | flexlib | 178 | 182 | 203 | ok |
-| snprintf %.2f, 2^-7..2^13 | newlib | 3230 | 4286 | 5449 | ok |
+| snprintf %.2f, 2^-7..2^13 | newlib | 3229 | 4285 | 5448 | ok |
 | fu_fmt_f32, %.0f, >= 2^32 | flexlib | 334 | 746 | 1485 | ok |
-| snprintf %.0f, >= 2^32 | newlib | 5963 | 9700 | 17071 | ok |
+| snprintf %.0f, >= 2^32 | newlib | 5962 | 9699 | 17070 | ok |
 | fu_snprintf u32 + i32 + hex line | flexlib | 705 | 763 | 838 | ok |
 | fu_snprintf v1 (tmp + memcpy), same line | candidate | 941 | 1039 | 1213 | ok |
 | snprintf u32 + i32 + hex line | newlib | 3232 | 3279 | 3334 | ok |
@@ -178,6 +178,17 @@ rerun it. Method: the Bench section of README.md.
 | fm_div_q16(1, x) | candidate | 88 | 93 | 103 | ok |
 | 2^32 / (int64_t)x, truncating | libgcc | 124 | 129 | 137 | ok |
 | 1 / x in float, to Q16.16 | soft-float | 210 | 210 | 215 | ok |
+| fm_sin_q15 | flexmath | 29 | 29 | 29 | ok |
+| sin q15, degree-7 polynomial | candidate | 55 | 57 | 57 | ok |
+| sin q15, table in SRAM | candidate | 30 | 30 | 30 | ok |
+| fm_cos_q15 | flexmath | 30 | 30 | 30 | ok |
+| fm_sincos_q15 | flexmath | 63 | 63 | 63 | ok |
+| fm_sin_q15 + fm_cos_q15 | candidate | 63 | 63 | 63 | ok |
+| fm_sin_q31 | flexmath | 66 | 67 | 68 | ok |
+| sin q31, table in SRAM | candidate | 68 | 69 | 70 | ok |
+| fm_cos_q31 | flexmath | 68 | 71 | 71 | ok |
+| fm_sincos_q31 | flexmath | 101 | 105 | 107 | ok |
+| fm_sin_q31 + fm_cos_q31 | candidate | 140 | 143 | 144 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -186,6 +197,7 @@ rerun it. Method: the Bench section of README.md.
 | float divide | libgcc | 149 | 149 | 149 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
+| arm_sin_q31 | CMSIS-DSP | 44 | 46 | 46 | - |
 | arm_sqrt_q15 | CMSIS-DSP | 65 | 65 | 68 | - |
 | arm_sqrt_q31 | CMSIS-DSP | 25 | 122 | 126 | - |
 | arm_divide_q15 | CMSIS-DSP | 86 | 92 | 102 | - |
@@ -197,7 +209,29 @@ slow samples (above 2 x median + 4), by input index:
 |---|--:|--:|---|
 | fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
 
-golden: 161 ok, 0 FAIL, 0 missing
+golden: 172 ok, 0 FAIL, 0 missing
+
+### Cold calls
+
+Each sample follows a flush of the flash cache (32 KB read from SRAM code), so the function's code and tables come from flash; the case's own loop is read back first. Same inputs and overhead as above; the empty case cold reads 1.
+
+| case | impl | warm median | min | median | max | golden |
+|---|---|--:|--:|--:|--:|---|
+| fm_isqrt32 | flexmath | 33 | 232 | 369 | 370 | ok |
+| isqrt32 digit by digit | candidate | 130 | 413 | 464 | 521 | ok |
+| fm_sqrt_q15 | flexmath | 42 | 492 | 493 | 493 | ok |
+| fm_rsqrt_q16 | flexmath | 115 | 458 | 1120 | 1124 | ok |
+| fm_sin_q15 | flexmath | 29 | 480 | 480 | 593 | ok |
+| sin q15, degree-7 polynomial | candidate | 57 | 503 | 504 | 504 | ok |
+| sin q15, table in SRAM | candidate | 30 | 368 | 368 | 368 | ok |
+| fm_sin_q31 | flexmath | 67 | 850 | 851 | 852 | ok |
+| sin q31, table in SRAM | candidate | 69 | 629 | 738 | 739 | ok |
+| fm_sincos_q31 | flexmath | 105 | 1109 | 1226 | 1228 | ok |
+| sinf | libm | 1348 | 3848 | 5739 | 7192 | - |
+| float multiply | libgcc | 40 | 596 | 596 | 596 | - |
+| arm_sin_q15 | CMSIS-DSP | 29 | 481 | 481 | 594 | - |
+| arm_sin_q31 | CMSIS-DSP | 46 | 489 | 491 | 604 | - |
+| arm_sqrt_q15 | CMSIS-DSP | 65 | 966 | 966 | 969 | - |
 
 ### Flash read cost
 

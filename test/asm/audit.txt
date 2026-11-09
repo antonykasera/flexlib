@@ -119,3 +119,10 @@ fm_div_q15            no-calls  udiv
 fm_div_q31            no-calls  clz udiv
 fm_div_q16            no-calls  clz udiv
 fm_recip_q16          no-calls  udiv
+
+# fm_trig: table + multiplies, no calls; q31 never divides
+fm_sin_q15            no-calls  mul ssat
+fm_cos_q15            no-calls  mul ssat
+fm_sin_q31            no-calls  umull !udiv
+fm_cos_q31            max=3  # a tail call into fm_sin_q31
+fm_sincos_q31         no-calls  umull !udiv

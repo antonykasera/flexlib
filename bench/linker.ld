@@ -27,13 +27,20 @@ SECTIONS
     /* first, so it stays below the upper 32 KB that bench/cache_probe.c reads */
     *cache_probe.o(.text .text* .rodata .rodata*)
     _cache_probe_end = .;
-    *(.text)
-    *(.text*)
-    *(.rodata)
-    *(.rodata*)
+    /* the bench harness: the cold flush reads its first 32 KB */
+    EXCLUDE_FILE(*/utils/src/*.o */math/src/*.o *cmsis-dsp/*.o *libc_nano.a:*
+                 *libc.a:* *libm.a:* *libgcc.a:*) *(.text .text* .rodata .rodata*)
+    /* what cases time, so a cold sample finds none of it cached */
+    . = ALIGN(32);
+    _bench_measured = .;
+    *(.bench_measured.text .bench_measured.rodata)
+    *(.text .text* .rodata .rodata*)
     . = ALIGN(4);
     _etext = .;
   } > FLASH
+
+  ASSERT(_bench_measured >= ORIGIN(FLASH) + 0x8000,
+         "bench harness under 32 KB: the cold flush would read measured code")
 
   .init_array :
   {

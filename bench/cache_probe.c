@@ -8,6 +8,7 @@
  */
 
 #include "cache_probe.h"
+#include "bench.h"
 #include "stm32f103xb.h"
 
 /* Probe the upper 32 KB (no code there runs during the probe); reading the
@@ -46,6 +47,22 @@ static uint32_t timed_x10(uintptr_t base, uint32_t bytes, uint32_t stride) {
 }
 
 static void flush(void) { (void)timed(FLUSH_BASE, PROBE_SPAN, 32U); }
+
+extern const uint8_t _bench_measured[]; /* linker.ld */
+
+/* Library, CMSIS, libc and candidates all lie above the flushed span; up to
+ * 1 KB of the case's own code is read back, short of them. */
+RAMFUNC void bench_cold_flush(void) {
+  uint32_t sum = touch(FLUSH_BASE, PROBE_SPAN, 32U);
+  uintptr_t lo = bench_cold_keep & ~(uintptr_t)31U;
+  uintptr_t hi = lo + 1024U;
+  uintptr_t end = (uintptr_t)_bench_measured;
+  hi = hi < end ? hi : end;
+  if (lo < hi) {
+    sum += touch(lo, (uint32_t)(hi - lo), 32U);
+  }
+  sink ^= sum;
+}
 
 void cache_probe_run(CacheProbe *p, const void *sram, uint32_t sram_bytes) {
   static const uint32_t sizes[CACHE_PROBE_SIZES] = {256U,  512U,   1024U,

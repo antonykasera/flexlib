@@ -24,3 +24,7 @@ default flags (no ARM_MATH_ROUNDING), as on the bench.
 | divide q15 | CMSIS-DSP | all pairs with abs(a) < abs(b) | 1 | 0.5 | +1.4e-19 |
 | divide q31 | flexmath | 10^7 random with abs(a) < abs(b) | 0.5 | 0.241 | +0.00016 |
 | divide q31 | CMSIS-DSP | 10^7 random with abs(a) < abs(b) | 1 | 0.477 | -0.00023 |
+| sin q15 | flexmath | all 32768 even angles | 0.65 | 0.255 | +0.0001 |
+| sin q15 | CMSIS-DSP | all 32768 even angles | 4.58 | 1.94 | -1.9 |
+| sin q31 | flexmath | 10^7 random even angles | 1.09 | 0.336 | +0.00011 |
+| sin q31 | CMSIS-DSP | 10^7 random even angles | 4.04e+04 | 1.72e+04 | -0.68 |
