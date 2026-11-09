@@ -167,3 +167,10 @@ fm_dot3_f32           smull clz !udiv
 fm_cross3_f32         smull clz
 fm_mat4_mul_f32       smull clz
 fm_mat4_vec_f32       smull clz
+
+# fm_quat: integer sums, no soft-float (normalize / integrate call fm_rsqrtf,
+# fm_sincosf and fm_quat_mul)
+fm_quat_mul           smull clz !udiv
+fm_quat_normalize     umull smull
+fm_quat_rotate        smull clz !udiv
+fm_quat_integrate     smull

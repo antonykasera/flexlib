@@ -120,6 +120,9 @@ void test_fm_exp2f_expf(void);
 void test_fm_linalg_q31(void);
 void test_fm_linalg_f32(void);
 
+/* --- fm_quat (test_fm_quat.c) --- */
+void test_fm_quat(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -203,6 +206,7 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fm_exp2f_expf);
   TEST_RUN(test_fm_linalg_q31);
   TEST_RUN(test_fm_linalg_f32);
+  TEST_RUN(test_fm_quat);
 
   return TEST_SUMMARY();
 }

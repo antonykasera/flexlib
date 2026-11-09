@@ -328,6 +328,17 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | mat4 f32, unpacking inside each sum | candidate | 4146 | 4152 | 4157 | ok |
 | mat4 mul, float loop | libgcc | 6362 | 6411 | 6453 | ok |
 | arm_mat_mult_f32, 4x4 | CMSIS-DSP | 6396 | 6445 | 6487 | - |
+| fm_quat_mul | flexmath | 745 | 747 | 753 | ok |
+| quat mul, float | libgcc | 1406 | 1431 | 1461 | ok |
+| arm_quaternion_product_single_f32 | CMSIS-DSP | 1412 | 1434 | 1456 | - |
+| fm_quat_normalize | flexmath | 526 | 534 | 544 | ok |
+| quat normalize, 1 / sqrtf and 4 multiplies | libm | 929 | 937 | 1282 | - |
+| arm_quaternion_normalize_f32, one | CMSIS-DSP | 906 | 914 | 1593 | - |
+| fm_quat_rotate | flexmath | 827 | 843 | 854 | ok |
+| quat rotate, float | libgcc | 1464 | 1491 | 1511 | ok |
+| fm_quat_integrate | flexmath | 2064 | 2083 | 2140 | ok |
+| quat integrate, first order + normalise | candidate | 1507 | 1522 | 1534 | ok |
+| quat integrate, float with sqrtf / sinf / cosf | libm | 4962 | 5108 | 5462 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 | arm_cos_f32 | CMSIS-DSP | 471 | 581 | 649 | - |
@@ -348,7 +359,7 @@ slow samples (above 2 x median + 4), by input index:
 |---|--:|--:|---|
 | fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
 
-golden: 115 ok, 0 FAIL, 0 missing
+golden: 122 ok, 0 FAIL, 0 missing
 
 ### Cold calls
 
@@ -356,10 +367,10 @@ Each sample follows a flush of the flash cache (32 KB read from SRAM code), so t
 
 | case | impl | warm median | min | median | max | golden |
 |---|---|--:|--:|--:|--:|---|
-| fm_isqrt32 | flexmath | 33 | 345 | 482 | 483 | ok |
+| fm_isqrt32 | flexmath | 33 | 232 | 369 | 370 | ok |
 | isqrt32 digit by digit | candidate | 130 | 300 | 351 | 408 | ok |
 | fm_sqrt_q15 | flexmath | 42 | 492 | 493 | 493 | ok |
-| fm_rsqrt_q16 | flexmath | 115 | 233 | 1007 | 1009 | ok |
+| fm_rsqrt_q16 | flexmath | 115 | 458 | 1120 | 1124 | ok |
 | fm_sin_q15 | flexmath | 29 | 480 | 480 | 593 | ok |
 | sin q15, degree-7 polynomial | candidate | 57 | 501 | 503 | 503 | ok |
 | sin q15, table in SRAM | candidate | 30 | 363 | 363 | 363 | ok |
@@ -374,26 +385,27 @@ Each sample follows a flush of the flash cache (32 KB read from SRAM code), so t
 | fm_exp2_q16 | flexmath | 67 | 961 | 966 | 966 | ok |
 | exp2 q16, degree-7 polynomial | candidate | 82 | 749 | 749 | 749 | ok |
 | fm_sqrtf | flexmath | 63 | 735 | 738 | 739 | ok |
-| sqrtf, same inputs | libm | 595 | 3165 | 3165 | 3165 | - |
+| sqrtf, same inputs | libm | 595 | 3290 | 3290 | 3290 | - |
 | fm_recipf | flexmath | 41 | 378 | 378 | 378 | ok |
-| 1.0f / x | libgcc | 150 | 941 | 941 | 941 | - |
+| 1.0f / x | libgcc | 150 | 938 | 938 | 938 | - |
 | fm_rsqrtf | flexmath | 65 | 979 | 1068 | 1092 | ok |
-| 1.0f / sqrtf(x) | libm | 746 | 4106 | 4106 | 4106 | - |
-| fm_sinf | flexmath | 139 | 1206 | 1583 | 1708 | ok |
+| 1.0f / sqrtf(x) | libm | 746 | 4228 | 4228 | 4228 | - |
+| fm_sinf | flexmath | 139 | 1093 | 1583 | 1708 | ok |
 | fm_sincosf | flexmath | 204 | 1470 | 2208 | 2328 | ok |
 | fm_atan2f | flexmath | 193 | 2076 | 2328 | 2561 | ok |
 | fm_asinf | flexmath | 267 | 2809 | 3408 | 3433 | ok |
 | fm_log2f | flexmath | 107 | 1559 | 1559 | 1559 | ok |
 | fm_exp2f | flexmath | 87 | 1312 | 1321 | 1322 | ok |
 | fm_expf | flexmath | 112 | 1444 | 1453 | 1453 | ok |
-| expf, same inputs | libm | 1292 | 6140 | 7015 | 8268 | - |
-| sinf | libm | 1348 | 3625 | 5608 | 7072 | - |
-| float multiply | libgcc | 40 | 825 | 825 | 825 | - |
+| expf, same inputs | libm | 1292 | 5924 | 6576 | 8052 | - |
+| sinf | libm | 1348 | 3516 | 5502 | 6973 | - |
+| float multiply | libgcc | 40 | 710 | 710 | 710 | - |
 | fm_mat4_mul_q31 | flexmath | 992 | 3448 | 3448 | 3450 | ok |
 | fm_mat4_mul_f32 | flexmath | 2986 | 13119 | 13124 | 13129 | ok |
+| fm_quat_integrate | flexmath | 2083 | 21018 | 21147 | 21205 | ok |
 | arm_sin_q15 | CMSIS-DSP | 29 | 481 | 481 | 594 | - |
-| arm_sin_q31 | CMSIS-DSP | 46 | 489 | 491 | 604 | - |
+| arm_sin_q31 | CMSIS-DSP | 46 | 491 | 491 | 604 | - |
 | arm_sqrt_q15 | CMSIS-DSP | 65 | 966 | 966 | 969 | - |
-| arm_atan2_q15 | CMSIS-DSP | 215 | 1785 | 2023 | 2252 | - |
-| arm_atan2_q31 | CMSIS-DSP | 513 | 4286 | 4629 | 4876 | - |
+| arm_atan2_q15 | CMSIS-DSP | 215 | 1783 | 2021 | 2250 | - |
+| arm_atan2_q31 | CMSIS-DSP | 513 | 4074 | 4415 | 4654 | - |
 <!-- bench end -->

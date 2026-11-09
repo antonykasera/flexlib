@@ -249,6 +249,13 @@ const BenchGolden bench_golden[] = {
     {"fm_mat4_mul_f32", 0x5BC6373BU},
     {"mat4 f32, unpacking inside each sum", 0x5BC6373BU},
     {"mat4 mul, float loop", 0xF9683F59U},
+    {"fm_quat_mul", 0x61CFF707U},
+    {"quat mul, float", 0x541973C7U},
+    {"fm_quat_normalize", 0x3496AC15U},
+    {"fm_quat_rotate", 0x9EF9CE3AU},
+    {"quat rotate, float", 0x37FD3A2BU},
+    {"fm_quat_integrate", 0xE22941A1U},
+    {"quat integrate, first order + normalise", 0xF5B1DC3FU},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

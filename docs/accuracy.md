@@ -65,3 +65,7 @@ default flags (no ARM_MATH_ROUNDING), as on the bench.
 | 4x4 multiply f32 | CMSIS-DSP | 100000 random matrices | 8.05e+05 | 2.48 | -0.66 |
 | 4x4 multiply f32 | flexmath | 100000 with row 0 . column 0 nearly cancelling | 0.5 | 0.247 | +5.6e-05 |
 | 4x4 multiply f32 | CMSIS-DSP | 100000 with row 0 . column 0 nearly cancelling | 6.87e+10 | 1.17e+06 | -7.7e+04 |
+| quaternion product f32 | flexmath | 10^6 random quaternions | 0.5 | 0.25 | +0.00014 |
+| quaternion product f32 | CMSIS-DSP | 10^6 random quaternions | 1.96e+06 | 2.17 | -0.39 |
+| quaternion normalize f32 | flexmath | 10^6 random quaternions | 0.543 | 0.25 | -1.2e-05 |
+| quaternion normalize f32 | CMSIS-DSP | 10^6 random quaternions | 2.79 | 0.411 | -0.00028 |

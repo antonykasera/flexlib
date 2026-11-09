@@ -168,24 +168,34 @@ FX_INLINE int64_t asr64(int64_t p, uint32_t sh) {
   return p >> sh;
 }
 
-/* float bits of the exact sum of n products ma[i] mb[i bs] 2^(ea[i] + eb[i bs]
- * - 313) (A side unpacked << 7, B side << 6: each product < 2^61), aligned to
- * the largest exponent */
-FX_INLINE uint32_t sum_f32(const int32_t *ma, const int32_t *ea,
-                           const int32_t *mb, const int32_t *eb, uint32_t bs,
-                           uint32_t n) {
-  int32_t emax = ea[0] + eb[0];
+/* the exact sum of n products ma[i] mb[i bs] 2^(ea[i] + eb[i bs] - 313) (A
+ * side unpacked << 7, B side << 6: each product < 2^61), aligned to the largest
+ * exponent: s 2^(emax - 313) */
+FX_INLINE int64_t sum_f32_s(const int32_t *ma, const int32_t *ea,
+                            const int32_t *mb, const int32_t *eb, uint32_t bs,
+                            uint32_t n, int32_t *emax) {
+  int32_t em = ea[0] + eb[0];
 #pragma GCC unroll 4
   for (uint32_t i = 1U; i < n; i++) {
     int32_t ep = ea[i] + eb[i * bs];
-    emax = ep > emax ? ep : emax;
+    em = ep > em ? ep : em;
   }
   int64_t s = 0;
 #pragma GCC unroll 4
   for (uint32_t i = 0U; i < n; i++) {
-    uint32_t sh = (uint32_t)(emax - (ea[i] + eb[i * bs]));
+    uint32_t sh = (uint32_t)(em - (ea[i] + eb[i * bs]));
     s += asr64(fx_smull(ma[i], mb[i * bs]), sh < 63U ? sh : 63U);
   }
+  *emax = em;
+  return s;
+}
+
+/* its float bits */
+FX_INLINE uint32_t sum_f32(const int32_t *ma, const int32_t *ea,
+                           const int32_t *mb, const int32_t *eb, uint32_t bs,
+                           uint32_t n) {
+  int32_t emax;
+  int64_t s = sum_f32_s(ma, ea, mb, eb, bs, n, &emax);
   return f32_of_sum(s, emax);
 }
 

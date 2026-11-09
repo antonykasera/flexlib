@@ -92,6 +92,8 @@ ACC_CMSIS = $(addprefix bench/cmsis-dsp/Source/, \
               FastMathFunctions/arm_vlog_q31.c \
               MatrixFunctions/arm_mat_mult_q31.c \
               MatrixFunctions/arm_mat_mult_f32.c \
+              QuaternionMathFunctions/arm_quaternion_product_single_f32.c \
+              QuaternionMathFunctions/arm_quaternion_normalize_f32.c \
               BasicMathFunctions/arm_abs_q15.c \
               BasicMathFunctions/arm_abs_q31.c \
               CommonTables/arm_common_tables.c)
@@ -149,7 +151,7 @@ BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
                  bench/cases_rand.c bench/cases_fixed.c bench/cases_sqrt.c \
                  bench/cases_div.c bench/cases_trig.c \
                  bench/cases_atan.c bench/cases_exp.c bench/cases_float.c \
-                 bench/cases_libm.c bench/cases_linalg.c
+                 bench/cases_libm.c bench/cases_linalg.c bench/cases_quat.c
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src -Imath/src $(CROSS_SRCS) \
@@ -200,7 +202,8 @@ BENCH_CASES_utils = bench/cases_arch.c bench/cases_bits.c bench/cases_fmt.c \
                     bench/cases_cobs.c bench/cases_debounce.c bench/cases_rand.c
 BENCH_CASES_math  = bench/cases_fixed.c bench/cases_sqrt.c bench/cases_div.c \
                     bench/cases_trig.c bench/cases_atan.c bench/cases_exp.c \
-                    bench/cases_float.c bench/cases_libm.c bench/cases_linalg.c
+                    bench/cases_float.c bench/cases_libm.c bench/cases_linalg.c \
+                    bench/cases_quat.c
 
 BENCH_SRCS = bench/main.c bench/cache_probe.c bench/bench_core.c \
              $(BENCH_CASES_$(BENCH_SET)) bench/golden.c $(LIB_SRCS)
@@ -228,6 +231,8 @@ CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
                    FastMathFunctions/arm_vlog_q31.c \
                    MatrixFunctions/arm_mat_mult_q31.c \
                    MatrixFunctions/arm_mat_mult_f32.c \
+                   QuaternionMathFunctions/arm_quaternion_product_single_f32.c \
+                   QuaternionMathFunctions/arm_quaternion_normalize_f32.c \
                    BasicMathFunctions/arm_abs_q15.c \
                    BasicMathFunctions/arm_abs_q31.c \
                    CommonTables/arm_common_tables.c)
