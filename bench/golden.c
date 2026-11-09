@@ -149,6 +149,15 @@ const BenchGolden bench_golden[] = {
     {"(q31)(x * 2^31), saturated", 0xECD4A2EDU},
     {"fm_q31_to_f32", 0xE4F9B527U},
     {"(float)q * 2^-31", 0xE4F9B527U},
+    {"fm_isqrt32", 0x0AE351F5U},
+    {"isqrt32 digit by digit", 0x0AE351F5U},
+    {"isqrt32 Newton from a CLZ seed", 0x0AE351F5U},
+    {"fm_isqrt64", 0x76BD252AU},
+    {"isqrt64 digit by digit", 0x76BD252AU},
+    {"fm_sqrt_q15", 0x67D46A3BU},
+    {"fm_sqrt_q31", 0x0E3D3A52U},
+    {"fm_sqrt_q16", 0x1C4786C8U},
+    {"fm_rsqrt_q16", 0xBAAA87CEU},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

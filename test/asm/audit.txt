@@ -105,3 +105,11 @@ fm_f32_to_q16         no-calls
 fm_q15_to_f32         no-calls  clz
 fm_q31_to_f32         no-calls  clz
 fm_q16_to_f32         no-calls  clz
+
+# fm_sqrt: table seed + one UDIV Newton step; no libgcc 64-bit divide; the
+# rsqrt is divide-free (UMULL Newton)
+fm_isqrt32            no-calls  clz udiv
+fm_isqrt64            !call=__aeabi_uldivmod  udiv umull
+fm_sqrt_q15           no-calls  udiv
+fm_sqrt_q31           no-calls  udiv umull
+fm_rsqrt_q16          no-calls  umull !udiv

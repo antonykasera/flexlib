@@ -152,6 +152,18 @@ rerun it. Method: the Bench section of README.md.
 | (q31)(x * 2^31), saturated | soft-float | 301 | 308 | 312 | ok |
 | fm_q31_to_f32 | flexmath | 24 | 24 | 26 | ok |
 | (float)q * 2^-31 | soft-float | 59 | 59 | 59 | ok |
+| fm_isqrt32 | flexmath | 9 | 33 | 34 | ok |
+| isqrt32 digit by digit | candidate | 77 | 130 | 187 | ok |
+| isqrt32 Newton from a CLZ seed | candidate | 11 | 51 | 82 | ok |
+| (uint32_t)sqrtf((float)x) | soft-float | 138 | 643 | 643 | - |
+| fm_isqrt64 | flexmath | 13 | 38 | 82 | ok |
+| isqrt64 digit by digit | candidate | 252 | 407 | 583 | ok |
+| fm_sqrt_q15 | flexmath | 41 | 42 | 42 | ok |
+| fm_sqrt_q31 | flexmath | 10 | 101 | 102 | ok |
+| fm_sqrt_q16 | flexmath | 13 | 100 | 104 | ok |
+| sqrtf on Q16.16 via float | soft-float | 183 | 699 | 699 | - |
+| fm_rsqrt_q16 | flexmath | 10 | 115 | 119 | ok |
+| 1/sqrtf on Q16.16 via float | soft-float | 202 | 823 | 823 | - |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -160,8 +172,16 @@ rerun it. Method: the Bench section of README.md.
 | float divide | libgcc | 149 | 149 | 149 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 29 | 29 | - |
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
+| arm_sqrt_q15 | CMSIS-DSP | 65 | 65 | 68 | - |
+| arm_sqrt_q31 | CMSIS-DSP | 25 | 122 | 126 | - |
 
-golden: 138 ok, 0 FAIL, 0 missing
+slow samples (above 2 x median + 4), by input index:
+
+| case | samples | max | at input |
+|---|--:|--:|---|
+| fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
+
+golden: 147 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

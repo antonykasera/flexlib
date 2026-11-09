@@ -31,6 +31,7 @@ extern const BenchGroup bench_group_cobs;
 extern const BenchGroup bench_group_debounce;
 extern const BenchGroup bench_group_rand;
 extern const BenchGroup bench_group_fixed;
+extern const BenchGroup bench_group_sqrt;
 extern const BenchGroup bench_group_libm;
 #ifdef BENCH_HAVE_CMSIS_DSP
 extern const BenchGroup bench_group_cmsis;
@@ -47,6 +48,7 @@ const BenchGroup *const bench_groups[] = {
     &bench_group_debounce,
     &bench_group_rand,
     &bench_group_fixed,
+    &bench_group_sqrt,
     &bench_group_libm,
 #ifdef BENCH_HAVE_CMSIS_DSP
     &bench_group_cmsis,

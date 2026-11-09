@@ -76,7 +76,10 @@ ACC_CMSIS = $(addprefix bench/cmsis-dsp/Source/, \
               BasicMathFunctions/arm_mult_q15.c \
               BasicMathFunctions/arm_mult_q31.c \
               SupportFunctions/arm_float_to_q15.c \
-              SupportFunctions/arm_q31_to_float.c)
+              SupportFunctions/arm_q31_to_float.c \
+              FastMathFunctions/arm_sqrt_q15.c \
+              FastMathFunctions/arm_sqrt_q31.c \
+              CommonTables/arm_common_tables.c)
 ACC_CMSIS_INC = -isystem bench/cmsis-dsp/Include \
                 -isystem bench/cmsis-dsp/PrivateInclude -isystem $(FLEX_DIR)/cmsis/inc
 
@@ -128,7 +131,8 @@ LINT_HEADERS = $(wildcard include/*.h arch/*.h utils/src/*.h) bench/bench.h
 BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
                  bench/cases_fmt.c bench/cases_crc.c bench/cases_ring.c \
                  bench/cases_parse.c bench/cases_cobs.c bench/cases_debounce.c \
-                 bench/cases_rand.c bench/cases_fixed.c bench/cases_libm.c
+                 bench/cases_rand.c bench/cases_fixed.c bench/cases_sqrt.c \
+                 bench/cases_libm.c
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src $(CROSS_SRCS) \
@@ -180,6 +184,8 @@ CMSIS_DSP_INC  = -isystem $(CMSIS_DSP_DIR)/Include -isystem $(CMSIS_DSP_DIR)/Pri
 CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
                    FastMathFunctions/arm_sin_q15.c \
                    FastMathFunctions/arm_sin_f32.c \
+                   FastMathFunctions/arm_sqrt_q15.c \
+                   FastMathFunctions/arm_sqrt_q31.c \
                    CommonTables/arm_common_tables.c)
 endif
 
@@ -255,6 +261,7 @@ endif
 
 tables:
 	$(PYTHON) tools/gen_crc_tables.py > utils/src/fu_crc_tab.c
+	$(PYTHON) tools/gen_math_tables.py > math/src/fm_tables.c
 
 # ---- misc ----
 

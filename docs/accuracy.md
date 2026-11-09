@@ -16,3 +16,7 @@ default flags (no ARM_MATH_ROUNDING), as on the bench.
 | float to q15 | CMSIS-DSP | floats in [-1, 1), every ~128th | 1 | 0.0748 | +1.2e-07 |
 | q31 to float | flexmath | every ~128th q31 | 0.5 | 0.0273 | +0.027 |
 | q31 to float | CMSIS-DSP | every ~128th q31 | 0.5 | 0.0273 | +0.027 |
+| sqrt q15 | flexmath | all 32767 positive | 0.5 | 0.249 | +0.0011 |
+| sqrt q15 | CMSIS-DSP | all 32767 positive | 7.15 | 1.25 | -0.017 |
+| sqrt q31 | flexmath | 10^7 random, every magnitude | 0.5 | 0.237 | +0.023 |
+| sqrt q31 | CMSIS-DSP | 10^7 random, every magnitude | 9 | 0.584 | -0.51 |

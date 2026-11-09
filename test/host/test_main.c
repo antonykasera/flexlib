@@ -82,6 +82,10 @@ void test_fu_rand_below(void);
 void test_fm_fixed_arith(void);
 void test_fm_fixed_convert(void);
 
+/* --- fm_sqrt (test_fm_sqrt.c) --- */
+void test_fm_isqrt(void);
+void test_fm_sqrt_fixed(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -135,6 +139,9 @@ int main(int argc, char **argv) {
 
   TEST_RUN(test_fm_fixed_arith);
   TEST_RUN(test_fm_fixed_convert);
+
+  TEST_RUN(test_fm_isqrt);
+  TEST_RUN(test_fm_sqrt_fixed);
 
   return TEST_SUMMARY();
 }

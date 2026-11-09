@@ -31,6 +31,7 @@ flexutils is complete; flexmath is under way.
 | `fu_debounce` (integrator for one input, branch-free vertical counter for 32) | against per-input reference counters on bouncing streams, glitch properties, asm-audit | bench + golden check |
 | `fu_rand` (xorshift32, xoshiro128** with jump, unbiased bounded draws) | known answers from an independent implementation, jump checked against the transition matrix, xorshift32 period over all 2^32 states, uniformity and bias tests, asm-audit | bench + golden check |
 | `fm_fixed.h` (Q15/Q31/Q16.16: saturating add/sub, rounding multiply, MAC; exact float conversion without soft-float) | add/sub/mul q15 on all 2^32 pairs, conversions on all 2^32 floats and values, accuracy against CMSIS-DSP, asm-audit | bench + golden check |
+| `fm_sqrt` (isqrt32/64 exact; sqrt q15/q31/Q16.16 and 1/sqrt Q16.16 correctly rounded) | isqrt32 on all 2^32 inputs, the Q functions on every positive input, accuracy against CMSIS-DSP, asm-audit | bench + golden check |
 
 ## Layout
 
@@ -68,7 +69,7 @@ Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
 |---|---|
 | `make` | `host-test`, `cross`, `lint`, `asm-audit` |
 | `make host-test [HOST_CC=clang]` | host tests with ASan + UBSan |
-| `make exhaustive` | checks every 32-bit input or state where that is possible (~3.5 min on 12 cores) |
+| `make exhaustive` | checks every 32-bit input or state where that is possible (~4 min on 12 cores) |
 | `make exhaustive-slow` | the same for q16 and float text, against the C library's `%.*f` (~13 min on 12 cores) |
 | `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |
