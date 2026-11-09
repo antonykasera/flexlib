@@ -245,21 +245,21 @@ static inline uint32_t in_off256_hw(uint32_t u) {
   return in_off256(u);
 }
 
-BENCH_UNARY(b_crc32_256, uint32_t, in_off256, uint32_t,
+BENCH_UNARY_COLD(b_crc32_256, uint32_t, in_off256, uint32_t,
             fu_crc32(FU_CRC32_INIT, &data[x], 256U))
-BENCH_UNARY(b_crc32_byte_256, uint32_t, in_off256, uint32_t,
+BENCH_UNARY_COLD(b_crc32_byte_256, uint32_t, in_off256, uint32_t,
             crc32_byte(&data[x], 256U))
-BENCH_UNARY(b_crc32_nib_256, uint32_t, in_off256, uint32_t,
+BENCH_UNARY_COLD(b_crc32_nib_256, uint32_t, in_off256, uint32_t,
             crc32_nibble(&data[x], 256U))
 BENCH_UNARY(b_crc32_bit_256, uint32_t, in_off256, uint32_t,
             crc32_bitwise(&data[x], 256U))
 BENCH_UNARY(b_crc32_hw_256, uint32_t, in_off256_hw, uint32_t,
             crc32_hw(&data[x], 256U))
-BENCH_UNARY(b_crc32_8, uint32_t, in_off8, uint32_t,
+BENCH_UNARY_COLD(b_crc32_8, uint32_t, in_off8, uint32_t,
             fu_crc32(FU_CRC32_INIT, &data[x], 8U))
-BENCH_UNARY(b_crc32_byte_8, uint32_t, in_off8, uint32_t,
+BENCH_UNARY_COLD(b_crc32_byte_8, uint32_t, in_off8, uint32_t,
             crc32_byte(&data[x], 8U))
-BENCH_UNARY(b_crc32_nib_8, uint32_t, in_off8, uint32_t,
+BENCH_UNARY_COLD(b_crc32_nib_8, uint32_t, in_off8, uint32_t,
             crc32_nibble(&data[x], 8U))
 
 BENCH_UNARY(b_ccitt, uint32_t, in_off64, uint32_t,
@@ -337,3 +337,15 @@ static const BenchCase cases[] = {
 };
 
 const BenchGroup bench_group_crc = {cases, BENCH_COUNT(cases)};
+
+static const BenchCase cold[] = {
+    {"fu_crc32, 256 B", "flexlib", b_crc32_256_cold, true},
+    {"crc32 byte table 1 KB, 256 B", "candidate", b_crc32_byte_256_cold, true},
+    {"crc32 nibble table (small), 256 B", "candidate", b_crc32_nib_256_cold,
+     true},
+    {"fu_crc32, 8 B", "flexlib", b_crc32_8_cold, true},
+    {"crc32 byte table 1 KB, 8 B", "candidate", b_crc32_byte_8_cold, true},
+    {"crc32 nibble table (small), 8 B", "candidate", b_crc32_nib_8_cold, true},
+};
+
+const BenchGroup bench_group_crc_cold = {cold, BENCH_COUNT(cold)};

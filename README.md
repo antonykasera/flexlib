@@ -71,6 +71,12 @@ find the flash cold, or a part whose flash has wait states, skip the table
 fetches: on the bench board a cold `fm_sin_q15` drops from 480 to 368 cycles
 and `fm_sin_q31` from 851 to 738.
 
+Define `FU_CRC_SMALL` to use 16-entry CRC tables instead of byte tables
+(CRC-32's is 4 KB, slice-by-4). With a warm cache, CRC-32 over 256 B then
+takes 4109 cycles instead of 1584. With a cold one it takes 4672 instead of
+14793, because slice-by-4 reads most of its table. Choose it for code that
+runs rarely, or for parts whose flash has wait states and no cache.
+
 ## Building and testing
 
 | Command | What it does |
@@ -85,8 +91,8 @@ and `fm_sin_q31` from 851 to 738.
 | `make tables` | regenerates the CRC tables (`utils/src/fu_crc_tab.c`) |
 | `make accuracy` | flexmath and the CMSIS-DSP functions it replaces against a `double` reference; writes `docs/accuracy.md` (~1 min) |
 | `make golden` | runs the bench cases on the host and writes `bench/golden.c` |
-| `make bench [BENCH_OPT=-Os]` | builds the bench firmware |
-| `make bench-run` | flashes it over ST-Link, reads `/dev/ttyACM0`, writes `docs/results-f103.md` |
+| `make bench [BENCH_OPT=-Os]` | builds the bench firmware: a flexutils image and a flexmath image |
+| `make bench-run` | flashes each image over ST-Link in turn, reads `/dev/ttyACM0`, writes `docs/results-f103.md` |
 | `make bench-windows` | lists the instructions each bench case actually times |
 
 The bench needs the submodules: `git submodule update --init`.
@@ -126,8 +132,10 @@ The bench needs the submodules: `git submodule update --init`.
 - A "Flash read cost" section measures the board's flash: cycles per load,
   cold and warm, by block size and by stride. The loop runs from SRAM so its
   own fetches don't disturb the result.
-- The firmware needs 128 KB of flash: an F103CB, or a C8 that has it, as
-  most clones do (`st-info --probe` shows the size).
+- The firmware is two images, flexutils (with newlib's printf and strtod
+  baselines) and flexmath (with CMSIS-DSP and libm), each run in turn. The
+  flexutils one needs about 86 KB of flash: an F103CB, or a C8 that has
+  128 KB, as most clones do (`st-info --probe` shows the size).
 
 ## Results
 

@@ -4,7 +4,7 @@ Written by `make bench-run` on 2026-11-09. Do not edit by hand;
 rerun it. Method: the Bench section of README.md.
 
 <!-- bench begin -->
-## flexlib bench, STM32F103 @ 72 MHz
+## flexlib bench, utils image, STM32F103 @ 72 MHz
 
 - build: -O2, GCC 16.2.0, newlib-nano
 - CPUID 0x412FC230, flash 2 WS, prefetch on
@@ -137,6 +137,56 @@ rerun it. Method: the Bench section of README.md.
 | xoshiro128** % 100 (UDIV, biased) | candidate | 36 | 38 | 38 | ok |
 | rand() | newlib | 43 | 44 | 44 | - |
 | fu_xoshiro128_jump (2^64 steps) | flexlib | 3268 | 3268 | 3268 | ok |
+
+golden: 123 ok, 0 FAIL, 0 missing
+
+### Cold calls
+
+Each sample follows a flush of the flash cache (32 KB read from SRAM code), so the function's code and tables come from flash; the case's own loop is read back first. Same inputs and overhead as above; the empty case cold reads 1.
+
+| case | impl | warm median | min | median | max | golden |
+|---|---|--:|--:|--:|--:|---|
+| fu_crc32, 256 B | flexlib | 1584 | 13599 | 14793 | 15810 | ok |
+| crc32 byte table 1 KB, 256 B | candidate | 2829 | 6671 | 6784 | 6784 | ok |
+| crc32 nibble table (small), 256 B | candidate | 4109 | 4672 | 4672 | 4672 | ok |
+| fu_crc32, 8 B | flexlib | 97 | 1441 | 1665 | 1667 | ok |
+| crc32 byte table 1 KB, 8 B | candidate | 100 | 891 | 1230 | 1343 | ok |
+| crc32 nibble table (small), 8 B | candidate | 140 | 703 | 703 | 703 | ok |
+
+### Flash read cost
+
+Cycles per 32-bit load from flash, loop included, first pass after a flush (cold) and second pass (warm). The same loop over SRAM: 8.3.
+
+| block, one load per 32 B | cold | warm |
+|--:|--:|--:|
+| 256 B | 122.1 | 9.1 |
+| 512 B | 121.5 | 8.5 |
+| 1 KB | 121.2 | 8.2 |
+| 2 KB | 121.1 | 8.1 |
+| 4 KB | 121.0 | 8.0 |
+| 8 KB | 121.0 | 8.0 |
+| 16 KB | 121.0 | 8.0 |
+| 32 KB | 121.0 | 121.0 |
+
+| stride, 1 KB block | cold | warm |
+|--:|--:|--:|
+| 4 B | 22.1 | 8.0 |
+| 8 B | 36.3 | 8.0 |
+| 16 B | 64.6 | 8.1 |
+| 32 B | 121.2 | 8.2 |
+| 64 B | 121.5 | 8.5 |
+<!-- bench end -->
+
+<!-- bench begin -->
+## flexlib bench, math image, STM32F103 @ 72 MHz
+
+- build: -O2, GCC 16.2.0, newlib-nano
+- CPUID 0x412FC230, flash 2 WS, prefetch on
+- cycles per call over 256 inputs, CYCCNT read cost (1) subtracted; interrupts off while timing
+
+| case | impl | min | median | max | golden |
+|---|---|--:|--:|--:|---|
+| CYCCNT read (raw) | - | 1 | 1 | 1 | - |
 | fm_add_q31 (inline) | flexmath | 3 | 3 | 3 | ok |
 | add q31, 64-bit clamp | candidate | 11 | 11 | 15 | ok |
 | add q31, sign xor + IT | candidate | 8 | 8 | 8 | ok |
@@ -149,7 +199,7 @@ rerun it. Method: the Bench section of README.md.
 | fm_q15_to_f32 | flexmath | 19 | 19 | 19 | ok |
 | (float)q * 2^-15 | soft-float | 60 | 60 | 60 | ok |
 | fm_f32_to_q31 | flexmath | 26 | 26 | 33 | ok |
-| (q31)(x * 2^31), saturated | soft-float | 301 | 308 | 312 | ok |
+| (q31)(x * 2^31), saturated | soft-float | 301 | 309 | 313 | ok |
 | fm_q31_to_f32 | flexmath | 24 | 24 | 26 | ok |
 | (float)q * 2^-31 | soft-float | 59 | 59 | 59 | ok |
 | fm_isqrt32 | flexmath | 9 | 33 | 34 | ok |
@@ -209,7 +259,7 @@ slow samples (above 2 x median + 4), by input index:
 |---|--:|--:|---|
 | fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
 
-golden: 172 ok, 0 FAIL, 0 missing
+golden: 49 ok, 0 FAIL, 0 missing
 
 ### Cold calls
 
@@ -218,41 +268,18 @@ Each sample follows a flush of the flash cache (32 KB read from SRAM code), so t
 | case | impl | warm median | min | median | max | golden |
 |---|---|--:|--:|--:|--:|---|
 | fm_isqrt32 | flexmath | 33 | 232 | 369 | 370 | ok |
-| isqrt32 digit by digit | candidate | 130 | 413 | 464 | 521 | ok |
+| isqrt32 digit by digit | candidate | 130 | 300 | 351 | 408 | ok |
 | fm_sqrt_q15 | flexmath | 42 | 492 | 493 | 493 | ok |
 | fm_rsqrt_q16 | flexmath | 115 | 458 | 1120 | 1124 | ok |
 | fm_sin_q15 | flexmath | 29 | 480 | 480 | 593 | ok |
-| sin q15, degree-7 polynomial | candidate | 57 | 503 | 504 | 504 | ok |
-| sin q15, table in SRAM | candidate | 30 | 368 | 368 | 368 | ok |
+| sin q15, degree-7 polynomial | candidate | 57 | 501 | 503 | 503 | ok |
+| sin q15, table in SRAM | candidate | 30 | 363 | 363 | 363 | ok |
 | fm_sin_q31 | flexmath | 67 | 850 | 851 | 852 | ok |
-| sin q31, table in SRAM | candidate | 69 | 629 | 738 | 739 | ok |
+| sin q31, table in SRAM | candidate | 69 | 618 | 619 | 620 | ok |
 | fm_sincos_q31 | flexmath | 105 | 1109 | 1226 | 1228 | ok |
-| sinf | libm | 1348 | 3848 | 5739 | 7192 | - |
+| sinf | libm | 1348 | 3737 | 5722 | 7178 | - |
 | float multiply | libgcc | 40 | 596 | 596 | 596 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 481 | 481 | 594 | - |
 | arm_sin_q31 | CMSIS-DSP | 46 | 489 | 491 | 604 | - |
 | arm_sqrt_q15 | CMSIS-DSP | 65 | 966 | 966 | 969 | - |
-
-### Flash read cost
-
-Cycles per 32-bit load from flash, loop included, first pass after a flush (cold) and second pass (warm). The same loop over SRAM: 8.3.
-
-| block, one load per 32 B | cold | warm |
-|--:|--:|--:|
-| 256 B | 122.1 | 9.1 |
-| 512 B | 121.5 | 8.5 |
-| 1 KB | 121.2 | 8.2 |
-| 2 KB | 121.1 | 8.1 |
-| 4 KB | 121.0 | 8.0 |
-| 8 KB | 121.0 | 8.0 |
-| 16 KB | 121.0 | 8.0 |
-| 32 KB | 121.0 | 121.0 |
-
-| stride, 1 KB block | cold | warm |
-|--:|--:|--:|
-| 4 B | 22.1 | 8.0 |
-| 8 B | 36.3 | 8.0 |
-| 16 B | 64.6 | 8.1 |
-| 32 B | 121.2 | 8.2 |
-| 64 B | 121.5 | 8.5 |
 <!-- bench end -->

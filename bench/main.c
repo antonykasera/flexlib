@@ -24,6 +24,14 @@
 #ifndef BENCH_OPT_NAME
 #define BENCH_OPT_NAME "?"
 #endif
+#ifndef BENCH_SET_NAME
+#define BENCH_SET_NAME "?"
+#endif
+#ifdef BENCH_SET_math
+#define BENCH_IS_MATH 1
+#else
+#define BENCH_IS_MATH 0
+#endif
 
 #define LED_PORT GPIOC
 #define LED_PIN 13U
@@ -224,7 +232,7 @@ static void run_all(void) {
   __enable_irq();
 
   print("<!-- bench begin -->\r\n");
-  print("## flexlib bench, STM32F103 @ 72 MHz\r\n\r\n");
+  print("## flexlib bench, " BENCH_SET_NAME " image, STM32F103 @ 72 MHz\r\n\r\n");
   print("- build: " BENCH_OPT_NAME ", GCC " __VERSION__ ", newlib-nano\r\n");
   print("- CPUID ");
   print_hex32(SCB->CPUID);
@@ -270,7 +278,9 @@ static void run_all(void) {
   print_u32(count[BENCH_GOLDEN_MISSING]);
   print(" missing\r\n");
   run_cold(overhead, golden_str);
-  print_cache_probe();
+  if (!BENCH_IS_MATH) {
+    print_cache_probe(); /* once, in the utils image */
+  }
   print("<!-- bench end -->\r\n");
 }
 

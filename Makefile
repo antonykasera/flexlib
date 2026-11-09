@@ -169,8 +169,12 @@ golden:
 
 # ---- bench firmware ----
 
+# Two images, each flashed and read in turn: utils (flexutils, with newlib's
+# printf and strtod baselines) and math (flexmath, with CMSIS-DSP and libm).
+BENCH_SETS     = utils math
+BENCH_SET     ?=
 BENCH_OPT     ?= -O2
-BENCH_BUILD    = $(BUILD)/bench$(BENCH_OPT)
+BENCH_BUILD    = $(BUILD)/bench$(BENCH_OPT)-$(BENCH_SET)
 BENCH_PORT    ?= /dev/ttyACM0
 BENCH_RESULTS ?= docs/results-f103$(filter-out -O2,$(BENCH_OPT)).md
 FLEX_DIR      ?= bench/flex
@@ -181,10 +185,18 @@ FLEX_MODULES := clock gpio usb
 include $(FLEX_DIR)/flex.mk
 endif
 
-BENCH_SRCS = bench/main.c bench/cache_probe.c $(BENCH_PORTABLE) bench/golden.c \
-             $(LIB_SRCS)
-BENCH_DEFS = -DSTM32F103xB -DBENCH_OPT_NAME='"$(BENCH_OPT)"'
+BENCH_CASES_utils = bench/cases_arch.c bench/cases_bits.c bench/cases_fmt.c \
+                    bench/cases_crc.c bench/cases_ring.c bench/cases_parse.c \
+                    bench/cases_cobs.c bench/cases_debounce.c bench/cases_rand.c
+BENCH_CASES_math  = bench/cases_fixed.c bench/cases_sqrt.c bench/cases_div.c \
+                    bench/cases_trig.c bench/cases_libm.c
 
+BENCH_SRCS = bench/main.c bench/cache_probe.c bench/bench_core.c \
+             $(BENCH_CASES_$(BENCH_SET)) bench/golden.c $(LIB_SRCS)
+BENCH_DEFS = -DSTM32F103xB -DBENCH_OPT_NAME='"$(BENCH_OPT)"' \
+             -DBENCH_SET_$(BENCH_SET) -DBENCH_SET_NAME='"$(BENCH_SET)"'
+
+ifeq ($(BENCH_SET),math)
 ifneq ($(wildcard $(CMSIS_DSP_DIR)/Include/arm_math.h),)
 BENCH_SRCS    += bench/cases_cmsis.c
 BENCH_DEFS    += -DBENCH_HAVE_CMSIS_DSP
@@ -201,6 +213,7 @@ CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
                    BasicMathFunctions/arm_abs_q31.c \
                    CommonTables/arm_common_tables.c)
 endif
+endif
 
 BENCH_BASE_CFLAGS = $(M3_FLAGS) $(STD) $(BENCH_OPT) -g3 \
                     -ffunction-sections -fdata-sections $(BENCH_DEFS) \
@@ -208,7 +221,7 @@ BENCH_BASE_CFLAGS = $(M3_FLAGS) $(STD) $(BENCH_OPT) -g3 \
 # _printf_float: newlib-nano's %f, for the fu_fmt_f32 baseline
 BENCH_LDFLAGS = $(M3_FLAGS) -Tbench/linker.ld -Wl,--gc-sections \
                 -Wl,--no-warn-rwx-segments --specs=nano.specs --specs=nosys.specs \
-                -u _printf_float \
+                $(if $(filter utils,$(BENCH_SET)),-u _printf_float) \
                 -Wl,-Map=$(BENCH_BUILD)/bench.map
 
 # flexlib + bench sources get the strict warnings; flex and CMSIS-DSP don't
@@ -251,18 +264,27 @@ $(BENCH_BUILD)/bench.bin: $(BENCH_BUILD)/bench.elf
 	$(ARM_OBJCOPY) -O binary $< $@
 
 ifeq ($(FLEX_ROOT),)
-bench bench-flash bench-run bench-windows:
+bench bench-run bench-windows:
 	@echo "$(FLEX_DIR) is missing: git submodule update --init, or FLEX_DIR=../flex"
 	@exit 1
+else ifeq ($(BENCH_SET),)
+# each image in turn; bench-run writes the results file, then appends
+bench bench-windows:
+	@set -e; for s in $(BENCH_SETS); do \
+		$(MAKE) --no-print-directory $@ BENCH_SET=$$s; done
+
+bench-run:
+	@set -e; a=; for s in $(BENCH_SETS); do \
+		$(MAKE) --no-print-directory bench-run BENCH_SET=$$s BENCH_APPEND=$$a; \
+		a=--append; done
 else
 bench: $(BENCH_BUILD)/bench.bin
 
 # --reset: without it the old program's peripherals keep running
-bench-flash: $(BENCH_BUILD)/bench.bin
+bench-run: $(BENCH_BUILD)/bench.bin
 	st-flash --reset write $< 0x8000000
-
-bench-run: bench-flash
-	$(PYTHON) tools/bench_run.py --port $(BENCH_PORT) --out $(BENCH_RESULTS)
+	$(PYTHON) tools/bench_run.py --port $(BENCH_PORT) --out $(BENCH_RESULTS) \
+		$(BENCH_APPEND)
 
 # what each case times: the instructions between its two CYCCNT reads
 bench-windows: $(BENCH_BUILD)/bench.elf
@@ -287,5 +309,5 @@ clean:
 
 -include $(CROSS_OBJS:.o=.d) $(BENCH_OBJS:.o=.d) $(FLEX_OBJS:.o=.d) $(CMSIS_OBJS:.o=.d)
 
-.PHONY: all check host-test exhaustive exhaustive-slow accuracy cross tables asm-audit size lint golden bench bench-flash \
+.PHONY: all check host-test exhaustive exhaustive-slow accuracy cross tables asm-audit size lint golden bench \
         bench-run bench-windows compdb clean

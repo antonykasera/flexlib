@@ -47,6 +47,8 @@ def main():
     ap.add_argument("--settle", type=float, default=1.5,
                     help="seconds to wait after flashing for re-enumeration")
     ap.add_argument("--timeout", type=float, default=180.0)
+    ap.add_argument("--append", action="store_true",
+                    help="add this image's block to --out")
     args = ap.parse_args()
 
     time.sleep(args.settle)  # else we may open the old, disconnecting device
@@ -74,10 +76,13 @@ def main():
     block = buf[start:buf.find(END, start) + len(END)].replace("\r", "")
 
     today = datetime.date.today().isoformat()
-    with open(args.out, "w") as f:
-        f.write("# Bench results: STM32F103C8 (Blue Pill clone)\n\n")
-        f.write(f"Written by `make bench-run` on {today}. Do not edit by hand;\n")
-        f.write("rerun it. Method: the Bench section of README.md.\n\n")
+    with open(args.out, "a" if args.append else "w") as f:
+        if not args.append:
+            f.write("# Bench results: STM32F103C8 (Blue Pill clone)\n\n")
+            f.write(f"Written by `make bench-run` on {today}. Do not edit by "
+                    "hand;\nrerun it. Method: the Bench section of README.md.\n\n")
+        else:
+            f.write("\n")
         f.write(block + "\n")
     print(f"\nbench_run: wrote {args.out}")
 

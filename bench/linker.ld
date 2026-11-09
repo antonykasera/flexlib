@@ -30,8 +30,9 @@ SECTIONS
     /* the bench harness: the cold flush reads its first 32 KB */
     EXCLUDE_FILE(*/utils/src/*.o */math/src/*.o *cmsis-dsp/*.o *libc_nano.a:*
                  *libc.a:* *libm.a:* *libgcc.a:*) *(.text .text* .rodata .rodata*)
-    /* what cases time, so a cold sample finds none of it cached */
-    . = ALIGN(32);
+    /* what cases time, so a cold sample finds none of it cached; a smaller
+     * harness is padded out to the 32 KB */
+    . = MAX(ALIGN(32), ORIGIN(FLASH) + 0x8000);
     _bench_measured = .;
     *(.bench_measured.text .bench_measured.rodata)
     *(.text .text* .rodata .rodata*)

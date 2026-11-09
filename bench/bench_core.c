@@ -22,6 +22,15 @@ bool bench_scratch_claim(const void *id) {
   return changed;
 }
 
+/* The firmware is two images (BENCH_SET_utils, BENCH_SET_math); the host
+ * golden build and lint take every group. */
+#if !defined(BENCH_SET_math)
+#define BENCH_UTILS 1
+#endif
+#if !defined(BENCH_SET_utils)
+#define BENCH_MATH 1
+#endif
+
 extern const BenchGroup bench_group_arch;
 extern const BenchGroup bench_group_bits;
 extern const BenchGroup bench_group_fmt;
@@ -36,11 +45,10 @@ extern const BenchGroup bench_group_sqrt;
 extern const BenchGroup bench_group_div;
 extern const BenchGroup bench_group_trig;
 extern const BenchGroup bench_group_libm;
-#ifdef BENCH_HAVE_CMSIS_DSP
 extern const BenchGroup bench_group_cmsis;
-#endif
 
 const BenchGroup *const bench_groups[] = {
+#ifdef BENCH_UTILS
     &bench_group_arch,
     &bench_group_bits,
     &bench_group_fmt,
@@ -50,28 +58,35 @@ const BenchGroup *const bench_groups[] = {
     &bench_group_cobs,
     &bench_group_debounce,
     &bench_group_rand,
+#endif
+#ifdef BENCH_MATH
     &bench_group_fixed,
     &bench_group_sqrt,
     &bench_group_div,
     &bench_group_trig,
     &bench_group_libm,
+#endif
 #ifdef BENCH_HAVE_CMSIS_DSP
     &bench_group_cmsis,
 #endif
 };
 const unsigned bench_groups_n = BENCH_COUNT(bench_groups);
 
+extern const BenchGroup bench_group_crc_cold;
 extern const BenchGroup bench_group_sqrt_cold;
 extern const BenchGroup bench_group_trig_cold;
 extern const BenchGroup bench_group_libm_cold;
-#ifdef BENCH_HAVE_CMSIS_DSP
 extern const BenchGroup bench_group_cmsis_cold;
-#endif
 
 const BenchGroup *const bench_cold_groups[] = {
+#ifdef BENCH_UTILS
+    &bench_group_crc_cold,
+#endif
+#ifdef BENCH_MATH
     &bench_group_sqrt_cold,
     &bench_group_trig_cold,
     &bench_group_libm_cold,
+#endif
 #ifdef BENCH_HAVE_CMSIS_DSP
     &bench_group_cmsis_cold,
 #endif
