@@ -108,6 +108,8 @@ void test_fm_pow(void);
 
 /* --- fm_float (test_fm_float.c) --- */
 void test_fm_sqrtf(void);
+void test_fm_recipf(void);
+void test_fm_rsqrtf(void);
 
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
@@ -183,6 +185,8 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fm_pow);
 
   TEST_RUN(test_fm_sqrtf);
+  TEST_RUN(test_fm_recipf);
+  TEST_RUN(test_fm_rsqrtf);
 
   return TEST_SUMMARY();
 }

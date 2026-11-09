@@ -36,7 +36,7 @@ flexutils is complete; flexmath is under way.
 | `fm_trig` (sin, cos, sincos of binary angles in q15 and q31, from one 1 KB quarter-wave table) | q15 on all 65536 angles, q31 on all 2^32 angles, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_atan` (atan2, asin, acos in q15 and q31, as binary angles; one 520 B table) | atan2 q15 on all 2^32 pairs, asin/acos on every input, atan2 q31 on 2^32 hashed pairs, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_exp` (log2, ln, log10, dB, exp2, exp, pow in Q16.16; 0.8 KB of tables) | logs on every positive input, exp2/exp on every input, pow on 2^32 hashed pairs against its bound, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
-| `fm_float` (`fm_sqrtf`: IEEE sqrt without an FPU, correctly rounded, subnormals, inf and NaN) | all 2^32 floats bit for bit against a correctly rounded reference, asm-audit | bench (warm and cold) + golden check |
+| `fm_float` (`fm_sqrtf`, `fm_recipf`, `fm_rsqrtf` without an FPU: correctly rounded, subnormals in and out, inf and NaN) | all 2^32 floats bit for bit against correctly rounded references (1/sqrt by an exact midpoint test), asm-audit | bench (warm and cold) + golden check |
 
 ## Layout
 

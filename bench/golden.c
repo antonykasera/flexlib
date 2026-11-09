@@ -205,6 +205,14 @@ const BenchGolden bench_golden[] = {
     {"fm_sqrtf, subnormal inputs", 0xACF4E5C3U},
     {"sqrtf, s^2 test on every input", 0x56D846FAU},
     {"sqrtf by divide-free 1/sqrt Newton", 0x56D846FAU},
+    {"fm_recipf", 0xA7565EDAU},
+    {"fm_recipf, subnormal inputs", 0x0BC63A6EU},
+    {"recipf by divlu (two UDIV digits)", 0xA7565EDAU},
+    {"recipf by Newton from a table seed", 0xA7565EDAU},
+    {"fm_rsqrtf", 0x371F7748U},
+    {"fm_rsqrtf, subnormal inputs", 0x92D537DAU},
+    {"rsqrtf, third-order step, 3/128 window", 0x371F7748U},
+    {"fm_recipf(fm_sqrtf(x)) (two roundings)", 0x2C66F9A3U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

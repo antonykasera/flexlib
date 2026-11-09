@@ -13,4 +13,12 @@
  * -0, x < 0 the default NaN, and a NaN comes back quieted. */
 float fm_sqrtf(float x);
 
+/* 1/x, correctly rounded on every input, subnormal results included: 1/+-0
+ * gives +-inf, 1/+-inf +-0, and a NaN comes back quieted */
+float fm_recipf(float x);
+
+/* 1/sqrt(x), correctly rounded on every input: +0 gives +inf, -0 -inf, +inf
+ * +0, x < 0 the default NaN, and a NaN comes back quieted */
+float fm_rsqrtf(float x);
+
 #endif /* FM_FLOAT_H */

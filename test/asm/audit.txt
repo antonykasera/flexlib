@@ -144,3 +144,5 @@ fm_pow_q16            no-calls  clz umull smull
 # fm_float: integer internals only, no soft-float (the special cases are one
 # out-of-line call)
 fm_sqrtf              udiv umull
+fm_recipf             udiv umull
+fm_rsqrtf             umull !udiv

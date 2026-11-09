@@ -9,6 +9,7 @@
 
 #include "fm_float.h"
 #include "test_stats.h"
+#include <stdbool.h>
 #include <string.h>
 
 static uint32_t f2u(float x) {
@@ -79,4 +80,126 @@ void test_fm_sqrtf(void) {
     }
   }
   ASSERT_STATS_MAX(&es, 0.5);
+}
+
+/* the double quotient rounded to float is correctly rounded (53 >= 2 * 24 +
+ * 1), subnormal and overflowing results too */
+static uint32_t ref_recipf_bits(uint32_t b) {
+  float x = u2f(b);
+  return isnan(x) ? b | 0x00400000U : f2u((float)(1.0 / (double)x));
+}
+
+static void check_recipf(uint32_t b) {
+  ASSERT_EQ(f2u(fm_recipf(u2f(b))), ref_recipf_bits(b));
+}
+
+void test_fm_recipf(void) {
+  ASSERT_EQ(f2u(fm_recipf(0.0f)), 0x7F800000U);
+  ASSERT_EQ(f2u(fm_recipf(-0.0f)), 0xFF800000U);
+  ASSERT_EQ(f2u(fm_recipf(INFINITY)), 0x00000000U);
+  ASSERT_EQ(f2u(fm_recipf(-INFINITY)), 0x80000000U);
+  ASSERT_EQ(f2u(fm_recipf(u2f(0xFF800001U))), 0xFFC00001U);
+  ASSERT_EQ(f2u(fm_recipf(-4.0f)), f2u(-0.25f));
+  ASSERT_EQ(f2u(fm_recipf(0x1p126f)), 0x00800000U);
+  ASSERT_EQ(f2u(fm_recipf(0x1p127f)), 0x00400000U); /* subnormal */
+  ASSERT_EQ(f2u(fm_recipf(0x1p-126f)), f2u(0x1p126f));
+  ASSERT_EQ(f2u(fm_recipf(0x1p-128f)), 0x7F800000U); /* 2^128 overflows */
+  check_recipf(0x7F7FFFFFU);
+  check_recipf(0x00000001U);
+  check_recipf(0x00200000U); /* 2^-129: overflows */
+  check_recipf(0x00200001U);
+  check_recipf(0x00400001U); /* just below 2^128 */
+  for (uint32_t b = 0U; b < 0x00800000U; b += 7U) { /* subnormal inputs */
+    check_recipf(b);
+    check_recipf(b | 0x80000000U);
+  }
+  for (uint32_t b = 0x7E800000U; b < 0x7F800000U; b += 7U) { /* subnormal out */
+    check_recipf(b);
+  }
+  uint64_t st = 161U;
+  ErrStats es;
+  stats_init(&es, "fm_recipf, random bits", "ulp");
+  for (int i = 0; i < 1000000; i++) {
+    uint32_t b = test_rng_u32(&st);
+    check_recipf(b);
+    float x = u2f(b);
+    if (!isnan(x) && fabsf(x) < 0x1p126f && fabsf(x) >= 0x1p-126f) {
+      stats_add(&es, (double)x, ulp_err_f32(fm_recipf(x), 1.0 / (double)x));
+    }
+  }
+  ASSERT_STATS_MAX(&es, 0.5);
+}
+
+__extension__ typedef unsigned __int128 u128;
+
+/* sign of a - 2^s */
+static int cmp_pow2(u128 a, int s) {
+  if (s < 0) {
+    return 1; /* a >= 1 here */
+  }
+  u128 p = (u128)1U << s;
+  return a < p ? -1 : (a > p ? 1 : 0);
+}
+
+/* r (a normal float) is the nearest float to 1/sqrt(x), x > 0 finite: v =
+ * 1/sqrt(x) > mid iff mid^2 x < 1, exact in 128 bits */
+static bool rsqrt_nearest(uint32_t xb, uint32_t rb) {
+  int ex = (int)(xb >> 23);
+  uint32_t mx = xb & 0x7FFFFFU;
+  if (ex == 0) {
+    ex = 1;
+  } else {
+    mx |= 0x800000U;
+  }
+  ex -= 150;
+  int er = (int)(rb >> 23);
+  if (er == 0 || er == 255) {
+    return false;
+  }
+  uint32_t m = (rb & 0x7FFFFFU) | 0x800000U;
+  er -= 150;
+  u128 kh = 2U * (u128)m + 1U; /* (2m + 1) 2^(er - 1) */
+  u128 kl = m == 0x800000U ? 4U * (u128)m - 1U : 2U * (u128)m - 1U;
+  int sl = m == 0x800000U ? er - 2 : er - 1;
+  return cmp_pow2(kh * kh * mx, -(2 * (er - 1) + ex)) > 0 &&
+         cmp_pow2(kl * kl * mx, -(2 * sl + ex)) < 0;
+}
+
+static void check_rsqrtf(uint32_t b) {
+  uint32_t r = f2u(fm_rsqrtf(u2f(b)));
+  ASSERT_TRUE(rsqrt_nearest(b, r));
+  ASSERT_TRUE(!rsqrt_nearest(b, r + 1U) && !rsqrt_nearest(b, r - 1U));
+}
+
+void test_fm_rsqrtf(void) {
+  ASSERT_EQ(f2u(fm_rsqrtf(0.0f)), 0x7F800000U);
+  ASSERT_EQ(f2u(fm_rsqrtf(-0.0f)), 0xFF800000U);
+  ASSERT_EQ(f2u(fm_rsqrtf(INFINITY)), 0x00000000U);
+  ASSERT_EQ(f2u(fm_rsqrtf(-INFINITY)), 0x7FC00000U);
+  ASSERT_EQ(f2u(fm_rsqrtf(-2.0f)), 0x7FC00000U);
+  ASSERT_EQ(f2u(fm_rsqrtf(u2f(0x7F800001U))), 0x7FC00001U);
+  ASSERT_EQ(f2u(fm_rsqrtf(1.0f)), f2u(1.0f));
+  ASSERT_EQ(f2u(fm_rsqrtf(4.0f)), f2u(0.5f));
+  ASSERT_EQ(f2u(fm_rsqrtf(0x1p-148f)), f2u(0x1p74f));
+  check_rsqrtf(0x00000001U);
+  check_rsqrtf(0x007FFFFFU);
+  check_rsqrtf(0x7F7FFFFFU);
+  for (uint32_t b = 0U; b < 0x00800000U; b += 7U) {
+    if (b != 0U) {
+      check_rsqrtf(b);
+    }
+  }
+  uint64_t st = 171U;
+  ErrStats es;
+  stats_init(&es, "fm_rsqrtf, random bits", "ulp");
+  for (int i = 0; i < 1000000; i++) {
+    uint32_t b = test_rng_u32(&st) >> 1;
+    if (b == 0U || b >= 0x7F800000U) {
+      continue;
+    }
+    check_rsqrtf(b);
+    float x = u2f(b);
+    stats_add(&es, (double)x, ulp_err_f32(fm_rsqrtf(x), 1.0 / sqrt((double)x)));
+  }
+  ASSERT_STATS_MAX(&es, 0.5001); /* the double reference rounds twice */
 }
