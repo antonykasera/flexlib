@@ -213,6 +213,11 @@ const BenchGolden bench_golden[] = {
     {"fm_rsqrtf, subnormal inputs", 0x92D537DAU},
     {"rsqrtf, third-order step, 3/128 window", 0x371F7748U},
     {"fm_recipf(fm_sqrtf(x)) (two roundings)", 0x2C66F9A3U},
+    {"fm_sinf", 0x00D4678AU},
+    {"fm_sinf, |x| pi/4 .. 2^22", 0x7C1CDEFBU},
+    {"fm_cosf", 0x58F2E612U},
+    {"fm_sincosf", 0xFA606211U},
+    {"fm_sinf + fm_cosf", 0xFA606211U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

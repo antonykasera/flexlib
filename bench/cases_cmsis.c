@@ -92,6 +92,7 @@ static inline q31_t in_q31_any(uint32_t u) { return (q31_t)u >> (u & 15U); }
 
 BENCH_UNARY_COLD(b_arm_sin_q15, q15_t, in_q15_turn, q15_t, arm_sin_q15(x))
 BENCH_UNARY(b_arm_sin_f32, float, in_angle, float, arm_sin_f32(x))
+BENCH_UNARY(b_arm_cos_f32, float, in_angle, float, arm_cos_f32(x))
 BENCH_UNARY_COLD(b_arm_sin_q31, q31_t, in_q31_turn, q31_t, arm_sin_q31(x))
 BENCH_UNARY_COLD(b_arm_sqrt_q15, q15_t, in_q15_pos, q15_t, sqrt_q15(x))
 BENCH_UNARY(b_arm_sqrt_q31, q31_t, in_q31_mag, q31_t, sqrt_q31(x))
@@ -110,6 +111,7 @@ BENCH_BINARY(b_arm_divide_q31, q31_t, in_q31_num, q31_t, in_q31_den, q31_t,
 static const BenchCase cases[] = {
     {"arm_sin_q15", "CMSIS-DSP", b_arm_sin_q15, false},
     {"arm_sin_f32", "CMSIS-DSP", b_arm_sin_f32, false},
+    {"arm_cos_f32", "CMSIS-DSP", b_arm_cos_f32, false},
     {"arm_sin_q31", "CMSIS-DSP", b_arm_sin_q31, false},
     {"arm_sqrt_q15", "CMSIS-DSP", b_arm_sqrt_q15, false},
     {"arm_sqrt_q31", "CMSIS-DSP", b_arm_sqrt_q31, false},

@@ -35,3 +35,19 @@ default flags (no ARM_MATH_ROUNDING), as on the bench.
 | ln, Q16.16 out | flexmath | 10^7 random Q16.16, every magnitude | 0.5 | 0.27 | +0.052 |
 | ln, q5.26 out | CMSIS-DSP | 10^7 random q31, every magnitude | 1.71 | 0.465 | -0.41 |
 | ln, q4.11 out | CMSIS-DSP | all 32767 positive q15 | 1.75 | 0.884 | -0.88 |
+| sinf | flexmath | 10^7 random, x in [-pi, pi] | 0.508 | 0.25 | +2.6e-05 |
+| sinf | CMSIS-DSP | 10^7 random, x in [-pi, pi] | 1.27e+07 | 175 | -0.21 |
+| cosf | flexmath | 10^7 random, x in [-pi, pi] | 0.513 | 0.25 | +0.0011 |
+| cosf | CMSIS-DSP | 10^7 random, x in [-pi, pi] | 1.23e+07 | 178 | +7.4 |
+| sinf, absolute (2^-24) | flexmath | 10^7 random, x in [-pi, pi] | 0.508 | 0.195 | +2.7e-05 |
+| sinf, absolute (2^-24) | CMSIS-DSP | 10^7 random, x in [-pi, pi] | 317 | 134 | +0.01 |
+| cosf, absolute (2^-24) | flexmath | 10^7 random, x in [-pi, pi] | 0.513 | 0.195 | +0.0011 |
+| cosf, absolute (2^-24) | CMSIS-DSP | 10^7 random, x in [-pi, pi] | 317 | 134 | +0.74 |
+| sinf | flexmath | 10^7 random, abs(x) pi/4 .. 2^22 | 0.508 | 0.25 | +1.8e-05 |
+| sinf | CMSIS-DSP | 10^7 random, abs(x) pi/4 .. 2^22 | 1.08e+11 | 4.22e+05 | -1.7e+04 |
+| cosf | flexmath | 10^7 random, abs(x) pi/4 .. 2^22 | 0.508 | 0.25 | -0.00013 |
+| cosf | CMSIS-DSP | 10^7 random, abs(x) pi/4 .. 2^22 | 1.08e+11 | 4.4e+05 | -3.1e+04 |
+| sinf, absolute (2^-24) | flexmath | 10^7 random, abs(x) pi/4 .. 2^22 | 0.508 | 0.197 | -9e-06 |
+| sinf, absolute (2^-24) | CMSIS-DSP | 10^7 random, abs(x) pi/4 .. 2^22 | 3.04e+06 | 6.17e+04 | +62 |
+| cosf, absolute (2^-24) | flexmath | 10^7 random, abs(x) pi/4 .. 2^22 | 0.507 | 0.193 | -0.00017 |
+| cosf, absolute (2^-24) | CMSIS-DSP | 10^7 random, abs(x) pi/4 .. 2^22 | 3.03e+06 | 6.18e+04 | -25 |

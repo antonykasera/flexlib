@@ -36,7 +36,7 @@ flexutils is complete; flexmath is under way.
 | `fm_trig` (sin, cos, sincos of binary angles in q15 and q31, from one 1 KB quarter-wave table) | q15 on all 65536 angles, q31 on all 2^32 angles, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_atan` (atan2, asin, acos in q15 and q31, as binary angles; one 520 B table) | atan2 q15 on all 2^32 pairs, asin/acos on every input, atan2 q31 on 2^32 hashed pairs, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_exp` (log2, ln, log10, dB, exp2, exp, pow in Q16.16; 0.8 KB of tables) | logs on every positive input, exp2/exp on every input, pow on 2^32 hashed pairs against its bound, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
-| `fm_float` (`fm_sqrtf`, `fm_recipf`, `fm_rsqrtf` without an FPU: correctly rounded, subnormals in and out, inf and NaN) | all 2^32 floats bit for bit against correctly rounded references (1/sqrt by an exact midpoint test), asm-audit | bench (warm and cold) + golden check |
+| `fm_float` (without an FPU: `fm_sqrtf`, `fm_recipf`, `fm_rsqrtf` correctly rounded; `fm_sinf`, `fm_cosf`, `fm_sincosf` within 0.515 ULP with exact reduction of any argument; subnormals, inf and NaN) | all 2^32 floats: sqrt, 1/x, 1/sqrt bit for bit against correctly rounded references (1/sqrt by an exact midpoint test), sin/cos against double; accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 
 ## Layout
 
@@ -68,7 +68,7 @@ Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
 `FX_ASSERT_FAIL(file, line)` to call your own handler instead, or
 `FX_DISABLE_ASSERT` to compile the checks out.
 
-Define `FM_LUT_IN_RAM` to put flexmath's tables (2.7 KB) in `.data`, so the
+Define `FM_LUT_IN_RAM` to put flexmath's tables (2.8 KB) in `.data`, so the
 startup code copies them to SRAM. Warm calls run at the same speed. Calls that
 find the flash cold, or a part whose flash has wait states, skip the table
 fetches: on the bench board a cold `fm_sin_q15` drops from 480 to 368 cycles

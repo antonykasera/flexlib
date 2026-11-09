@@ -203,3 +203,59 @@ void test_fm_rsqrtf(void) {
   }
   ASSERT_STATS_MAX(&es, 0.5001); /* the double reference rounds twice */
 }
+
+static void check_sincos(float x) {
+  float s, c;
+  fm_sincosf(x, &s, &c);
+  ASSERT_EQ(f2u(s), f2u(fm_sinf(x)));
+  ASSERT_EQ(f2u(c), f2u(fm_cosf(x)));
+}
+
+void test_fm_sinf_cosf(void) {
+  ASSERT_EQ(f2u(fm_sinf(0.0f)), 0x00000000U);
+  ASSERT_EQ(f2u(fm_sinf(-0.0f)), 0x80000000U);
+  ASSERT_EQ(f2u(fm_cosf(-0.0f)), f2u(1.0f));
+  ASSERT_EQ(f2u(fm_sinf(INFINITY)), 0x7FC00000U);
+  ASSERT_EQ(f2u(fm_cosf(-INFINITY)), 0x7FC00000U);
+  ASSERT_EQ(f2u(fm_sinf(u2f(0xFF800123U))), 0xFFC00123U);
+  ASSERT_EQ(f2u(fm_cosf(u2f(0x7F800001U))), 0x7FC00001U);
+  check_sincos(INFINITY);
+  check_sincos(u2f(0x7F800001U));
+  /* |x| < 2^-12: sin x = x, cos x = 1, subnormals included */
+  for (uint32_t b = 0U; b < 0x39800000U; b += 4099U) {
+    ASSERT_EQ(f2u(fm_sinf(u2f(b))), b);
+    ASSERT_EQ(f2u(fm_sinf(u2f(b | 0x80000000U))), b | 0x80000000U);
+    ASSERT_EQ(f2u(fm_cosf(u2f(b))), f2u(1.0f));
+    check_sincos(u2f(b));
+  }
+  /* the float closest to a quarter-turn multiple (2^-31 turns away), the
+   * ends of the direct range */
+  ErrStats es, ec;
+  stats_init(&es, "fm_sinf, random bits + hard", "ulp");
+  stats_init(&ec, "fm_cosf, random bits + hard", "ulp");
+  /* and results that round up to a power of two (a carry once lost them) */
+  float hard[] = {u2f(0x50A3E87FU), u2f(0x4466F861U), u2f(0x4502EEB3U),
+                  u2f(0x7C9FE500U), 0x1.921fb6p0f, 0x1.921fb4p0f,
+                  0x1.921fb6p1f, 0x1.921fb4p1f, u2f(0x7F7FFFFFU),
+                  0x1.921fb4p-1f, 0x1.921fb6p-1f};
+  for (unsigned i = 0U; i < sizeof hard / sizeof hard[0]; i++) {
+    stats_add(&es, (double)hard[i],
+              ulp_err_f32(fm_sinf(hard[i]), sin((double)hard[i])));
+    stats_add(&ec, (double)hard[i],
+              ulp_err_f32(fm_cosf(hard[i]), cos((double)hard[i])));
+    check_sincos(hard[i]);
+  }
+  uint64_t st = 181U;
+  for (int i = 0; i < 1000000; i++) {
+    uint32_t u = test_rng_u32(&st);
+    float x = (i & 1) ? u2f(u) : (float)(int32_t)u * 1.46291807926716e-9f;
+    if (isnan(x) || isinf(x)) {
+      continue;
+    }
+    stats_add(&es, (double)x, ulp_err_f32(fm_sinf(x), sin((double)x)));
+    stats_add(&ec, (double)x, ulp_err_f32(fm_cosf(x), cos((double)x)));
+    check_sincos(x);
+  }
+  ASSERT_STATS_MAX(&es, 0.515);
+  ASSERT_STATS_MAX(&ec, 0.515);
+}

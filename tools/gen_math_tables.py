@@ -7,6 +7,12 @@
 
 import math
 import sys
+from decimal import Decimal, getcontext
+
+import numpy as np
+
+PI = Decimal("3.14159265358979323846264338327950288419716939937510"
+             "58209749445923078164062862089986280348253421170679")
 
 HEADER = """/**
  * @file fm_tables.c
@@ -32,6 +38,52 @@ def emit(name, ctype, values, per_line=8):
     return "\n".join(out)
 
 
+def inv2pi_words(n):
+    """A zero word, then the first n - 1 fraction words of 1 / (2 pi)."""
+    getcontext().prec = 110
+    f = 1 / (2 * PI)
+    words = [0]
+    for _ in range(n - 1):
+        f *= 2**32
+        words.append(int(f))
+        f -= int(f)
+    return words
+
+
+def lawson(target, wt, z, deg, iters=400):
+    """Near-minimax of wt (target - p(z)), deg-degree p, by Lawson's iteration."""
+    v = np.vander(z, deg + 1, increasing=True)
+    w = np.ones_like(z)
+    for _ in range(iters):
+        sw = np.sqrt(w) * wt
+        c = np.linalg.lstsq(v * sw[:, None], target * sw, rcond=None)[0]
+        e = np.abs(wt * (target - v @ c))
+        w *= e / e.max() + 1e-300
+        w /= w.sum()
+    return c
+
+
+def trig_poly():
+    """sin r = r (1 - z T(z)), cos r = 1 - z U(z), z = r^2 <= (pi/4)^2, cubic T and
+    U fitted for relative error; |coefficients| in Q31 (the signs alternate)."""
+    z = np.linspace(0.0, (math.pi / 4) ** 2, 6001)
+
+    def series(odd):
+        return sum((-1) ** k * z**k / math.factorial(2 * k + 2 + odd)
+                   for k in range(12))
+
+    t = lawson(series(1), z, z, 3)
+    u = lawson(series(0), z / np.cos(np.sqrt(z)), z, 3)
+    # the same in eighths of a turn, u = 8h: sin = u (pi/4 - v T''(v)), cos =
+    # 1 - v U''(v), v = u^2, all Q32 (pi/4 first)
+    p4 = math.pi / 4
+    tu = [round(p4 * 2**32)] + [round(abs(c) * p4 ** (2 * k + 3) * 2**32)
+                                for k, c in enumerate(t)]
+    uu = [round(abs(c) * p4 ** (2 * k + 2) * 2**32) for k, c in enumerate(u)]
+    return ([round(abs(c) * 2**31) for c in t],
+            [round(abs(c) * 2**31) for c in u], tu, uu)
+
+
 def main():
     # x normalized to [2^30, 2^32), indexed by its top 7 bits (32..127):
     # sqrt at the bucket's midpoint, and 1/sqrt / 2 in Q15
@@ -54,6 +106,7 @@ def main():
     exp2_38 = [round((2 ** (k / 64) - 1) * 2**38) for k in range(64)]
     exp2_tab = [v >> 6 for v in exp2_38]
     exp2_lo = [v & 63 for v in exp2_38]
+    sinf_poly, cosf_poly, sinf_upoly, cosf_upoly = trig_poly()
     sys.stdout.write("\n".join([
         HEADER,
         emit("fm_sqrt_seed", "uint16_t", sqrt_seed),
@@ -64,6 +117,11 @@ def main():
         emit("fm_log2_tab", "uint32_t", log2_tab, per_line=6),
         emit("fm_exp2_tab", "uint32_t", exp2_tab, per_line=6),
         emit("fm_exp2_lo", "uint8_t", exp2_lo, per_line=16),
+        emit("fm_inv2pi_tab", "uint32_t", inv2pi_words(8), per_line=4),
+        emit("fm_sinf_poly", "uint32_t", sinf_poly),
+        emit("fm_cosf_poly", "uint32_t", cosf_poly),
+        emit("fm_sinf_upoly", "uint32_t", sinf_upoly),
+        emit("fm_cosf_upoly", "uint32_t", cosf_upoly),
     ]))
 
 

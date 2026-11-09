@@ -146,3 +146,6 @@ fm_pow_q16            no-calls  clz umull smull
 fm_sqrtf              udiv umull
 fm_recipf             udiv umull
 fm_rsqrtf             umull !udiv
+fm_sinf               umull clz
+fm_cosf               umull clz
+fm_sincosf            umull clz

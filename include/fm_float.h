@@ -21,4 +21,11 @@ float fm_recipf(float x);
  * +0, x < 0 the default NaN, and a NaN comes back quieted */
 float fm_rsqrtf(float x);
 
+/* sin, cos of x in radians, any finite x (exact reduction), within 0.515 ULP:
+ * sin x = x and cos x = 1 for |x| < 2^-12. inf gives the default NaN, and a NaN
+ * comes back quieted. fm_sincosf gives the same bits as the two calls. */
+float fm_sinf(float x);
+float fm_cosf(float x);
+void fm_sincosf(float x, float *s, float *c);
+
 #endif /* FM_FLOAT_H */

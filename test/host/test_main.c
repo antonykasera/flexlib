@@ -110,6 +110,7 @@ void test_fm_pow(void);
 void test_fm_sqrtf(void);
 void test_fm_recipf(void);
 void test_fm_rsqrtf(void);
+void test_fm_sinf_cosf(void);
 
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
@@ -187,6 +188,7 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fm_sqrtf);
   TEST_RUN(test_fm_recipf);
   TEST_RUN(test_fm_rsqrtf);
+  TEST_RUN(test_fm_sinf_cosf);
 
   return TEST_SUMMARY();
 }

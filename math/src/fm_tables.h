@@ -13,7 +13,7 @@
 #include <stdint.h>
 
 /* FM_LUT_IN_RAM: the tables go to .data, copied to SRAM at startup: no flash
- * wait states or cache misses, for their size in RAM (2.7 KB) */
+ * wait states or cache misses, for their size in RAM (2.8 KB) */
 #ifdef FM_LUT_IN_RAM
 #define FM_LUT FX_ALIGN_LINE __attribute__((section(".data.fm_lut")))
 #else
@@ -39,5 +39,19 @@ extern const uint32_t fm_log2_tab[64];
 /* 2^(k / 64) - 1 in Q38: the top 32 bits, then the low 6 */
 extern const uint32_t fm_exp2_tab[64];
 extern const uint8_t fm_exp2_lo[64];
+
+/* 1 / (2 pi) in 32-bit words after one zero word: bit k + 32 of the stream
+ * starts the fraction of 2^k / (2 pi) */
+extern const uint32_t fm_inv2pi_tab[8];
+
+/* |coefficients| in Q31, constant first, signs alternating from +: sin r = r (1
+ * - z T(z)), cos r = 1 - z U(z), z = r^2 <= (pi/4)^2 */
+extern const uint32_t fm_sinf_poly[4];
+extern const uint32_t fm_cosf_poly[4];
+
+/* the same in u = r / (pi/4), v = u^2, Q32: sin = u (pi/4 - v T''(v)), pi/4
+ * first; cos = 1 - v U''(v) */
+extern const uint32_t fm_sinf_upoly[5];
+extern const uint32_t fm_cosf_upoly[4];
 
 #endif /* FM_TABLES_H */

@@ -1,7 +1,8 @@
 /**
  * @file exhaustive_float.c
- * @brief fm_float.h on every one of the 2^32 floats, bit for bit against
- *        correctly rounded references (`make exhaustive`)
+ * @brief fm_float.h on every one of the 2^32 floats: sqrt, 1/x, 1/sqrt bit for
+ *        bit against correctly rounded references; sin, cos within their ULP
+ *        bound against double, and sincos bit for bit (`make exhaustive`)
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -92,19 +93,43 @@ static int rsqrtf_ok(uint32_t b, uint32_t r) {
   return b == 0x7F800000U ? r == 0U : rsqrt_nearest(b, r);
 }
 
-int main(void) {
-  unsigned long long bs = 0U, br = 0U, bq = 0U;
+/* |got - ref| in ULPs at ref's binade; NaN must match NaN */
+static double ulp_abs(float got, double ref) {
+  if (isnan(got) || isnan(ref)) {
+    return isnan(got) && isnan(ref) ? 0.0 : HUGE_VAL;
+  }
+  int e;
+  (void)frexp(ref, &e);
+  return fabs(((double)got - ref) / ldexp(1.0, (e - 1 < -126 ? -126 : e - 1) - 23));
+}
 
-#pragma omp parallel for reduction(+ : bs, br, bq) schedule(static)
+int main(void) {
+  unsigned long long bs = 0U, br = 0U, bq = 0U, bsc = 0U;
+  double es = 0.0, ec = 0.0;
+
+#pragma omp parallel for reduction(+ : bs, br, bq, bsc)                       \
+    reduction(max : es, ec) schedule(dynamic, 65536)
   for (long long i = 0; i <= 0xFFFFFFFFLL; i++) {
     uint32_t b = (uint32_t)i;
     float x = u2f(b);
     bs += f2u(fm_sqrtf(x)) != ref_sqrtf_bits(b);
     br += f2u(fm_recipf(x)) != ref_recipf_bits(b);
     bq += !rsqrtf_ok(b, f2u(fm_rsqrtf(x)));
+    float s = fm_sinf(x);
+    float c = fm_cosf(x);
+    float s2, c2;
+    fm_sincosf(x, &s2, &c2);
+    bsc += f2u(s) != f2u(s2) || f2u(c) != f2u(c2);
+    double e1 = ulp_abs(s, sin((double)x));
+    double e2 = ulp_abs(c, cos((double)x));
+    es = e1 > es ? e1 : es;
+    ec = e2 > ec ? e2 : ec;
   }
   printf("exhaustive: fm_sqrtf %llu bad, fm_recipf %llu, fm_rsqrtf %llu (all "
          "2^32, bit for bit)\n",
          bs, br, bq);
-  return (bs | br | bq) == 0U ? 0 : 1;
+  printf("exhaustive: fm_sinf max %.4f ulp, fm_cosf %.4f (bound 0.515), "
+         "fm_sincosf %llu differ (all 2^32)\n",
+         es, ec, bsc);
+  return (bs | br | bq | bsc) == 0U && es <= 0.515 && ec <= 0.515 ? 0 : 1;
 }

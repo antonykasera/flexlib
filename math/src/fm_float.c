@@ -165,3 +165,171 @@ float fm_rsqrtf(float x) {
   }
   return u2f(rsqrt_bits((b << 8) | 0x80000000U, (int32_t)(b >> 23)));
 }
+
+#define F32_PI4 0x3F490FDBU /* the float above pi/4 */
+
+/* |x| / (2 pi) mod 1 in Q64 turns, |x| = m 2^(e - 150) >= pi/4: m times the
+ * 96 bits of 1/(2 pi) that start at its fraction; the words above them only
+ * add whole turns */
+FX_INLINE uint64_t trig_turns(uint32_t m, uint32_t e) {
+  uint32_t pos = e - 118U;
+  const uint32_t *w = &fm_inv2pi_tab[pos >> 5];
+  uint32_t s = pos & 31U;
+  uint32_t rs = 31U - s;
+  uint32_t w0 = (w[0] << s) | ((w[1] >> 1) >> rs);
+  uint32_t w1 = (w[1] << s) | ((w[2] >> 1) >> rs);
+  uint32_t w2 = (w[2] << s) | ((w[3] >> 1) >> rs);
+  uint64_t p = fx_umull(m, w1) + (fx_umull(m, w2) >> 32);
+  return ((uint64_t)(m * w0 + (uint32_t)(p >> 32)) << 32) | (uint32_t)p;
+}
+
+/* z = r^2 in Q32, r = R 2^-E, R in [2^31, 2^32), E >= 32 */
+FX_INLINE uint32_t trig_z(uint32_t R, uint32_t E) {
+  uint32_t sh = 2U * E - 64U;
+  uint32_t r2 = (uint32_t)(fx_umull(R, R) >> 32);
+  return sh < 32U ? r2 >> sh : 0U;
+}
+
+FX_INLINE uint32_t umul_hi(uint32_t a, uint32_t b) {
+  return (uint32_t)(fx_umull(a, b) >> 32);
+}
+
+/* sin r as float bits, r = R 2^-E <= pi/4: r (1 - z T(z)), T in Q31 */
+FX_INLINE uint32_t sin_bits(uint32_t R, uint32_t E, uint32_t z) {
+  const uint32_t *c = fm_sinf_poly;
+  uint32_t t = c[2] - umul_hi(z, c[3]);
+  t = c[1] - umul_hi(z, t);
+  t = c[0] - umul_hi(z, t);
+  uint32_t y = umul_hi(R, 0x80000000U - umul_hi(z, t)); /* top bit 29 or 30 */
+  uint32_t n = fx_clz(y) - 1U;
+  return ((157U - E - n) << 23) + (((y << n) + 64U) >> 7);
+}
+
+/* cos r as float bits, r <= pi/4: 1 - z U(z) in Q31, in [0.7, 1] */
+FX_INLINE uint32_t cos_bits(uint32_t z) {
+  const uint32_t *c = fm_cosf_poly;
+  uint32_t u = c[2] - umul_hi(z, c[3]);
+  u = c[1] - umul_hi(z, u);
+  u = c[0] - umul_hi(z, u);
+  return (125U << 23) + ((0x80000000U - umul_hi(z, u) + 64U) >> 7);
+}
+
+/* sin (pi/4) u as float bits, u = G 2^-E in (0, 1], v = u^2 in Q32 */
+FX_INLINE uint32_t sin_u_bits(uint32_t G, uint32_t E, uint32_t v) {
+  const uint32_t *c = fm_sinf_upoly;
+  uint32_t t = c[3] - umul_hi(v, c[4]);
+  t = c[2] - umul_hi(v, t);
+  t = c[1] - umul_hi(v, t);
+  uint32_t y = umul_hi(G, c[0] - umul_hi(v, t)); /* top bit 30 or 31 */
+  uint32_t n = fx_clz(y);
+  return ((157U - E - n) << 23) + ((((y << n) >> 7) + 1U) >> 1); /* no carry out */
+}
+
+/* cos (pi/4) u as float bits: 1 - w, w = v U''(v) in Q32, rounded to 24 bits
+ * as 2^24 - ceil((w - 128) / 256) */
+FX_INLINE uint32_t cos_u_bits(uint32_t v) {
+  const uint32_t *c = fm_cosf_upoly;
+  uint32_t u = c[2] - umul_hi(v, c[3]);
+  u = c[1] - umul_hi(v, u);
+  u = c[0] - umul_hi(v, u);
+  return (127U << 23) - ((umul_hi(v, u) + 127U) >> 8);
+}
+
+/* f in Q64 turns plus q quarter turns: h <= 1/8 turn within the quadrant, as u
+ * = 8h = G 2^-E and v = u^2; q, and which polynomial gives sin of the whole
+ * angle (1: cos). h >= 2^-32 turns for every float (the closest one to a
+ * quarter turn is 2^-31.x away), so its top word is nonzero. */
+typedef struct {
+  uint32_t G, E, v, q, cos;
+} TrigArg;
+
+FX_INLINE TrigArg trig_arg(uint64_t f, uint32_t q) {
+  TrigArg t;
+  q += (uint32_t)(f >> 62);
+  uint64_t h = f & 0x3FFFFFFFFFFFFFFFULL;
+  uint32_t mir = (uint32_t)(h >> 61);
+  if (mir != 0U) {
+    h = (1ULL << 62) - h;
+  }
+  uint32_t hi = (uint32_t)(h >> 32);
+  uint32_t lz = fx_clz(hi);
+  t.G = (hi << lz) | (((uint32_t)h >> 1) >> (31U - lz));
+  t.E = 29U + lz;
+  uint32_t sh = 2U * lz - 6U;
+  uint32_t g2 = umul_hi(t.G, t.G);
+  t.v = sh < 32U ? g2 >> sh : 0U;
+  t.q = q;
+  t.cos = (q ^ mir) & 1U;
+  return t;
+}
+
+/* inf and NaN */
+FX_COLD static float trigf_special(uint32_t b) {
+  return u2f((b << 1) == 0xFF000000U ? F32_QNAN : b | 0x00400000U);
+}
+
+float fm_sinf(float x) {
+  uint32_t b = f2u(x);
+  uint32_t a = b & 0x7FFFFFFFU;
+  uint32_t sign = b & 0x80000000U;
+  if (a < F32_PI4) {
+    if (a < 0x00800000U) {
+      return x;
+    }
+    uint32_t E = 158U - (a >> 23);
+    uint32_t R = (a << 8) | 0x80000000U;
+    return u2f(sign | sin_bits(R, E, trig_z(R, E)));
+  }
+  if (a >= 0x7F800000U) {
+    return trigf_special(b);
+  }
+  TrigArg t = trig_arg(trig_turns((a & 0x7FFFFFU) | 0x800000U, a >> 23), 0U);
+  return u2f((sign ^ (t.q & 2U) << 30) |
+             (t.cos ? cos_u_bits(t.v) : sin_u_bits(t.G, t.E, t.v)));
+}
+
+float fm_cosf(float x) {
+  uint32_t a = f2u(x) & 0x7FFFFFFFU;
+  if (a < F32_PI4) {
+    if (a < 0x00800000U) {
+      return 1.0f;
+    }
+    uint32_t E = 158U - (a >> 23);
+    return u2f(cos_bits(trig_z((a << 8) | 0x80000000U, E)));
+  }
+  if (a >= 0x7F800000U) {
+    return trigf_special(f2u(x));
+  }
+  TrigArg t = trig_arg(trig_turns((a & 0x7FFFFFU) | 0x800000U, a >> 23), 1U);
+  return u2f((t.q & 2U) << 30 |
+             (t.cos ? cos_u_bits(t.v) : sin_u_bits(t.G, t.E, t.v)));
+}
+
+void fm_sincosf(float x, float *s, float *c) {
+  uint32_t b = f2u(x);
+  uint32_t a = b & 0x7FFFFFFFU;
+  uint32_t sign = b & 0x80000000U;
+  if (a < F32_PI4) {
+    if (a < 0x00800000U) {
+      *s = x;
+      *c = 1.0f;
+      return;
+    }
+    uint32_t E = 158U - (a >> 23);
+    uint32_t R = (a << 8) | 0x80000000U;
+    uint32_t z = trig_z(R, E);
+    *s = u2f(sign | sin_bits(R, E, z));
+    *c = u2f(cos_bits(z));
+    return;
+  }
+  if (a >= 0x7F800000U) {
+    *s = *c = trigf_special(b);
+    return;
+  }
+  TrigArg t = trig_arg(trig_turns((a & 0x7FFFFFU) | 0x800000U, a >> 23), 0U);
+  uint32_t sb = sin_u_bits(t.G, t.E, t.v);
+  uint32_t cb = cos_u_bits(t.v);
+  /* cos x = sin of a quarter turn more: the other polynomial, sign from q + 1 */
+  *s = u2f((sign ^ (t.q & 2U) << 30) | (t.cos ? cb : sb));
+  *c = u2f(((t.q + 1U) & 2U) << 30 | (t.cos ? sb : cb));
+}

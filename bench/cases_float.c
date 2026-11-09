@@ -137,12 +137,26 @@ BENCH_CALL static float rsqrtf_third(float x) {
   return u2f((((378U - e) >> 1) << 23) + r);
 }
 
+static inline uint32_t sincos_xor(float x) {
+  float s, c;
+  fm_sincosf(x, &s, &c);
+  return f2u(s) ^ f2u(c);
+}
+
 /* ---- inputs ---- */
 
 /* positive normals 2^-31 .. 2^33, uniform in the exponent */
 static inline float in_posf(uint32_t u) { return u2f(0x30000000U + (u >> 3)); }
 static inline float in_subf(uint32_t u) { return u2f((u >> 9) | 1U); }
 static inline float in_sgnf(uint32_t u) { return u2f((u << 31) | f2u(in_posf(u))); }
+/* +-pi, as the libm rows */
+static inline float in_angle(uint32_t u) {
+  return (float)(int32_t)u * 1.46291807926716e-9f;
+}
+/* +-(pi/4 .. 2^22), uniform in the exponent */
+static inline float in_wide(uint32_t u) {
+  return u2f((u << 31) | (0x3F490FDBU + (u >> 1) % 0x0AB6F025U));
+}
 
 BENCH_UNARY_COLD(f_sqrt, float, in_posf, float, fm_sqrtf(x))
 BENCH_UNARY(f_sqrt_sub, float, in_subf, float, fm_sqrtf(x))
@@ -159,6 +173,13 @@ BENCH_UNARY(f_rsqrt_sub, float, in_subf, float, fm_rsqrtf(x))
 BENCH_UNARY(f_rsqrt_third, float, in_posf, float, rsqrtf_third(x))
 BENCH_UNARY(f_rsqrt_composed, float, in_posf, float, fm_recipf(fm_sqrtf(x)))
 BENCH_UNARY_COLD(f_rsqrt_libm, float, in_posf, float, 1.0f / sqrtf(x))
+BENCH_UNARY_COLD(f_sin, float, in_angle, float, fm_sinf(x))
+BENCH_UNARY(f_sin_wide, float, in_wide, float, fm_sinf(x))
+BENCH_UNARY(f_sin_libm_wide, float, in_wide, float, sinf(x))
+BENCH_UNARY(f_cos, float, in_angle, float, fm_cosf(x))
+BENCH_UNARY_COLD(f_sincos, float, in_angle, uint32_t, sincos_xor(x))
+BENCH_UNARY(f_sincos_split, float, in_angle, uint32_t,
+            f2u(fm_sinf(x)) ^ f2u(fm_cosf(x)))
 
 static const BenchCase cases[] = {
     {"fm_sqrtf", "flexmath", f_sqrt, true},
@@ -178,6 +199,12 @@ static const BenchCase cases[] = {
     {"fm_recipf(fm_sqrtf(x)) (two roundings)", "candidate", f_rsqrt_composed,
      true},
     {"1.0f / sqrtf(x)", "libm", f_rsqrt_libm, false},
+    {"fm_sinf", "flexmath", f_sin, true},
+    {"fm_sinf, |x| pi/4 .. 2^22", "flexmath", f_sin_wide, true},
+    {"sinf, |x| pi/4 .. 2^22", "libm", f_sin_libm_wide, false},
+    {"fm_cosf", "flexmath", f_cos, true},
+    {"fm_sincosf", "flexmath", f_sincos, true},
+    {"fm_sinf + fm_cosf", "flexmath", f_sincos_split, true},
 };
 
 const BenchGroup bench_group_float = {cases, BENCH_COUNT(cases)};
@@ -189,6 +216,8 @@ static const BenchCase cold[] = {
     {"1.0f / x", "libgcc", f_recip_libgcc_cold, false},
     {"fm_rsqrtf", "flexmath", f_rsqrt_cold, true},
     {"1.0f / sqrtf(x)", "libm", f_rsqrt_libm_cold, false},
+    {"fm_sinf", "flexmath", f_sin_cold, true},
+    {"fm_sincosf", "flexmath", f_sincos_cold, true},
 };
 
 const BenchGroup bench_group_float_cold = {cold, BENCH_COUNT(cold)};
