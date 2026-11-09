@@ -58,7 +58,7 @@ define RUN_EXHAUSTIVE
 	@set -e; for t in $(1); do \
 		b=$(BUILD)/exhaustive/$$(basename $$t .c); \
 		$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -fopenmp $(LIB_INC) $$t \
-			$(LIB_SRCS) -o $$b; \
+			$(LIB_SRCS) -lm -o $$b; \
 		echo "--- $$t"; ./$$b; \
 	done
 endef
@@ -79,6 +79,10 @@ ACC_CMSIS = $(addprefix bench/cmsis-dsp/Source/, \
               SupportFunctions/arm_q31_to_float.c \
               FastMathFunctions/arm_sqrt_q15.c \
               FastMathFunctions/arm_sqrt_q31.c \
+              FastMathFunctions/arm_divide_q15.c \
+              FastMathFunctions/arm_divide_q31.c \
+              BasicMathFunctions/arm_abs_q15.c \
+              BasicMathFunctions/arm_abs_q31.c \
               CommonTables/arm_common_tables.c)
 ACC_CMSIS_INC = -isystem bench/cmsis-dsp/Include \
                 -isystem bench/cmsis-dsp/PrivateInclude -isystem $(FLEX_DIR)/cmsis/inc
@@ -132,7 +136,7 @@ BENCH_PORTABLE = bench/bench_core.c bench/cases_arch.c bench/cases_bits.c \
                  bench/cases_fmt.c bench/cases_crc.c bench/cases_ring.c \
                  bench/cases_parse.c bench/cases_cobs.c bench/cases_debounce.c \
                  bench/cases_rand.c bench/cases_fixed.c bench/cases_sqrt.c \
-                 bench/cases_libm.c
+                 bench/cases_div.c bench/cases_libm.c
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) -Ibench -Iutils/src $(CROSS_SRCS) \
@@ -186,6 +190,10 @@ CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
                    FastMathFunctions/arm_sin_f32.c \
                    FastMathFunctions/arm_sqrt_q15.c \
                    FastMathFunctions/arm_sqrt_q31.c \
+                   FastMathFunctions/arm_divide_q15.c \
+                   FastMathFunctions/arm_divide_q31.c \
+                   BasicMathFunctions/arm_abs_q15.c \
+                   BasicMathFunctions/arm_abs_q31.c \
                    CommonTables/arm_common_tables.c)
 endif
 
