@@ -156,3 +156,14 @@ fm_log2f              umull smull clz
 fm_logf               umull smull clz
 fm_exp2f              umull !udiv
 fm_expf               umull !udiv
+
+# fm_linalg: q31 sums by SMULL (exact, no calls); float sums on integers, no
+# soft-float (inf / NaN go to one cold function)
+fm_dot4_q31           no-calls  smull !udiv
+fm_cross3_q31         no-calls  smull
+fm_mat3_mul_q31       no-calls  smull
+fm_mat4_mul_q31       no-calls  smull
+fm_dot3_f32           smull clz !udiv
+fm_cross3_f32         smull clz
+fm_mat4_mul_f32       smull clz
+fm_mat4_vec_f32       smull clz

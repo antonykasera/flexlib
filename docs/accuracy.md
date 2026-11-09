@@ -59,3 +59,9 @@ default flags (no ARM_MATH_ROUNDING), as on the bench.
 | atan2f | CMSIS-DSP | 10^7 random pairs, any magnitudes | 4.83 | 0.508 | +0.092 |
 | atan2f, absolute (2^-24) | flexmath | 10^7 random pairs, any magnitudes | 2.02 | 0.865 | +0.058 |
 | atan2f, absolute (2^-24) | CMSIS-DSP | 10^7 random pairs, any magnitudes | 7 | 0.928 | +0.00051 |
+| 4x4 multiply q31 | flexmath | 200000 random matrices in [-1/4, 1/4) | 0.5 | 0.25 | +3.9e-06 |
+| 4x4 multiply q31 | CMSIS-DSP | 200000 random matrices in [-1/4, 1/4) | 1 | 0.5 | -0.5 |
+| 4x4 multiply f32 | flexmath | 100000 random matrices | 0.5 | 0.25 | +0.00013 |
+| 4x4 multiply f32 | CMSIS-DSP | 100000 random matrices | 8.05e+05 | 2.48 | -0.66 |
+| 4x4 multiply f32 | flexmath | 100000 with row 0 . column 0 nearly cancelling | 0.5 | 0.247 | +5.6e-05 |
+| 4x4 multiply f32 | CMSIS-DSP | 100000 with row 0 . column 0 nearly cancelling | 6.87e+10 | 1.17e+06 | -7.7e+04 |

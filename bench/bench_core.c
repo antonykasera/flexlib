@@ -48,6 +48,7 @@ extern const BenchGroup bench_group_atan;
 extern const BenchGroup bench_group_exp;
 extern const BenchGroup bench_group_float;
 extern const BenchGroup bench_group_libm;
+extern const BenchGroup bench_group_linalg;
 extern const BenchGroup bench_group_cmsis;
 
 const BenchGroup *const bench_groups[] = {
@@ -71,6 +72,7 @@ const BenchGroup *const bench_groups[] = {
     &bench_group_exp,
     &bench_group_float,
     &bench_group_libm,
+    &bench_group_linalg,
 #endif
 #ifdef BENCH_HAVE_CMSIS_DSP
     &bench_group_cmsis,
@@ -85,6 +87,7 @@ extern const BenchGroup bench_group_atan_cold;
 extern const BenchGroup bench_group_exp_cold;
 extern const BenchGroup bench_group_float_cold;
 extern const BenchGroup bench_group_libm_cold;
+extern const BenchGroup bench_group_linalg_cold;
 extern const BenchGroup bench_group_cmsis_cold;
 
 const BenchGroup *const bench_cold_groups[] = {
@@ -98,6 +101,7 @@ const BenchGroup *const bench_cold_groups[] = {
     &bench_group_exp_cold,
     &bench_group_float_cold,
     &bench_group_libm_cold,
+    &bench_group_linalg_cold,
 #endif
 #ifdef BENCH_HAVE_CMSIS_DSP
     &bench_group_cmsis_cold,
