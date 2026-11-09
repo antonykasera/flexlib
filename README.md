@@ -2,10 +2,14 @@
 
 Compute libraries for Cortex-M, measured on the chip they're for:
 
-- **flexutils** (`fu_`): bit tricks, lock-free rings, printf-free formatting
-  and parsing, CRCs, COBS, debouncing, PRNGs.
-- **flexmath** (`fm_`): fixed point (Q15 / Q31 / Q16.16), and fast float
-  functions built on integer internals, for chips with no FPU.
+- **[flexutils](utils/README.md)** (`fu_`): bit tricks, lock-free rings,
+  printf-free formatting and parsing, CRCs, COBS, debouncing, PRNGs.
+- **[flexmath](math/README.md)** (`fm_`): fixed point (Q15 / Q31 / Q16.16),
+  float functions built on integer internals for chips with no FPU, and
+  vectors, matrices, quaternions and PID on exact sums of products.
+
+Each library's README has its functions, their cycle counts next to the
+baselines, and their error bounds.
 
 The first target is the STM32F103 (Cortex-M3, 72 MHz, no FPU). Each function
 states an error bound, which the host tests prove against a `double`
@@ -15,7 +19,8 @@ on [flex](https://github.com/antonykasera/STM32F1-HAL).
 
 ## Status
 
-flexutils is complete; flexmath is under way.
+Both libraries are complete for their first release. What each part is
+checked with:
 
 | Part | Host | Board |
 |---|---|---|
@@ -46,13 +51,14 @@ flexutils is complete; flexmath is under way.
 ```
 include/      public headers (fu_*.h, fm_*.h)
 arch/         fx_arch.h: single-instruction wrappers, plain C on the host
-utils/src/    flexutils sources
-math/src/     flexmath sources
+utils/        flexutils: README.md, src/
+math/         flexmath: README.md, src/ (fm_tables.c is generated)
 test/host/    host tests: harness, error statistics, ULP error
 test/asm/     asm-audit spec and probes
 test/accuracy/ error statistics against CMSIS-DSP (make accuracy)
 bench/        F103 bench firmware (flex and CMSIS-DSP as submodules)
-tools/        asm_audit.py, bench_run.py, bench_windows.py, gen_crc_tables.py
+tools/        asm_audit.py, bench_run.py, bench_windows.py, gen_crc_tables.py,
+              gen_math_tables.py
 docs/         results-f103.md, accuracy.md
 ```
 
@@ -94,7 +100,7 @@ runs rarely, or for parts whose flash has wait states and no cache.
 | `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |
 | `make asm-audit` | checks the M3 disassembly for the expected instructions and for no soft-float or libgcc calls |
-| `make tables` | regenerates the CRC tables (`utils/src/fu_crc_tab.c`) |
+| `make tables` | regenerates the CRC and math tables (`utils/src/fu_crc_tab.c`, `math/src/fm_tables.c`) |
 | `make accuracy` | flexmath and the CMSIS-DSP functions it replaces against a `double` reference; writes `docs/accuracy.md` (~1 min) |
 | `make golden` | runs the bench cases on the host and writes `bench/golden.c` |
 | `make bench [BENCH_OPT=-Os]` | builds the bench firmware: flexutils, flexmath's functions, and its structures (`BENCH_SET=utils\|math\|struct` for one) |
