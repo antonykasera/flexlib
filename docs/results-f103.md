@@ -164,6 +164,20 @@ rerun it. Method: the Bench section of README.md.
 | sqrtf on Q16.16 via float | soft-float | 183 | 699 | 699 | - |
 | fm_rsqrt_q16 | flexmath | 10 | 115 | 119 | ok |
 | 1/sqrtf on Q16.16 via float | soft-float | 202 | 823 | 823 | - |
+| fm_div_q15 | flexmath | 22 | 33 | 35 | ok |
+| (a << 15) / b, truncating | candidate | 13 | 18 | 21 | ok |
+| fm_div_q31 | flexmath | 29 | 85 | 108 | ok |
+| div q31, libgcc 64-bit core | candidate | 29 | 154 | 168 | ok |
+| div q31, seed + Newton reciprocal core | candidate | 24 | 90 | 100 | ok |
+| fm_div_q16 | flexmath | 31 | 51 | 105 | ok |
+| div q16 without the 32-bit path | candidate | 30 | 88 | 100 | ok |
+| (int64_t)a * 65536 / b, truncating | libgcc | 124 | 133 | 173 | ok |
+| div q16 pre-shift SDIV (inexact) | candidate | 21 | 27 | 31 | ok |
+| a / b in float, to Q16.16 | soft-float | 246 | 246 | 251 | ok |
+| fm_recip_q16 | flexmath | 22 | 27 | 30 | ok |
+| fm_div_q16(1, x) | candidate | 88 | 93 | 103 | ok |
+| 2^32 / (int64_t)x, truncating | libgcc | 124 | 129 | 137 | ok |
+| 1 / x in float, to Q16.16 | soft-float | 210 | 210 | 215 | ok |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -174,6 +188,8 @@ rerun it. Method: the Bench section of README.md.
 | arm_sin_f32 | CMSIS-DSP | 402 | 573 | 584 | - |
 | arm_sqrt_q15 | CMSIS-DSP | 65 | 65 | 68 | - |
 | arm_sqrt_q31 | CMSIS-DSP | 25 | 122 | 126 | - |
+| arm_divide_q15 | CMSIS-DSP | 86 | 92 | 102 | - |
+| arm_divide_q31 | CMSIS-DSP | 190 | 198 | 255 | - |
 
 slow samples (above 2 x median + 4), by input index:
 
@@ -181,7 +197,7 @@ slow samples (above 2 x median + 4), by input index:
 |---|--:|--:|---|
 | fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
 
-golden: 147 ok, 0 FAIL, 0 missing
+golden: 161 ok, 0 FAIL, 0 missing
 
 ### Flash read cost
 

@@ -20,3 +20,7 @@ default flags (no ARM_MATH_ROUNDING), as on the bench.
 | sqrt q15 | CMSIS-DSP | all 32767 positive | 7.15 | 1.25 | -0.017 |
 | sqrt q31 | flexmath | 10^7 random, every magnitude | 0.5 | 0.237 | +0.023 |
 | sqrt q31 | CMSIS-DSP | 10^7 random, every magnitude | 9 | 0.584 | -0.51 |
+| divide q15 | flexmath | all pairs with abs(a) < abs(b) | 0.5 | 0.25 | +0 |
+| divide q15 | CMSIS-DSP | all pairs with abs(a) < abs(b) | 1 | 0.5 | +1.4e-19 |
+| divide q31 | flexmath | 10^7 random with abs(a) < abs(b) | 0.5 | 0.241 | +0.00016 |
+| divide q31 | CMSIS-DSP | 10^7 random with abs(a) < abs(b) | 1 | 0.477 | -0.00023 |

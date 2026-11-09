@@ -158,6 +158,20 @@ const BenchGolden bench_golden[] = {
     {"fm_sqrt_q31", 0x0E3D3A52U},
     {"fm_sqrt_q16", 0x1C4786C8U},
     {"fm_rsqrt_q16", 0xBAAA87CEU},
+    {"fm_div_q15", 0x6151EC8DU},
+    {"(a << 15) / b, truncating", 0x74F3FE7DU},
+    {"fm_div_q31", 0x4F7E156FU},
+    {"div q31, libgcc 64-bit core", 0x4F7E156FU},
+    {"div q31, seed + Newton reciprocal core", 0x4F7E156FU},
+    {"fm_div_q16", 0xE6E333ACU},
+    {"div q16 without the 32-bit path", 0xE6E333ACU},
+    {"(int64_t)a * 65536 / b, truncating", 0x0897F77BU},
+    {"div q16 pre-shift SDIV (inexact)", 0x62E0CCDEU},
+    {"a / b in float, to Q16.16", 0x782FDDD9U},
+    {"fm_recip_q16", 0x44252D41U},
+    {"fm_div_q16(1, x)", 0x44252D41U},
+    {"2^32 / (int64_t)x, truncating", 0x33711B45U},
+    {"1 / x in float, to Q16.16", 0x03F70588U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

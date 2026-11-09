@@ -33,10 +33,39 @@ static inline q31_t sqrt_q31(q31_t x) {
   return r;
 }
 
+/* the inputs of the fm_div cases */
+static inline q15_t in_q15_num(uint32_t u) {
+  return (q15_t)((q15_t)(u >> 16) >> (1U + (u & 7U)));
+}
+static inline q15_t in_q15_den(uint32_t u) { return (q15_t)((u >> 16) | 1U); }
+static inline q31_t in_q31_num(uint32_t u) {
+  return (q31_t)u >> (1U + (u & 15U));
+}
+static inline q31_t in_q31_den(uint32_t u) {
+  return (q31_t)(u | 1U) >> (u & 3U);
+}
+
+static inline q15_t divide_q15(q15_t a, q15_t b) {
+  q15_t q;
+  int16_t s;
+  (void)arm_divide_q15(a, b, &q, &s);
+  return q;
+}
+static inline q31_t divide_q31(q31_t a, q31_t b) {
+  q31_t q;
+  int16_t s;
+  (void)arm_divide_q31(a, b, &q, &s);
+  return q;
+}
+
 BENCH_UNARY(b_arm_sin_q15, q15_t, in_q15_turn, q15_t, arm_sin_q15(x))
 BENCH_UNARY(b_arm_sin_f32, float, in_angle, float, arm_sin_f32(x))
 BENCH_UNARY(b_arm_sqrt_q15, q15_t, in_q15_pos, q15_t, sqrt_q15(x))
 BENCH_UNARY(b_arm_sqrt_q31, q31_t, in_q31_mag, q31_t, sqrt_q31(x))
+BENCH_BINARY(b_arm_divide_q15, q15_t, in_q15_num, q15_t, in_q15_den, q15_t,
+             divide_q15(a, b))
+BENCH_BINARY(b_arm_divide_q31, q31_t, in_q31_num, q31_t, in_q31_den, q31_t,
+             divide_q31(a, b))
 
 /* no golden hash: CMSIS isn't built on the host */
 static const BenchCase cases[] = {
@@ -44,6 +73,8 @@ static const BenchCase cases[] = {
     {"arm_sin_f32", "CMSIS-DSP", b_arm_sin_f32, false},
     {"arm_sqrt_q15", "CMSIS-DSP", b_arm_sqrt_q15, false},
     {"arm_sqrt_q31", "CMSIS-DSP", b_arm_sqrt_q31, false},
+    {"arm_divide_q15", "CMSIS-DSP", b_arm_divide_q15, false},
+    {"arm_divide_q31", "CMSIS-DSP", b_arm_divide_q31, false},
 };
 
 const BenchGroup bench_group_cmsis = {cases, BENCH_COUNT(cases)};

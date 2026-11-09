@@ -86,6 +86,12 @@ void test_fm_fixed_convert(void);
 void test_fm_isqrt(void);
 void test_fm_sqrt_fixed(void);
 
+/* --- fm_div (test_fm_div.c) --- */
+void test_fm_div_q15(void);
+void test_fm_div_q31_q16(void);
+void test_fm_div_near_half(void);
+void test_fm_recip_q16(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -142,6 +148,11 @@ int main(int argc, char **argv) {
 
   TEST_RUN(test_fm_isqrt);
   TEST_RUN(test_fm_sqrt_fixed);
+
+  TEST_RUN(test_fm_div_q15);
+  TEST_RUN(test_fm_div_q31_q16);
+  TEST_RUN(test_fm_div_near_half);
+  TEST_RUN(test_fm_recip_q16);
 
   return TEST_SUMMARY();
 }
