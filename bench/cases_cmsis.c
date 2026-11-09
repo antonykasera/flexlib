@@ -70,6 +70,22 @@ static inline q31_t atan2_q31(q31_t y, q31_t x) {
   (void)arm_atan2_q31(y, x, &r);
   return r;
 }
+static inline q31_t vlog_q31(q31_t x) {
+  q31_t r;
+  arm_vlog_q31(&x, &r, 1U);
+  return r;
+}
+static inline q15_t vlog_q15(q15_t x) {
+  q15_t r;
+  arm_vlog_q15(&x, &r, 1U);
+  return r;
+}
+/* positive, every magnitude (the fm_exp log inputs) */
+static inline q31_t in_q31_pos(uint32_t u) {
+  return ((q31_t)(u >> 1) >> (u & 15U)) | 1;
+}
+static inline q15_t in_q15_pos1(uint32_t u) { return (q15_t)((u >> 17) | 1U); }
+
 /* the inputs of the fm_atan cases */
 static inline q15_t in_q15_any(uint32_t u) { return (q15_t)(u >> 16); }
 static inline q31_t in_q31_any(uint32_t u) { return (q31_t)u >> (u & 15U); }
@@ -83,6 +99,8 @@ BENCH_BINARY_COLD(b_arm_atan2_q15, q15_t, in_q15_any, q15_t, in_q15_any, q15_t,
                   atan2_q15(a, b))
 BENCH_BINARY_COLD(b_arm_atan2_q31, q31_t, in_q31_any, q31_t, in_q31_any, q31_t,
                   atan2_q31(a, b))
+BENCH_UNARY(b_arm_vlog_q31, q31_t, in_q31_pos, q31_t, vlog_q31(x))
+BENCH_UNARY(b_arm_vlog_q15, q15_t, in_q15_pos1, q15_t, vlog_q15(x))
 BENCH_BINARY(b_arm_divide_q15, q15_t, in_q15_num, q15_t, in_q15_den, q15_t,
              divide_q15(a, b))
 BENCH_BINARY(b_arm_divide_q31, q31_t, in_q31_num, q31_t, in_q31_den, q31_t,
@@ -99,6 +117,10 @@ static const BenchCase cases[] = {
     {"arm_divide_q31", "CMSIS-DSP", b_arm_divide_q31, false},
     {"arm_atan2_q15", "CMSIS-DSP", b_arm_atan2_q15, false},
     {"arm_atan2_q31", "CMSIS-DSP", b_arm_atan2_q31, false},
+    {"arm_vlog_q31, one value (ln, q5.26 out)", "CMSIS-DSP", b_arm_vlog_q31,
+     false},
+    {"arm_vlog_q15, one value (ln, q4.11 out)", "CMSIS-DSP", b_arm_vlog_q15,
+     false},
 };
 
 const BenchGroup bench_group_cmsis = {cases, BENCH_COUNT(cases)};

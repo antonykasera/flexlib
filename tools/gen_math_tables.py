@@ -23,7 +23,7 @@ HEADER = """/**
 
 
 def emit(name, ctype, values, per_line=8):
-    size = len(values) * {"uint16_t": 2, "uint32_t": 4}[ctype]
+    size = len(values) * {"uint8_t": 1, "uint16_t": 2, "uint32_t": 4}[ctype]
     align = " FM_LUT" if size >= 64 else ""
     out = [f"const {ctype} {name}[{len(values)}]{align} = {{"]
     for i in range(0, len(values), per_line):
@@ -46,12 +46,24 @@ def main():
     atan_tab = [round(math.atan(k / 128) / (2 * math.pi) * 2**34)
                 for k in range(129)]
     atan_tab.append(atan_tab[128])
+    # log2: reciprocals of the 64 mantissa buckets' midpoints (Q32), and
+    # -log2 of each stored reciprocal (Q32)
+    log2_rcp = [round(2**32 / (1 + (k + 0.5) / 64)) for k in range(64)]
+    log2_tab = [round(-math.log2(r / 2**32) * 2**32) for r in log2_rcp]
+    # exp2: 2^(k / 64) - 1 in Q38, as Q32 words and the 6 bits below them
+    exp2_38 = [round((2 ** (k / 64) - 1) * 2**38) for k in range(64)]
+    exp2_tab = [v >> 6 for v in exp2_38]
+    exp2_lo = [v & 63 for v in exp2_38]
     sys.stdout.write("\n".join([
         HEADER,
         emit("fm_sqrt_seed", "uint16_t", sqrt_seed),
         emit("fm_rsqrt_seed", "uint16_t", rsqrt_seed),
         emit("fm_sin_tab", "uint32_t", sin_tab, per_line=6),
         emit("fm_atan_tab", "uint32_t", atan_tab, per_line=6),
+        emit("fm_log2_rcp", "uint32_t", log2_rcp, per_line=6),
+        emit("fm_log2_tab", "uint32_t", log2_tab, per_line=6),
+        emit("fm_exp2_tab", "uint32_t", exp2_tab, per_line=6),
+        emit("fm_exp2_lo", "uint8_t", exp2_lo, per_line=16),
     ]))
 
 

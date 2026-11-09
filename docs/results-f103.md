@@ -247,6 +247,21 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | fm_atan2_q31 | flexmath | 169 | 181 | 206 | ok |
 | fm_asin_q31 | flexmath | 271 | 284 | 304 | ok |
 | fm_acos_q31 | flexmath | 270 | 283 | 306 | ok |
+| fm_log2_q16 | flexmath | 71 | 72 | 72 | ok |
+| log2 q16, bit by bit | candidate | 267 | 269 | 269 | ok |
+| log2 q16, degree-8 polynomial | candidate | 88 | 95 | 95 | ok |
+| log2f via float | libm | 1363 | 1747 | 1875 | - |
+| fm_ln_q16 | flexmath | 86 | 87 | 87 | ok |
+| logf via float | libm | 1202 | 1586 | 1714 | - |
+| fm_log10_q16 | flexmath | 86 | 87 | 87 | ok |
+| fm_db_q16 | flexmath | 86 | 87 | 87 | ok |
+| fm_exp2_q16 | flexmath | 62 | 67 | 67 | ok |
+| exp2 q16, degree-7 polynomial | candidate | 82 | 82 | 82 | ok |
+| exp2f via float | libm | 3396 | 3740 | 3760 | - |
+| fm_exp_q16 | flexmath | 82 | 89 | 89 | ok |
+| expf via float | libm | 1141 | 1566 | 1580 | - |
+| fm_pow_q16 | flexmath | 100 | 153 | 154 | ok |
+| powf via float | libm | 4592 | 5183 | 5331 | - |
 | sinf | libm | 704 | 1348 | 1461 | - |
 | cosf | libm | 847 | 1220 | 1597 | - |
 | sqrtf | libm | 596 | 596 | 596 | - |
@@ -264,6 +279,8 @@ Cycles per 32-bit load from flash, loop included, first pass after a flush (cold
 | arm_divide_q31 | CMSIS-DSP | 190 | 198 | 255 | - |
 | arm_atan2_q15 | CMSIS-DSP | 203 | 215 | 222 | - |
 | arm_atan2_q31 | CMSIS-DSP | 488 | 513 | 532 | - |
+| arm_vlog_q31, one value (ln, q5.26 out) | CMSIS-DSP | 546 | 548 | 548 | - |
+| arm_vlog_q15, one value (ln, q4.11 out) | CMSIS-DSP | 276 | 276 | 276 | - |
 
 slow samples (above 2 x median + 4), by input index:
 
@@ -271,7 +288,7 @@ slow samples (above 2 x median + 4), by input index:
 |---|--:|--:|---|
 | fm_isqrt64 | 65 | 82 | 9, 12, 15, 17, ... |
 
-golden: 57 ok, 0 FAIL, 0 missing
+golden: 67 ok, 0 FAIL, 0 missing
 
 ### Cold calls
 
@@ -292,11 +309,15 @@ Each sample follows a flush of the flash cache (32 KB read from SRAM code), so t
 | fm_atan2_q15 | flexmath | 63 | 733 | 733 | 846 | ok |
 | atan2 q15, degree-11 polynomial | candidate | 115 | 886 | 894 | 899 | ok |
 | fm_atan2_q31 | flexmath | 181 | 1966 | 1974 | 2001 | ok |
-| sinf | libm | 1348 | 3517 | 5511 | 6736 | - |
-| float multiply | libgcc | 40 | 825 | 825 | 825 | - |
+| fm_log2_q16 | flexmath | 72 | 852 | 853 | 853 | ok |
+| log2 q16, degree-8 polynomial | candidate | 95 | 753 | 758 | 758 | ok |
+| fm_exp2_q16 | flexmath | 67 | 961 | 966 | 966 | ok |
+| exp2 q16, degree-7 polynomial | candidate | 82 | 749 | 749 | 749 | ok |
+| sinf | libm | 1348 | 3519 | 5516 | 6855 | - |
+| float multiply | libgcc | 40 | 714 | 714 | 714 | - |
 | arm_sin_q15 | CMSIS-DSP | 29 | 481 | 481 | 594 | - |
 | arm_sin_q31 | CMSIS-DSP | 46 | 489 | 491 | 604 | - |
 | arm_sqrt_q15 | CMSIS-DSP | 65 | 966 | 966 | 969 | - |
-| arm_atan2_q15 | CMSIS-DSP | 215 | 1783 | 2021 | 2250 | - |
-| arm_atan2_q31 | CMSIS-DSP | 513 | 4286 | 4629 | 4876 | - |
+| arm_atan2_q15 | CMSIS-DSP | 215 | 1785 | 2023 | 2252 | - |
+| arm_atan2_q31 | CMSIS-DSP | 513 | 3966 | 4306 | 4665 | - |
 <!-- bench end -->

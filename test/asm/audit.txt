@@ -132,3 +132,11 @@ fm_atan2_q15          no-calls  udiv
 fm_atan2_q31          no-calls  udiv umull
 fm_asin_q15           calls-ok  udiv !call=__aeabi_uidiv
 fm_asin_q31           calls-ok  udiv umull !call=__aeabi_uldivmod
+
+# fm_exp: inline cores, no calls (no libgcc 64-bit shifts either)
+fm_log2_q16           no-calls  clz umlal smull
+fm_ln_q16             no-calls  clz umull
+fm_db_q16             no-calls  clz umull
+fm_exp2_q16           no-calls  umull
+fm_exp_q16            no-calls  umull
+fm_pow_q16            no-calls  clz umull smull

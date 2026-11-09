@@ -32,3 +32,6 @@ default flags (no ARM_MATH_ROUNDING), as on the bench.
 | atan2 q15 | CMSIS-DSP | every 3rd y, 5th x | 3.68 | 1.22 | +1.2e-06 |
 | atan2 q31 | flexmath | 10^7 random, every magnitude, not (0, 0) | 0.643 | 0.237 | -0.00014 |
 | atan2 q31 | CMSIS-DSP | 10^7 random, every magnitude, not (0, 0) | 4.81 | 1.15 | -0.0014 |
+| ln, Q16.16 out | flexmath | 10^7 random Q16.16, every magnitude | 0.5 | 0.27 | +0.052 |
+| ln, q5.26 out | CMSIS-DSP | 10^7 random q31, every magnitude | 1.71 | 0.465 | -0.41 |
+| ln, q4.11 out | CMSIS-DSP | all 32767 positive q15 | 1.75 | 0.884 | -0.88 |

@@ -35,6 +35,7 @@ flexutils is complete; flexmath is under way.
 | `fm_div` (divide q15/q31/Q16.16 and 1/x Q16.16, correctly rounded and saturated, no 64-bit libgcc divide) | q15 on all 2^32 pairs, 1/x on all 2^32 inputs, q31/Q16.16 on 2^32 hashed pairs and constructed near-half cases, accuracy against CMSIS-DSP, asm-audit | bench + golden check |
 | `fm_trig` (sin, cos, sincos of binary angles in q15 and q31, from one 1 KB quarter-wave table) | q15 on all 65536 angles, q31 on all 2^32 angles, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_atan` (atan2, asin, acos in q15 and q31, as binary angles; one 520 B table) | atan2 q15 on all 2^32 pairs, asin/acos on every input, atan2 q31 on 2^32 hashed pairs, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
+| `fm_exp` (log2, ln, log10, dB, exp2, exp, pow in Q16.16; 0.8 KB of tables) | logs on every positive input, exp2/exp on every input, pow on 2^32 hashed pairs against its bound, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 
 ## Layout
 
@@ -66,7 +67,7 @@ Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
 `FX_ASSERT_FAIL(file, line)` to call your own handler instead, or
 `FX_DISABLE_ASSERT` to compile the checks out.
 
-Define `FM_LUT_IN_RAM` to put flexmath's tables (1.9 KB) in `.data`, so the
+Define `FM_LUT_IN_RAM` to put flexmath's tables (2.7 KB) in `.data`, so the
 startup code copies them to SRAM. Warm calls run at the same speed. Calls that
 find the flash cold, or a part whose flash has wait states, skip the table
 fetches: on the bench board a cold `fm_sin_q15` drops from 480 to 368 cycles
@@ -84,7 +85,7 @@ runs rarely, or for parts whose flash has wait states and no cache.
 |---|---|
 | `make` | `host-test`, `cross`, `lint`, `asm-audit` |
 | `make host-test [HOST_CC=clang]` | host tests with ASan + UBSan |
-| `make exhaustive` | checks every 32-bit input or state where that is possible (~7 min on 12 cores) |
+| `make exhaustive` | checks every 32-bit input or state where that is possible (~8 min on 12 cores) |
 | `make exhaustive-slow` | the same for q16 and float text, against the C library's `%.*f` (~13 min on 12 cores) |
 | `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |

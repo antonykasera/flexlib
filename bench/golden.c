@@ -191,6 +191,16 @@ const BenchGolden bench_golden[] = {
     {"fm_atan2_q31", 0x678C2857U},
     {"fm_asin_q31", 0xFF47069AU},
     {"fm_acos_q31", 0xD89D0D06U},
+    {"fm_log2_q16", 0xCB67FA5EU},
+    {"log2 q16, bit by bit", 0xCB67FA5EU},
+    {"log2 q16, degree-8 polynomial", 0xCB67FA5EU},
+    {"fm_ln_q16", 0xEEF5F1B5U},
+    {"fm_log10_q16", 0x065D97A1U},
+    {"fm_db_q16", 0xF88DA808U},
+    {"fm_exp2_q16", 0x414E7A4AU},
+    {"exp2 q16, degree-7 polynomial", 0x414E7A4AU},
+    {"fm_exp_q16", 0xFC8CC701U},
+    {"fm_pow_q16", 0x807849D5U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);
