@@ -45,8 +45,7 @@ void fu_xoshiro128_jump(FU_Xoshiro128 *r) {
   r->s[3] = s3;
 }
 
-/* redraw while the low half falls in the 2^32 mod n values that would make
- * some results more likely */
+/* redraw while the low half is in the biased 2^32 mod n range */
 FX_COLD uint32_t fu_xorshift32_below_slow(FU_Xorshift32 *r, uint32_t n,
                                           uint64_t m) {
   uint32_t t = (0U - n) % n;

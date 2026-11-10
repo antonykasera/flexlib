@@ -9,8 +9,7 @@
 #include "fu_ring.h"
 #include "fu_bits.h"
 
-/* Word copies (the M3 may load and store unaligned); newlib-nano's memcpy goes
- * a byte at a time. FX_OPAQUE keeps the loops from becoming memcpy calls. */
+/* word copies (nano memcpy is bytewise); FX_OPAQUE blocks memcpy calls */
 __attribute__((noinline)) static void copy16(uint8_t *d, const uint8_t *s,
                                              size_t n) {
   for (; n != 0U; n -= 16U, d += 16, s += 16) {

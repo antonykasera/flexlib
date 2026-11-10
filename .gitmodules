@@ -1,6 +1,6 @@
 [submodule "bench/flex"]
-	path = bench/flex
+	path = third_party/flex
 	url = https://github.com/antonykasera/STM32F1-HAL.git
 [submodule "bench/cmsis-dsp"]
-	path = bench/cmsis-dsp
+	path = third_party/cmsis-dsp
 	url = https://github.com/ARM-software/CMSIS-DSP.git

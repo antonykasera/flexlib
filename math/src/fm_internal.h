@@ -18,8 +18,7 @@ FX_INLINE uint32_t mag(int32_t x) {
   return x < 0 ? 0U - (uint32_t)x : (uint32_t)x;
 }
 
-/* floor(sqrt(x)) for x in [2^30, 2^32): a table seed and one Newton step,
- * which lands on the floor or one above */
+/* floor(sqrt(x)) for x in [2^30, 2^32): table seed, one Newton step */
 FX_INLINE uint32_t sqrt_norm32(uint32_t x) {
   uint32_t s = fm_sqrt_seed[(x >> 25) - 32U];
   s = (s + x / s) >> 1;
@@ -27,8 +26,7 @@ FX_INLINE uint32_t sqrt_norm32(uint32_t x) {
   return s * s > x ? s - 1U : s;
 }
 
-/* floor(sqrt(x)) for x in [2^62, 2^64): isqrt32 of the top word, then a Newton
- * step on the remainder (32-bit divide) that never undershoots: floor or +1 */
+/* floor(sqrt(x)) for x in [2^62, 2^64) */
 FX_INLINE uint32_t sqrt_norm64(uint64_t x) {
   uint32_t h = sqrt_norm32((uint32_t)(x >> 32));
   uint64_t d = x - ((uint64_t)(h * h) << 32);
@@ -39,8 +37,7 @@ FX_INLINE uint32_t sqrt_norm64(uint64_t x) {
 
 #define LN2_Q32 2977044472U
 
-/* 2^(k / 64 + r) in Q38, r = r38 2^-38 < 2^-6: the table times 2^r = 1 + a +
- * a^2/2 + a^3/6 + a^4/24, a = r ln 2, in Q38 (the small terms by MUL) */
+/* 2^(k / 64 + r) in Q38, r = r38 2^-38 < 2^-6 */
 FX_INLINE uint64_t exp2_q38(uint32_t k, uint32_t r38) {
   uint32_t a = fx_umull_hi(r38, LN2_Q32);
   uint32_t a2 = fx_umull_hi(a, a); /* a^2, Q44 */
@@ -52,8 +49,7 @@ FX_INLINE uint64_t exp2_q38(uint32_t k, uint32_t r38) {
          fx_umull_hi(t, q);
 }
 
-/* floor(m 2^16 / d) and remainder, d >= 2^31, m < d 2^16: divlu (Hacker's
- * Delight), two UDIV digits; a digit >= 2^16 always fails the product test */
+/* floor(m 2^16 / d) and remainder, d >= 2^31, m < d 2^16 (divlu) */
 FX_INLINE uint32_t udiv_norm(uint64_t m, uint32_t d, uint32_t *rem) {
   uint32_t nh = (uint32_t)(m >> 16);
   uint32_t n1 = (uint32_t)m & 0xFFFFU;
@@ -82,8 +78,7 @@ FX_INLINE uint32_t udiv_norm(uint64_t m, uint32_t d, uint32_t *rem) {
   return (q1 << 16) | q0;
 }
 
-/* q31 sums of products: s is the sum mod 2^64, h is about the sum / 2^34
- * (within 2 per product) */
+/* q31 sums of products: s is the sum mod 2^64, h about the sum / 2^34 */
 typedef struct {
   uint64_t s;
   int32_t h;
@@ -101,8 +96,7 @@ FX_INLINE void sum_msub(SumQ31 *a, int32_t x, int32_t y) {
   a->h -= (int32_t)(p >> 32) >> 2;
 }
 
-/* round(sum / 2^31), saturated. |h| < 3 2^27 bounds |sum| below 2^62.6, so s is
- * exact; otherwise |sum| > 2^62 and h has its sign. */
+/* round(sum / 2^31), saturated; h decides saturation, s the value */
 FX_INLINE int32_t sum_q31(SumQ31 a) {
   if ((uint32_t)a.h + 0x18000000U >= 0x30000000U) {
     return a.h < 0 ? INT32_MIN : INT32_MAX;
@@ -111,9 +105,7 @@ FX_INLINE int32_t sum_q31(SumQ31 a) {
   return r > INT32_MAX ? INT32_MAX : (r < INT32_MIN ? INT32_MIN : (int32_t)r);
 }
 
-/* float bits b as m 2^(e - 150 - sh), m signed, |m| < 2^(24 + sh). Zero gets e
- * = -1024, so it never sets the largest exponent; a subnormal keeps e = 1 and
- * no implicit bit. inf and NaN set *bad. */
+/* float bits as m 2^(e - 150 - sh); zero has e = -1024, inf/NaN set *bad */
 FX_INLINE int32_t unp_f32(uint32_t b, uint32_t sh, int32_t *e, uint32_t *bad) {
   uint32_t x = (b >> 23) & 255U;
   uint32_t m;
@@ -128,8 +120,7 @@ FX_INLINE int32_t unp_f32(uint32_t b, uint32_t sh, int32_t *e, uint32_t *bad) {
   return (int32_t)b < 0 ? -(int32_t)m : (int32_t)m;
 }
 
-/* float bits of s 2^(emax - 313), |s| < 2^63: nearest, ties away from zero;
- * zero is +0 */
+/* float bits of s 2^(emax - 313), |s| < 2^63, ties away from zero */
 FX_INLINE uint32_t f32_of_sum(int64_t s, int32_t emax) {
   uint32_t sign = (uint32_t)((uint64_t)s >> 63) << 31;
   uint64_t a = s < 0 ? 0U - (uint64_t)s : (uint64_t)s;
@@ -168,9 +159,7 @@ FX_INLINE int64_t asr64(int64_t p, uint32_t sh) {
   return p >> sh;
 }
 
-/* the exact sum of n products ma[i] mb[i bs] 2^(ea[i] + eb[i bs] - 313) (A
- * side unpacked << 7, B side << 6: each product < 2^61), aligned to the largest
- * exponent: s 2^(emax - 313) */
+/* exact sum of n products, aligned to the largest exponent: s 2^(emax - 313) */
 FX_INLINE int64_t sum_f32_s(const int32_t *ma, const int32_t *ea,
                             const int32_t *mb, const int32_t *eb, uint32_t bs,
                             uint32_t n, int32_t *emax) {
@@ -190,7 +179,6 @@ FX_INLINE int64_t sum_f32_s(const int32_t *ma, const int32_t *ea,
   return s;
 }
 
-/* its float bits */
 FX_INLINE uint32_t sum_f32(const int32_t *ma, const int32_t *ea,
                            const int32_t *mb, const int32_t *eb, uint32_t bs,
                            uint32_t n) {

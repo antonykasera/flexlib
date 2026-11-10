@@ -1,7 +1,6 @@
 /**
  * @file test_fu_parse.c
- * @brief Host tests for fu_parse.h: edge cases, round trips through fu_fmt,
- *        and exact references
+ * @brief Host tests for fu_parse.h
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -77,7 +76,7 @@ void test_fu_parse_edges(void) {
   CHECK_Q16("32767.999995", FU_PARSE_RANGE, INT32_MAX); /* rounds to 32768 */
   CHECK_Q16("-32768.00001", FU_PARSE_RANGE, INT32_MIN);
   CHECK_Q16("99999999999.5", FU_PARSE_RANGE, INT32_MAX);
-  /* exact ties at (2k + 1) / 2^17 go to even; anything past one goes up */
+  /* exact ties at (2k + 1) / 2^17 go to even */
   CHECK_Q16("0.00000762939453125", FU_PARSE_OK, 0);
   CHECK_Q16("0.00002288818359375", FU_PARSE_OK, 2);
   CHECK_Q16("0.000007629394531250000000001", FU_PARSE_OK, 1);
@@ -210,8 +209,7 @@ void test_fu_parse_round_trips(void) {
   }
 }
 
-/* Exact midpoints (2k + 1) / 2^17 have 17 fraction digits: (2k + 1) * 5^17.
- * Each one, nudged just below, just above, and with a far nonzero digit. */
+/* Exact midpoints (2k + 1) / 2^17 have 17 fraction digits: (2k + 1) * 5^17. */
 void test_fu_parse_q16_ties(void) {
   uint64_t st = 71U;
   char s[64];

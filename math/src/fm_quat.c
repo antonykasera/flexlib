@@ -32,8 +32,7 @@ FX_INLINE void put4(FM_Quat *r, uint32_t w, uint32_t x, uint32_t y,
   memcpy(r, v, sizeof v);
 }
 
-/* a one-product sum out of line (normalize, integrate); mul and rotate inline
- * theirs: 18% and 26% faster for ~1.8 and 2.5 KB */
+/* one-product sum out of line (normalize, integrate) */
 __attribute__((noinline)) static uint32_t sum1(int32_t ma, int32_t ea,
                                                int32_t mb, int32_t eb) {
   return sum_f32(&ma, &ea, &mb, &eb, 1U, 1U);
@@ -62,8 +61,7 @@ FX_INLINE uint32_t fmul(uint32_t x, uint32_t y, int32_t d) {
   return sum1(mx, ex, my, ey + d);
 }
 
-/* one component of a b: sum of a[k] b[perm k], term k negated if bit k of neg
- * (perm: 2 bits per term) */
+/* one component of a b: a[k] b[perm k], term k negated if bit k of neg */
 FX_INLINE uint32_t hamilton(const int32_t *ma, const int32_t *ea,
                             const int32_t *mb, const int32_t *eb, uint32_t perm,
                             uint32_t neg) {
@@ -87,16 +85,14 @@ void fm_quat_mul(FM_Quat *r, const FM_Quat *a, const FM_Quat *b) {
     put4(r, F32_QNAN, F32_QNAN, F32_QNAN, F32_QNAN);
     return;
   }
-  /* w = aw bw - ax bx - ay by - az bz, x = aw bx + ax bw + ay bz - az by, ... */
+  /* w = aw bw - ax bx - ay by - az bz, x = aw bx + ax bw + ay bz - ... */
   put4(r, hamilton(ma, ea, mb, eb, 0xE4U, 0xEU),
        hamilton(ma, ea, mb, eb, 0xB1U, 0x8U),
        hamilton(ma, ea, mb, eb, 0x4EU, 0x2U),
        hamilton(ma, ea, mb, eb, 0x1BU, 0x4U));
 }
 
-/* |q|^2 = N exactly, scaled by 4^-k into [0.5, 2); fm_rsqrtf of it truncated,
- * then one Newton step on the unrounded N in fixed point: 1 / |q| to ~2^-30,
- * so each component is rounded once */
+/* |q|^2 = N exactly, scaled by 4^-k into [0.5, 2); 1/|q| by rsqrt + Newton */
 void fm_quat_normalize(FM_Quat *r, const FM_Quat *q) {
   int32_t m[4];
   int32_t e[4];
@@ -131,8 +127,7 @@ void fm_quat_normalize(FM_Quat *r, const FM_Quat *q) {
        sum1(m[2], e[2], my, ey), sum1(m[3], e[3], my, ey));
 }
 
-/* v + 2 w t + 2 u x t, t = u x v, u = q's vector part: t is rounded once, each
- * output is one exact sum */
+/* v + 2 w t + 2 u x t, t = u x v, u = q's vector part */
 void fm_quat_rotate(float r[3], const FM_Quat *q, const float v[3]) {
   int32_t mq[4];
   int32_t eq[4];
@@ -177,8 +172,7 @@ void fm_quat_rotate(float r[3], const FM_Quat *q, const float v[3]) {
   memcpy(r, out, sizeof out);
 }
 
-/* dq = (cos th, sin th w / |w|), th = |w| dt / 2, with |w| = |w|^2 rsqrt(|w|^2)
- * and sin th / |w| = sin th rsqrt(|w|^2) */
+/* dq = (cos th, sin th w / |w|), th = |w| dt / 2 */
 void fm_quat_integrate(FM_Quat *r, const FM_Quat *q, const float w[3],
                        float dt) {
   uint32_t wb[3];

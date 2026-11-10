@@ -1,6 +1,6 @@
 /**
  * @file test_main.c
- * @brief Host-side test runner: owns the shared counters, summary, and main().
+ * @brief Host-side test runner
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

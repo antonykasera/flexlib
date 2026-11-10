@@ -1,7 +1,6 @@
 /**
  * @file test_fm_fixed.c
- * @brief Host tests for fm_fixed.h against exact references (the whole input
- *        spaces are in test/exhaustive/exhaustive_fixed.c)
+ * @brief Host tests for fm_fixed.h against exact references
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -16,7 +15,7 @@ static int64_t clamp64(i128 x, int64_t lo, int64_t hi) {
   return x < lo ? lo : (x > hi ? hi : (int64_t)x);
 }
 
-/* round(x * 2^frac), ties to even, clamped; NaN -> 0 */
+/* round(x * 2^frac), ties to even, clamped */
 static int64_t ref_to_fixed(float x, int frac, int64_t lo, int64_t hi) {
   if (x != x) {
     return 0;

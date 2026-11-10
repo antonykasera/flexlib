@@ -1,7 +1,6 @@
 /**
  * @file test_fm_exp.c
- * @brief Host tests for fm_exp.h against a long double reference (every input
- *        is in test/exhaustive/exhaustive_exp.c)
+ * @brief Host tests for fm_exp.h against a long double reference
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

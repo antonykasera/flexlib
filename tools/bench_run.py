@@ -4,9 +4,6 @@
 #
 # Copyright (c) 2026 Antony Kasera
 # SPDX-License-Identifier: MIT
-#
-# Run after flashing (`make bench-run` does both). Opening the port raises
-# DTR, which starts a run. Stdlib only, Linux/macOS.
 
 import argparse
 import datetime
@@ -80,7 +77,7 @@ def main():
         if not args.append:
             f.write("# Bench results: STM32F103C8 (Blue Pill clone)\n\n")
             f.write(f"Written by `make bench-run` on {today}. Do not edit by "
-                    "hand;\nrerun it. Method: the Bench section of README.md.\n\n")
+                    "hand;\nrerun it. Method: [bench/README.md](../../bench/README.md).\n\n")
         else:
             f.write("\n")
         f.write(block + "\n")

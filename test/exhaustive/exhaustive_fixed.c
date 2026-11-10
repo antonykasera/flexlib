@@ -1,8 +1,6 @@
 /**
  * @file exhaustive_fixed.c
- * @brief fm_fixed.h on every input: q15 add/sub/mul on all pairs, float to Q
- *        on every float, q31 and Q16.16 to float on every value
- *        (`make exhaustive`)
+ * @brief fm_fixed.h on every input
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

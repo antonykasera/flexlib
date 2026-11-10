@@ -33,8 +33,7 @@ fm_q15 fm_cos_q15(uint16_t angle) { return sin15(angle + 0x4000U); }
 
 #define SEG_D38 1686629713U /* pi / 512 in Q38: one table step */
 
-/* sin (or cos) at p in [0, 2^30) in Q31, from S = sin x_i, C = cos x_i and
- * d = p - x_i: S + C d - d^2 (S/2 + C d/6), or C - S d - d^2 (C/2 - S d/6) */
+/* sin (or cos) at p in [0, 2^30) in Q31, Taylor about table entry x_i */
 FX_INLINE uint32_t mag31(uint32_t p, bool cosine) {
   uint32_t i = p >> 22;
   uint32_t s = fm_sin_tab[i];
@@ -53,8 +52,7 @@ FX_INLINE uint32_t mag31(uint32_t p, bool cosine) {
   return x + (uint32_t)((yd - corr + 32) >> 6); /* one rounding */
 }
 
-/* quarter q: sin is +f, +g, -f, -g for q = 0..3 (f = sin, g = cos of p).
- * m <= 2^31 on every angle (exhaustive); it may wrap just below 0. */
+/* quarter q: sin is +f, +g, -f, -g for q = 0..3 (f = sin, g = cos of p) */
 FX_INLINE int32_t finish31(uint32_t m, uint32_t q) {
   if ((q & 2U) != 0U) {
     return (int32_t)(0U - m);

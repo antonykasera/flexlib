@@ -3,11 +3,7 @@
 #   <symbol>  [max=N]  [calls-ok | no-calls]  <mnemonic>...  [!mnemonic]...
 #             [!call=symbol]...
 #
-# Every listed mnemonic must appear in the function, and none marked !x may. max=N caps its length in
-# instructions, counting the return and not the alignment nops after it. A
-# call to any `__` symbol (__aeabi_* soft-float, libgcc helpers) fails, unless
-# calls-ok is given; no-calls fails any call at all (memcpy included). Calls are
-# found from relocations, since `!bl` would also match the branch `bls`.
+# max=N caps instructions; `__` calls fail unless calls-ok; no-calls fails any call.
 
 # fx_arch.h: each wrapper is its instruction plus `bx lr`
 probe_clz       max=2  clz
@@ -38,8 +34,7 @@ probe_fu_sext12       max=2   sbfx
 # with the FX_ASSERT range check: cmp, branch, udf
 probe_fu_sext         max=8   lsl asr udf
 
-# fu_fmt.c: decimal divides by constants with UMULL, never UDIV; the 2-byte
-# copies are LDRH/STRH. Hex is SWAR, no table.
+# fu_fmt.c: constant divides by UMULL, never UDIV; hex is SWAR.
 fu_fmt_dec_digits     max=13  no-calls  clz !udiv
 fu_fmt_u32            no-calls  umull ldrh strh !udiv
 fu_fmt_hex32          no-calls  clz rev !udiv !ldrb
@@ -48,7 +43,7 @@ fu_fmt_q16            umull !udiv
 fu_fmt_f32            umull !udiv
 fu_vsnprintf          !udiv
 
-# fu_crc.c: table loops with no calls; CRC-32 is slice-by-4
+# fu_crc.c: table loops with no calls
 fu_crc32              no-calls  ubfx !udiv
 fu_crc16_ccitt        no-calls  ldrh
 fu_crc16_modbus       no-calls  ldrh
@@ -66,8 +61,7 @@ fu_queue_push         !call=memcpy
 fu_queue_pop          !call=memcpy
 fu_ring_from_dma      !udiv
 
-# fu_parse: no calls at all (q16 divides by 5^17 with UMULL, no libgcc 64-bit
-# division)
+# fu_parse: no calls at all (no libgcc 64-bit division)
 fu_parse_u32          no-calls  !udiv
 fu_parse_i32          no-calls  !udiv
 fu_parse_hex32        no-calls  !udiv
@@ -82,8 +76,7 @@ fu_cobs_rx_byte       no-calls  max=60
 probe_fu_debounce32   max=16  no-calls  !b !cbz !cbnz
 probe_fu_debounce     max=36  no-calls
 
-# fu_rand: inline generators (xoshiro rotates fold into shifted operands);
-# below() is a UMULL, with UDIV only on rejection
+# fu_rand: inline generators; below() is a UMULL
 probe_fu_xorshift32   max=8   no-calls
 probe_fu_xoshiro128ss max=16  no-calls
 probe_fx_rotl32       max=4   ror
@@ -106,8 +99,7 @@ fm_q15_to_f32         no-calls  clz
 fm_q31_to_f32         no-calls  clz
 fm_q16_to_f32         no-calls  clz
 
-# fm_sqrt: table seed + one UDIV Newton step; no libgcc 64-bit divide; the
-# rsqrt is divide-free (UMULL Newton)
+# fm_sqrt: no libgcc 64-bit divide; rsqrt is divide-free
 fm_isqrt32            no-calls  clz udiv
 fm_isqrt64            !call=__aeabi_uldivmod  udiv umull
 fm_sqrt_q15           no-calls  udiv
@@ -141,8 +133,7 @@ fm_exp2_q16           no-calls  umull
 fm_exp_q16            no-calls  umull
 fm_pow_q16            no-calls  clz umull smull
 
-# fm_float: integer internals only, no soft-float (the special cases are one
-# out-of-line call)
+# fm_float: integer internals only, no soft-float
 fm_sqrtf              udiv umull
 fm_recipf             udiv umull
 fm_rsqrtf             umull !udiv
@@ -157,8 +148,7 @@ fm_logf               umull smull clz
 fm_exp2f              umull !udiv
 fm_expf               umull !udiv
 
-# fm_linalg: q31 sums by SMULL (exact, no calls); float sums on integers, no
-# soft-float (inf / NaN go to one cold function)
+# fm_linalg: no calls in q31; no soft-float in float
 fm_dot4_q31           no-calls  smull !udiv
 fm_cross3_q31         no-calls  smull
 fm_mat3_mul_q31       no-calls  smull
@@ -168,8 +158,7 @@ fm_cross3_f32         smull clz
 fm_mat4_mul_f32       smull clz
 fm_mat4_vec_f32       smull clz
 
-# fm_quat: integer sums, no soft-float (normalize / integrate call fm_rsqrtf,
-# fm_sincosf and fm_quat_mul)
+# fm_quat: integer sums, no soft-float
 fm_quat_mul           smull clz !udiv
 fm_quat_normalize     umull smull
 fm_quat_rotate        smull clz !udiv

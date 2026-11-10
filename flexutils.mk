@@ -1,20 +1,20 @@
-# flexutils.mk — include fragment for consuming flexutils as a library.
-#
-# Add flexlib to your project (as a git submodule under lib/flexlib) and, in
-# your own Makefile:
+# flexutils.mk — flexutils as a library.
 #
 #     include lib/flexlib/flexutils.mk
 #
 #     CFLAGS += $(FLEXLIB_CFLAGS)   # include paths only; your MCU flags apply
-#     SRCS   += $(FU_SRCS)
+#     SRCS   += $(FU_SRCS)          # $(FLEXLIB_SRCS): every flexlib library included
 #
-# This fragment exports VARIABLES only. flexlib has no IRQ handlers, so build
-# with -ffunction-sections -fdata-sections and link with --gc-sections, and
-# the functions you don't call drop out.
+# Build with -ffunction-sections -fdata-sections and link with --gc-sections.
 
-# Directory this fragment lives in.
+ifndef FLEXUTILS_MK
+FLEXUTILS_MK := 1
+
 FLEXLIB_ROOT := $(patsubst %/,%,$(dir $(lastword $(MAKEFILE_LIST))))
 
-FLEXLIB_CFLAGS := -I$(FLEXLIB_ROOT)/include -I$(FLEXLIB_ROOT)/arch
-
+FLEXLIB_CFLAGS := $(FLEXLIB_CFLAGS) -I$(FLEXLIB_ROOT)/arch \
+                  -I$(FLEXLIB_ROOT)/utils/include
 FU_SRCS := $(wildcard $(FLEXLIB_ROOT)/utils/src/*.c)
+FLEXLIB_SRCS := $(FLEXLIB_SRCS) $(FU_SRCS)
+
+endif

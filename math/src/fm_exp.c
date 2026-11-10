@@ -19,17 +19,14 @@
 #define LOG2E_HI 1549082004 /* log2 e in Q62, as hi:lo words */
 #define LOG2E_LO 2920020062U
 
-/* log2 of a Q16.16 x > 0, in Q32: CLZ for the integer part; the mantissa f
- * times the bucket's reciprocal is 1 + u with |u| < 2^-7, so log2 f = -log2 r_k
- * + log2(1 + u) */
+/* log2 of a Q16.16 x > 0, in Q32 */
 FX_INLINE int64_t log2_core(uint32_t x) {
   uint32_t lz = fx_clz(x);
   uint32_t m = x << lz;
   uint32_t k = (m >> 25) & 63U;
-  /* m r = (1 + u) 2^63: u to Q38 from the whole product */
+  /* u to Q38 from m r = (1 + u) 2^63 */
   int32_t u =
       (int32_t)((int64_t)(fx_umull(m, fm_log2_rcp[k]) - (1ULL << 63)) >> 25);
-  /* the u^3 and u^2 terms need 16 bits: MUL */
   int32_t u16 = u >> 16;
   int32_t t = A3 - ((u16 * (A4 >> 15)) >> 7);
   t = A2 - ((u16 * (t >> 15)) >> 7);
@@ -67,17 +64,15 @@ fm_q16 fm_db_q16(fm_q16 x) {
   return x <= 0 ? INT32_MIN : scale_log(log2_core((uint32_t)x), DB_Q29, 3U);
 }
 
-/* 2^e for e = i + k/64 + r38 / 2^38 (k < 64, r < 1/64), as Q16.16, rounded
- * once */
+/* 2^e for e = i + k/64 + r38 / 2^38, as Q16.16, rounded once */
 FX_INLINE int32_t exp2_core(int32_t i, uint32_t k, uint32_t r38) {
   if (i >= 15) {
     return INT32_MAX;
   }
-  if (i <= -17) { /* 2^i (1 + f) is 1/2 .. 1 LSB at -17: rounds up */
+  if (i <= -17) { /* result 1/2 .. 1 LSB: rounds up */
     return i == -17 ? 1 : 0;
   }
   uint64_t v = exp2_q38(k, r38);
-  /* round(v / 2^(22 - i)) exactly from v >> 7, as 22 - i >= 8 */
   uint32_t w = (uint32_t)(v >> 7) >> (14 - i);
   return (int32_t)((w + 1U) >> 1);
 }
@@ -101,7 +96,7 @@ fm_q16 fm_pow_q16(fm_q16 x, fm_q16 y) {
   if (x <= 0) {
     return x == 0 && y < 0 ? INT32_MAX : 0;
   }
-  /* y log2 x in Q42, exact to 2^-42 given log2 x (|e| < 2^61) */
+  /* y log2 x in Q42 */
   int64_t L = log2_core((uint32_t)x);
   int64_t e = (int64_t)y * (int32_t)(L >> 6) + (((int64_t)y * (L & 63)) >> 6);
   return exp2_core((int32_t)(e >> 42), (uint32_t)(e >> 36) & 63U,

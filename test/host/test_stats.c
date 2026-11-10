@@ -1,6 +1,6 @@
 /**
  * @file test_stats.c
- * @brief Error statistics for accuracy sweeps, ULP error, seeded test inputs
+ * @brief Error statistics for accuracy sweeps
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

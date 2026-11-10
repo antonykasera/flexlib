@@ -1,7 +1,6 @@
 /**
  * @file fx_arch_probe.c
- * @brief Out-of-line copies of the fx_arch.h wrappers, so asm-audit can check
- *        that each one compiles to its single instruction
+ * @brief Out-of-line copies of the fx_arch.h wrappers
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

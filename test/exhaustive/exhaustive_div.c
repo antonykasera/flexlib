@@ -1,7 +1,6 @@
 /**
  * @file exhaustive_div.c
- * @brief fm_div_q15 on every pair, fm_recip_q16 on every input, fm_div_q31 and
- *        fm_div_q16 on 2^32 hashed pairs (`make exhaustive`)
+ * @brief fm_div_q15 on every pair
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

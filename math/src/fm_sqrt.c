@@ -11,9 +11,7 @@
 #include "fm_tables.h"
 #include "fu_bits.h"
 
-/* With x << 2k normalized, s = floor(sqrt(x) 2^k): the floor is s >> k and the
- * nearest is exactly (s + 2^(k-1)) >> k, as floor commutes with adding 2^(k-1)
- */
+/* s = floor(sqrt(x) 2^k), x << 2k normalized: nearest = (s + 2^(k-1)) >> k */
 
 uint32_t fm_isqrt32(uint32_t x) {
   if (x == 0U) {
@@ -61,8 +59,7 @@ fm_q16 fm_sqrt_q16(fm_q16 x) {
   return (fm_q16)round_sqrt64((uint64_t)x << 16);
 }
 
-/* 2^24 / sqrt(x): 1/sqrt by a seed and two Newton steps (no divide) is within
- * one; the exact test (2r - 1)^2 x <= 2^50 < (2r + 1)^2 x settles it */
+/* 2^24 / sqrt(x): seed, two Newton steps, then an exact test */
 fm_q16 fm_rsqrt_q16(fm_q16 x) {
   if (x <= 0) {
     return INT32_MAX;

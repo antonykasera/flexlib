@@ -1,7 +1,6 @@
 /**
  * @file exhaustive_exp.c
- * @brief The fm_exp.h logs on every positive input, exp2 and exp on every
- *        input, pow on 2^32 hashed pairs against its bound (`make exhaustive`)
+ * @brief The fm_exp.h logs on every positive input
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

@@ -1,7 +1,6 @@
 /**
  * @file test_fm_atan.c
- * @brief Host tests for fm_atan.h against a long double reference (the larger
- *        sweeps are in test/exhaustive/exhaustive_atan.c)
+ * @brief Host tests for fm_atan.h against a long double reference
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

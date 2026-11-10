@@ -11,7 +11,7 @@
 
 #define CONV_MAX (FU_FMT_Q16_SIZE - 1U) /* fu_fmt may write this + 1 bytes */
 
-/* Bounded copies for the slow path; buf[0..lim) is writable, n counts all. */
+/* bounded copies; buf[0..lim) writable, n counts all */
 static size_t put(char *buf, size_t lim, size_t n, const char *s, size_t len) {
   for (size_t i = 0U; i < len && n + i < lim; i++) {
     buf[n + i] = s[i];
@@ -89,7 +89,7 @@ size_t fu_vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
     bool lng = *fmt == 'l';
     fmt += lng ? 1 : 0;
 
-    /* numbers go straight into buf when the whole field fits */
+    /* fast path: format straight into buf if the field fits */
     char tmp[FU_FMT_Q16_SIZE];
     bool fit = n <= lim && lim - n >= (width > CONV_MAX ? width : CONV_MAX);
     char *d = fit ? buf + n : tmp;

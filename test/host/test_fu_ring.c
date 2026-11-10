@@ -151,8 +151,7 @@ void test_fu_queue_vs_model(void) {
   }
 }
 
-/* A circular DMA writes a byte stream into dbuf; from_dma moves it into a
- * small ring that is drained at random. The stream must come out whole. */
+/* A circular DMA writes a byte stream into dbuf */
 void test_fu_ring_from_dma(void) {
   static const size_t dsizes[] = {2U, 7U, 16U, 37U};
   uint64_t seed = 41U;

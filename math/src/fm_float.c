@@ -25,11 +25,7 @@ FX_INLINE float u2f(uint32_t b) {
   return x;
 }
 
-/* sqrt of m 2^(e - 150) as float bits, m8 = m << 8 with m in [2^23, 2^24).
- * floor(sqrt(hi 2^32)) holds 8 bits below the result's LSB, so the nearest is
- * (floor + 128) >> 8 exactly; hi 2^32 has a zero low word, so the remainder
- * step is 32-bit. Its s is the floor or one above, which only changes the
- * result when s & 0xFF == 0x80. */
+/* sqrt of m 2^(e - 150) as float bits, m8 = m << 8 */
 FX_INLINE uint32_t sqrt_bits(uint32_t m8, int32_t e) {
   uint32_t hi = m8 >> ((uint32_t)e & 1U);
   uint32_t h = sqrt_norm32(hi);
@@ -63,9 +59,7 @@ float fm_sqrtf(float x) {
   return u2f(sqrt_bits((b << 8) | 0x80000000U, (int32_t)(b >> 23)));
 }
 
-/* round(2^47 / m), m in [2^23, 2^24). y < 2^40 / m by at most ~5, so e = 2^40 -
- * y m fits a word; q = floor(2^48 / m) or one below. 2^48 = 0 mod 2^32 makes
- * each remainder one MUL. */
+/* round(2^47 / m), m in [2^23, 2^24) */
 FX_INLINE uint32_t recip_mant(uint32_t m) {
   uint32_t y = 0xFFFFFFFFU / ((m >> 8) + 1U);
   uint32_t e = 0U - y * m;
@@ -110,17 +104,14 @@ float fm_recipf(float x) {
              recip_mant((b & 0x7FFFFFU) | 0x800000U));
 }
 
-/* (2r + 1)^2 hi - 2^80, exact: the true difference is ~2^58 */
+/* (2r + 1)^2 hi - 2^80, exact */
 FX_INLINE int64_t rsqrt_side(uint32_t hi, uint32_t r) {
   uint64_t a = fx_umull(2U * r + 1U, 2U * r + 1U);
   return (int64_t)(fx_umull((uint32_t)a, hi) +
                    ((uint64_t)((uint32_t)(a >> 32) * hi) << 32));
 }
 
-/* 1/sqrt of m 2^(e - 150) as float bits, m8 = m << 8. R = round(2^47 /
- * sqrt(hi 2^16)) = round(y / 128) with y = 2^46 / sqrt(hi) from a seed and two
- * Newton steps. Over every hi, y - exact is in (-26.1, 4.9): R can be one low
- * only when y & 127 is 38..63, one high only when it is 64..68. */
+/* 1/sqrt of m 2^(e - 150) as float bits, m8 = m << 8 */
 FX_INLINE uint32_t rsqrt_bits(uint32_t m8, int32_t e) {
   uint32_t hi = m8 >> ((uint32_t)e & 1U);
   uint32_t y = (uint32_t)fm_rsqrt_seed[(hi >> 25) - 32U] << 16;
@@ -169,9 +160,7 @@ float fm_rsqrtf(float x) {
 
 #define F32_PI4 0x3F490FDBU /* the float above pi/4 */
 
-/* |x| / (2 pi) mod 1 in Q64 turns, |x| = m 2^(e - 150) >= pi/4: m times the
- * 96 bits of 1/(2 pi) that start at its fraction; the words above them only
- * add whole turns */
+/* |x| / (2 pi) mod 1 in Q64 turns, |x| = m 2^(e - 150) >= pi/4 */
 FX_INLINE uint64_t trig_turns(uint32_t m, uint32_t e) {
   uint32_t pos = e - 118U;
   const uint32_t *w = &fm_inv2pi_tab[pos >> 5];
@@ -223,11 +212,10 @@ FX_INLINE uint32_t sin_u_bits(uint32_t G, uint32_t E, uint32_t v) {
   t = c[1] - umul_hi(v, t);
   uint32_t y = umul_hi(G, c[0] - umul_hi(v, t)); /* top bit 30 or 31 */
   uint32_t n = fx_clz(y);
-  return ((157U - E - n) << 23) + ((((y << n) >> 7) + 1U) >> 1); /* no carry out */
+  return ((157U - E - n) << 23) + ((((y << n) >> 7) + 1U) >> 1);
 }
 
-/* cos (pi/4) u as float bits: 1 - w, w = v U''(v) in Q32, rounded to 24 bits
- * as 2^24 - ceil((w - 128) / 256) */
+/* cos (pi/4) u as float bits: 1 - w, w = v U''(v) in Q32 */
 FX_INLINE uint32_t cos_u_bits(uint32_t v) {
   const uint32_t *c = fm_cosf_upoly;
   uint32_t u = c[2] - umul_hi(v, c[3]);
@@ -236,10 +224,7 @@ FX_INLINE uint32_t cos_u_bits(uint32_t v) {
   return (127U << 23) - ((umul_hi(v, u) + 127U) >> 8);
 }
 
-/* f in Q64 turns plus q quarter turns: h <= 1/8 turn within the quadrant, as u
- * = 8h = G 2^-E and v = u^2; q, and which polynomial gives sin of the whole
- * angle (1: cos). h >= 2^-32 turns for every float (the closest one to a
- * quarter turn is 2^-31.x away), so its top word is nonzero. */
+/* f in Q64 turns plus q quarter turns, reduced to u = 8h = G 2^-E, v = u^2 */
 typedef struct {
   uint32_t G, E, v, q, cos;
 } TrigArg;
@@ -330,13 +315,12 @@ void fm_sincosf(float x, float *s, float *c) {
   TrigArg t = trig_arg(trig_turns((a & 0x7FFFFFU) | 0x800000U, a >> 23), 0U);
   uint32_t sb = sin_u_bits(t.G, t.E, t.v);
   uint32_t cb = cos_u_bits(t.v);
-  /* cos x = sin of a quarter turn more: the other polynomial, sign from q + 1 */
+  /* cos x = sin of a quarter turn more */
   *s = u2f((sign ^ (t.q & 2U) << 30) | (t.cos ? cb : sb));
   *c = u2f(((t.q + 1U) & 2U) << 30 | (t.cos ? sb : cb));
 }
 
-/* about n 2^32 / d for n < d, d >= 2^31: 0 to 7 units below the floor. A
- * 16-bit reciprocal by one UDIV, then one remainder correction. */
+/* about n 2^32 / d for n < d, d >= 2^31: 0 to 7 units below the floor */
 FX_INLINE uint32_t div_q32(uint32_t n, uint32_t d) {
   uint32_t y = 0xFFFFFFFFU / ((d >> 15) + 1U); /* 2^47 / d from below */
   uint32_t q = (uint32_t)(fx_umull(n, y) >> 15);
@@ -368,11 +352,7 @@ FX_INLINE uint32_t q31_bits(uint32_t v) {
   return ((126U - n) << 23) + ((((v << n) >> 7) + 1U) >> 1);
 }
 
-/* atan2(y, x) as positive float bits, y = ny 2^(ey - 158) > 0, |x| = nx 2^(ex -
- * 158) > 0, x < 0 if xneg; ny, nx in [2^31, 2^32). With mn <= mx and gap d, s =
- * t = mn / mx (base 0) or s = (mx 2^d - mn) / (mx 2^d + mn) (base pi/4) has |s|
- * <= tan(pi/8); the result is A +- atan s, and only A = 0 can be small: the rest
- * are >= pi/8, in Q31 (below 2) or Q30. */
+/* atan2(y, x) as float bits, y, |x| = n 2^(e - 158), n in [2^31, 2^32) */
 FX_INLINE uint32_t atan2_core(uint32_t ny, int32_t ey, uint32_t nx, int32_t ex,
                               uint32_t xneg) {
   uint32_t swap = ey > ex || (ey == ex && ny > nx);
@@ -466,8 +446,7 @@ float fm_atan2f(float y, float x) {
                         (ax << 8) | 0x80000000U, (int32_t)(ax >> 23), bx >> 31));
 }
 
-/* sqrt(1 - x^2) as n 2^(e - 158), |x| = m 2^(ex - 150) in [2^-126, 1): 1 - x^2
- * in Q62 (exact for |x| >= 2^-4), its root to 32 bits */
+/* sqrt(1 - x^2) as n 2^(e - 158), |x| in [2^-126, 1) */
 FX_INLINE uint32_t asin_root(uint32_t m, uint32_t ex, int32_t *e) {
   uint64_t sq = fx_umull(m, m);
   int32_t sh = 2 * (int32_t)ex - 238;
@@ -546,8 +525,7 @@ FX_INLINE LogVal log2_near1(int32_t d) {
   return r;
 }
 
-/* log2 x, x = nm 2^(E - 31) with nm in [2^31, 2^32) and |x - 1| >= 2^-7: E +
- * T_k + log2(1 + u) in Q40, which is >= 2^33.5 in magnitude */
+/* log2 x, x = nm 2^(E - 31), |x - 1| >= 2^-7: E + T_k + log2(1 + u), Q40 */
 FX_INLINE LogVal log2_table(uint32_t nm, int32_t E) {
   uint32_t k = (nm >> 25) & 63U;
   int32_t u =
@@ -635,8 +613,7 @@ float fm_logf(float x) {
 #define LOG2E_HI 3098164009U /* log2 e in Q63 */
 #define LOG2E_LO 1545072828U
 
-/* 2^(i + f 2^-32) as float bits, -150 <= i < 128; subnormal results by a shift
- * of the 32-bit value */
+/* 2^(i + f 2^-32) as float bits, -150 <= i < 128 */
 FX_INLINE uint32_t exp2_bits(int32_t i, uint32_t f) {
   uint64_t v = exp2_q38(f >> 26, (f & 0x3FFFFFFU) << 6);
   if (i >= -126) {

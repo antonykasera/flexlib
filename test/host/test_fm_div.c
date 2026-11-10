@@ -1,7 +1,6 @@
 /**
  * @file test_fm_div.c
- * @brief Host tests for fm_div.h against exact integer references (larger
- *        sweeps are in test/exhaustive/exhaustive_div.c)
+ * @brief Host tests for fm_div.h against exact integer references
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

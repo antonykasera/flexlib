@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 # @file asm_audit.py
-# @brief Check hot kernels' disassembly for expected instructions and for
-#        calls to compiler helpers (soft-float, libgcc)
+# @brief Check hot kernels' disassembly for expected instructions and for calls to compiler helpers
 #
 # Copyright (c) 2026 Antony Kasera
 # SPDX-License-Identifier: MIT
-#
-# usage: asm_audit.py --spec test/asm/audit.txt [--objdump X] obj.o...
 
 import argparse
 import re

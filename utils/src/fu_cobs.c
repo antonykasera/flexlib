@@ -23,8 +23,7 @@ size_t fu_cobs_encode(void *dst, const void *src, size_t n) {
   uint32_t code = 1U;
   size_t i = 0U;
   while (i < n) {
-    /* Words while code stays <= 0xFE (the byte path closes full blocks): whole
-     * if no 0, else up to the first 0, which the lowest has_zero flag marks. */
+    /* word path while code <= 0xFE; byte path closes full blocks */
     size_t words = (n - i) >> 2;
     size_t room = (0xFEU - code) >> 2;
     words = words < room ? words : room;
@@ -32,7 +31,7 @@ size_t fu_cobs_encode(void *dst, const void *src, size_t n) {
       for (; words != 0U; words--, i += 4U, o += 4U, code += 4U) {
         uint32_t w = fu_load_le32(s + i);
         uint32_t z = has_zero(w);
-        fu_store_le32(d + o, w); /* bytes past a 0 are rewritten later */
+        fu_store_le32(d + o, w);
         if (z != 0U) {
           uint32_t k = fx_ctz(z) >> 3;
           o += k;
@@ -51,7 +50,7 @@ size_t fu_cobs_encode(void *dst, const void *src, size_t n) {
       if (++code != 0xFFU) {
         continue;
       }
-      if (i == n) { /* a full block ends the input: no final code */
+      if (i == n) { /* full block at end: no final code */
         d[code_at] = 0xFFU;
         return o;
       }
@@ -76,7 +75,7 @@ bool fu_cobs_decode(void *dst, const void *src, size_t n, size_t *len) {
       return false;
     }
     size_t k = code - 1U;
-    /* d + o <= s + i: each word is read before it can be overwritten */
+    /* d + o <= s + i: in-place safe */
     for (; k >= 4U; k -= 4U, i += 4U, o += 4U) {
       uint32_t w = fu_load_le32(s + i);
       if (has_zero(w) != 0U) {
@@ -113,7 +112,7 @@ void fu_cobs_rx_init(FU_CobsRx *rx, void *buf, size_t size) {
 bool fu_cobs_rx_byte(FU_CobsRx *rx, uint8_t b, size_t *len) {
   uint32_t left = rx->left;
   size_t n = rx->len;
-  if (b != 0U && left != 0U && n < rx->size) { /* data inside a block */
+  if (b != 0U && left != 0U && n < rx->size) {
     rx->buf[n] = b;
     rx->len = n + 1U;
     rx->left = left - 1U;
@@ -122,7 +121,7 @@ bool fu_cobs_rx_byte(FU_CobsRx *rx, uint8_t b, size_t *len) {
   if (b == 0U) {
     bool good = !rx->drop && rx->left == 0U && rx->code != 0U;
     if (!good && (rx->drop || rx->left != 0U)) {
-      rx->errors++; /* empty frames (0 0) are just resync, not errors */
+      rx->errors++; /* empty frames are resync, not errors */
     }
     *len = rx->len;
     rx->len = 0U;
@@ -135,10 +134,10 @@ bool fu_cobs_rx_byte(FU_CobsRx *rx, uint8_t b, size_t *len) {
     return false;
   }
   if (left != 0U || (rx->code != 0U && rx->code != 0xFFU && n == rx->size)) {
-    rx->drop = true; /* no room for a data byte, or for the 0 a code implies */
+    rx->drop = true; /* no room for a data byte or the implied 0 */
     return false;
   }
-  if (rx->code != 0U && rx->code != 0xFFU) { /* the block before ended in a 0 */
+  if (rx->code != 0U && rx->code != 0xFFU) { /* previous block ended in 0 */
     rx->buf[n] = 0U;
     rx->len = n + 1U;
   }

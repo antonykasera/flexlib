@@ -1,9 +1,6 @@
 /**
  * @file exhaustive_float.c
- * @brief fm_float.h on every one of the 2^32 floats: sqrt, 1/x, 1/sqrt bit for
- *        bit against correctly rounded references; sin, cos, asin, acos within
- *        their ULP bounds against double, sincos bit for bit; atan2 on 2^32
- *        hashed pairs; log2, ln, exp2, exp against double (`make exhaustive`)
+ * @brief fm_float.h on every one of the 2^32 floats
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -56,8 +53,6 @@ static int cmp_pow2(u128 a, int s) {
   return a < p ? -1 : (a > p ? 1 : 0);
 }
 
-/* r is the nearest float to 1/sqrt(x), x > 0 finite: 1/sqrt(x) > mid iff
- * mid^2 x < 1, exact in 128 bits (the result is always normal) */
 static int rsqrt_nearest(uint32_t xb, uint32_t rb) {
   int ex = (int)(xb >> 23);
   uint32_t mx = xb & 0x7FFFFFU;
@@ -94,8 +89,7 @@ static int rsqrtf_ok(uint32_t b, uint32_t r) {
   return b == 0x7F800000U ? r == 0U : rsqrt_nearest(b, r);
 }
 
-/* |got - ref| in ULPs at ref's binade; NaN must match NaN, and inf the
- * reference's float rounding */
+/* |got - ref| in ULPs at ref's binade */
 static double ulp_abs(float got, double ref) {
   if (isnan(got) || isnan(ref)) {
     return isnan(got) && isnan(ref) ? 0.0 : HUGE_VAL;

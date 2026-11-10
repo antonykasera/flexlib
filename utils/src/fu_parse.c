@@ -31,7 +31,7 @@ FX_INLINE size_t dec1(const char *s, size_t i, size_t len, uint32_t *v,
   return i;
 }
 
-/* the same, four digits per word while they last */
+/* same, four digits per word */
 FX_INLINE size_t dec(const char *s, size_t i, size_t len, uint32_t *v,
                      bool *ovf) {
   uint32_t x = 0U;
@@ -153,7 +153,7 @@ FU_ParseStatus fu_parse_hex32(const char *s, size_t len, uint32_t *out,
   return st;
 }
 
-/* up to n digits from s[*i], as an n-digit number (zero-padded on the right) */
+/* up to n digits from s[*i], zero-padded on the right */
 FX_INLINE uint32_t frac_chunk(const char *s, size_t *i, size_t len, uint32_t n,
                               size_t *count) {
   uint32_t x = 0U;
@@ -181,8 +181,7 @@ FU_ParseStatus fu_parse_q16(const char *s, size_t len, int32_t *out,
   size_t first = i;
   uint32_t ip;
   bool ovf = false;
-  i = dec1(s, i, len, &ip, 0U, &ovf); /* short: SWAR measured slower here */
-  size_t digits = i - first;
+  i = dec1(s, i, len, &ip, 0U, &ovf);  size_t digits = i - first;
 
   /* the fraction as N / 10^17: hi = 9 digits, lo = 8, then a sticky bit */
   uint32_t hi = 0U;
@@ -204,8 +203,7 @@ FU_ParseStatus fu_parse_q16(const char *s, size_t len, int32_t *out,
     *used = i;
   }
 
-  /* t = floor(N * 2^17 / 10^17) = floor(N / 5^17): estimated from hi alone
-   * (exact for it: hi * 2^8 / 1953125), then at most one more */
+  /* t = floor(N / 5^17): estimate from hi, then at most one more */
   const uint64_t five17 = 762939453125ULL;
   uint32_t a = hi / 1953125U;
   uint32_t t = a * 256U + ((hi - a * 1953125U) * 256U) / 1953125U;

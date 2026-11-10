@@ -1,7 +1,6 @@
 /**
  * @file test_fm_pid.c
- * @brief Host tests for fm_pid.h: Q16.16 bit for bit against 128-bit
- *        arithmetic, float against long double, and the controller's behaviour
+ * @brief Host tests for fm_pid.h
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -18,7 +17,7 @@ static i128 clamp128(i128 v, i128 lo, i128 hi) {
   return v < lo ? lo : (v > hi ? hi : v);
 }
 
-/* one step of the exact reference; returns the output */
+/* one step of the exact reference */
 static fm_q16 ref_q16(FM_PidQ16 *r, fm_q16 sp, fm_q16 pv) {
   i128 lo = (i128)r->out_min * 65536;
   i128 hi = (i128)r->out_max * 65536;
@@ -135,8 +134,7 @@ void test_fm_pid_f32(void) {
   ASSERT_TRUE(isnan(fm_pid_f32(&p, NAN, 0.0f)));
   ASSERT_TRUE(isnan(fm_pid_f32(&p, 1.0f, INFINITY)));
   ASSERT_EQ(memcmp(&keep, &p, sizeof p), 0); /* state untouched */
-  /* P and D cancel: 3 (1e8 - 0.1) + (-3e8 - 0.1) is -0.4; plain float, with e
-   * = 1e8 - 0.1 rounded to 1e8, gives 0 */
+  /* P and D cancel: 3 (1e8 - 0.1) + (-3e8 - 0.1) is -0.4 */
   fm_pid_init_f32(&p, 3.0f, 0.0f, 1.0f, -1e9f, 1e9f);
   fm_pid_reset_f32(&p, -3e8f);
   float o = fm_pid_f32(&p, 1e8f, 0.1f);

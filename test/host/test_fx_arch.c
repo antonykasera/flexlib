@@ -1,7 +1,6 @@
 /**
  * @file test_fx_arch.c
- * @brief Host tests for the plain-C paths of fx_arch.h (the Arm paths are
- *        checked on the board against the same results, see bench/)
+ * @brief Host tests for the plain-C paths of fx_arch.h
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

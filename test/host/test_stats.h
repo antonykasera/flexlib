@@ -1,6 +1,6 @@
 /**
  * @file test_stats.h
- * @brief Error statistics for accuracy sweeps, ULP error, seeded test inputs
+ * @brief Error statistics for accuracy sweeps
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -16,7 +16,7 @@ typedef struct {
   const char *name;
   const char *unit; /* "lsb", "ulp", ... */
   uint64_t n;
-  double max_abs;  /* largest |err|; NaN errors count as infinite */
+  double max_abs;  /* largest |err| */
   double worst_in; /* input that gave max_abs */
   double sum_abs;
   double sum; /* signed, for the bias */
@@ -34,8 +34,7 @@ void stats_print(const ErrStats *s);
     ASSERT_TRUE((s)->n > 0U && (s)->max_abs <= (double)(bound));               \
   } while (0)
 
-/* signed ULPs at ref's exponent; matching NaN/inf give 0, other NaN/inf
- * give +inf */
+/* signed ULPs at ref's exponent */
 double ulp_err_f32(float got, double ref);
 
 /* splitmix64: reproducible inputs, independent of the fu_rand under test */

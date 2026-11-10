@@ -1,6 +1,6 @@
 /**
  * @file test_harness.c
- * @brief Self-tests for the harness: error stats, ULP error, seeded inputs
+ * @brief Self-tests for the harness
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

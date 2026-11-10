@@ -14,7 +14,7 @@
 FX_INLINE int32_t shift_up(uint32_t b, uint32_t m, uint32_t r, int32_t lo,
                            int32_t hi) {
   if ((b & 0x7FFFFFFFU) > 0x7F800000U) {
-    return 0; /* NaN */
+    return 0;
   }
   uint32_t s = 0U - r;
   if (s > 8U) { /* >= 2^31, or inf */
@@ -27,20 +27,18 @@ FX_INLINE int32_t shift_up(uint32_t b, uint32_t m, uint32_t r, int32_t lo,
   return mag > (uint32_t)hi ? hi : (int32_t)mag;
 }
 
-/* x * 2^frac to the nearest integer (ties to even), clamped to [lo, hi].
- * sat16: clamp with one SSAT (q15). up_first: most inputs shift up (q31). */
+/* x * 2^frac to nearest (ties to even), clamped to [lo, hi] */
 FX_INLINE int32_t to_fixed(float x, uint32_t frac, int32_t lo, int32_t hi,
                            bool sat16, bool up_first) {
   uint32_t b;
   memcpy(&b, &x, sizeof b);
   uint32_t e = (b >> 23) & 0xFFU;
   uint32_t m = (b & 0x7FFFFFU) | 0x800000U; /* subnormals round to 0 below */
-  /* |x| * 2^frac = m >> r */
   uint32_t r = 150U - frac - e;
   if (up_first && (int32_t)r <= 0) {
     return shift_up(b, m, r, lo, hi);
   }
-  if (r - 1U < 24U) { /* round; |result| < 2^24 */
+  if (r - 1U < 24U) {
     int32_t sgn = (int32_t)b >> 31;
     uint32_t mag = (m + (1U << (r - 1U)) - 1U + ((m >> r) & 1U)) >> r;
     int32_t v = ((int32_t)mag ^ sgn) - sgn;

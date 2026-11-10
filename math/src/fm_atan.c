@@ -12,8 +12,7 @@
 #include "fm_tables.h"
 #include <stdbool.h>
 
-/* atan(mn / mx) in 2^-16 turns, 0 <= mn <= mx < 2^16, mx > 0: a rounded Q16
- * ratio, linear between table entries */
+/* atan(mn / mx) in 2^-16 turns, 0 <= mn <= mx < 2^16, mx > 0 */
 FX_INLINE uint32_t atan15(uint32_t mn, uint32_t mx) {
   uint32_t t = ((mn << 16) + (mx >> 1)) / mx;
   uint32_t k = t >> 9;
@@ -24,9 +23,7 @@ FX_INLINE uint32_t atan15(uint32_t mn, uint32_t mx) {
 
 #define ATAN_K 341782638U /* 2^30 / pi: a Q39 tangent to Q38 turns */
 
-/* atan(mn / mx) in 2^-32 turns, 0 <= mn < mx. With t_k = k / 128 <= mn / mx
- * < t_(k+1), atan = atan(t_k) + atan(e), e = (128 mn - k mx) / (128 mx + k mn)
- * < 1/128 exactly, and atan(e) = e - e^3/3 to 2^-40 turns. */
+/* atan(mn / mx) in 2^-32 turns, 0 <= mn < mx */
 FX_INLINE uint32_t atan31(uint32_t mn, uint32_t mx) {
   uint32_t s = fx_clz(mx);
   mx <<= s;
@@ -48,7 +45,6 @@ FX_INLINE uint32_t atan31(uint32_t mn, uint32_t mx) {
   uint32_t e16 = e >> 16;
   uint32_t e2 = ((e16 * 21845U) >> 16) * e16; /* e^2 / 3, Q46 */
   uint32_t cube = (fx_umull_hi(th, e2) + 0x2000U) >> 14;
-  /* truncating to Q34 changes no result: the final +2 >> 2 can't carry it */
   return (fm_atan_tab[k] + ((th - cube) >> 4) + 2U) >> 2;
 }
 

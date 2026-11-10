@@ -1,7 +1,6 @@
 /**
  * @file test_fm_float.c
- * @brief Host tests for fm_float.h against correctly rounded references (every
- *        float is in test/exhaustive/exhaustive_float.c)
+ * @brief Host tests for fm_float.h against correctly rounded references
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -82,8 +81,6 @@ void test_fm_sqrtf(void) {
   ASSERT_STATS_MAX(&es, 0.5);
 }
 
-/* the double quotient rounded to float is correctly rounded (53 >= 2 * 24 +
- * 1), subnormal and overflowing results too */
 static uint32_t ref_recipf_bits(uint32_t b) {
   float x = u2f(b);
   return isnan(x) ? b | 0x00400000U : f2u((float)(1.0 / (double)x));
@@ -141,8 +138,6 @@ static int cmp_pow2(u128 a, int s) {
   return a < p ? -1 : (a > p ? 1 : 0);
 }
 
-/* r (a normal float) is the nearest float to 1/sqrt(x), x > 0 finite: v =
- * 1/sqrt(x) > mid iff mid^2 x < 1, exact in 128 bits */
 static bool rsqrt_nearest(uint32_t xb, uint32_t rb) {
   int ex = (int)(xb >> 23);
   uint32_t mx = xb & 0x7FFFFFU;
@@ -228,8 +223,6 @@ void test_fm_sinf_cosf(void) {
     ASSERT_EQ(f2u(fm_cosf(u2f(b))), f2u(1.0f));
     check_sincos(u2f(b));
   }
-  /* the float closest to a quarter-turn multiple (2^-31 turns away), the
-   * ends of the direct range */
   ErrStats es, ec;
   stats_init(&es, "fm_sinf, random bits + hard", "ulp");
   stats_init(&ec, "fm_cosf, random bits + hard", "ulp");

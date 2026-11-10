@@ -1,7 +1,6 @@
 /**
  * @file test_fu_cobs.c
- * @brief Host tests for fu_cobs.h: reference vectors, a byte-wise reference
- *        encoder, malformed input, and the byte-at-a-time receiver
+ * @brief Host tests for fu_cobs.h
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

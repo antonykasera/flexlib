@@ -12,8 +12,6 @@
 
 #define CANARY 0x5A
 
-/* checks text, length, NUL, and that nothing past the documented buffer size
- * (FU_FMT_*_SIZE) was written */
 static void check_u32(uint32_t v) {
   char want[16];
   char got[16];

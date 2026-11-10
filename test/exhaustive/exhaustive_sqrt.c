@@ -1,7 +1,6 @@
 /**
  * @file exhaustive_sqrt.c
- * @brief fm_isqrt32 on every 32-bit input; fm_sqrt_q31, fm_sqrt_q16 and
- *        fm_rsqrt_q16 on every positive input (`make exhaustive`)
+ * @brief fm_isqrt32 on every 32-bit input
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

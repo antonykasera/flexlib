@@ -1,7 +1,6 @@
 /**
  * @file fm_linalg.c
- * @brief Vectors and 3x3 / 4x4 matrices in q31 and float: exact sums of
- *        products, rounded once
+ * @brief Vectors and 3x3 / 4x4 matrices in q31 and float
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -97,8 +96,7 @@ FX_INLINE uint32_t f2u(float x) {
 
 FX_INLINE void put(float *r, uint32_t b) { memcpy(r, &b, sizeof b); }
 
-/* the sum of n products a[i] b[i bs], b negated where bit i of neg is set, with
- * any operands: inf and NaN as IEEE arithmetic gives them */
+/* sum of n products a[i] b[i bs], b negated where bit i of neg is set */
 FX_COLD static uint32_t sum_any(const float *a, const float *b, uint32_t bs,
                                 uint32_t n, uint32_t neg) {
   int32_t ma[4];

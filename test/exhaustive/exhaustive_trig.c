@@ -1,7 +1,6 @@
 /**
  * @file exhaustive_trig.c
- * @brief fm_sin_q31 on every 32-bit angle against sinl, and fm_cos_q31 /
- *        fm_sincos_q31 against it (`make exhaustive`)
+ * @brief fm_sin_q31 on every 32-bit angle against sinl
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

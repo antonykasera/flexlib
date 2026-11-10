@@ -39,7 +39,7 @@ extern unsigned checks_failed;
     }                                                                          \
   } while (0)
 
-/* |actual - expected| <= tol; a NaN on either side fails */
+/* |actual - expected| <= tol */
 #define ASSERT_NEAR(actual, expected, tol)                                     \
   do {                                                                         \
     double _a = (double)(actual);                                              \

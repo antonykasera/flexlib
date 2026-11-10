@@ -75,8 +75,7 @@ void test_fu_debounce_vs_reference(void) {
   }
 }
 
-/* settled, then a glitch of up to limit - 1 samples: no change; a steady
- * change takes exactly limit samples */
+/* settled, then a glitch of up to limit - 1 samples: no change */
 void test_fu_debounce_glitch(void) {
   for (uint8_t limit = 1U; limit <= 12U; limit++) {
     for (uint8_t g = 0U; g < limit; g++) {

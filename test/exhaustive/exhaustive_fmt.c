@@ -1,7 +1,6 @@
 /**
  * @file exhaustive_fmt.c
- * @brief Checks fu_fmt_u32 and fu_fmt_hex32 on every 32-bit input against
- *        plain one-digit-at-a-time references (`make exhaustive`)
+ * @brief Checks fu_fmt_u32 and fu_fmt_hex32
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

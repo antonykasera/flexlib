@@ -57,7 +57,7 @@ fm_q16 fm_div_q16(fm_q16 a, fm_q16 b) {
   uint32_t ua = mag(a);
   uint32_t ub = mag(b);
   int32_t sign = a ^ b;
-  if ((ua >> 15) >= ub) { /* |a / b| >= 2^15 */
+  if ((ua >> 15) >= ub) {
     return saturate(ua, sign, INT32_MAX);
   }
   uint32_t q;

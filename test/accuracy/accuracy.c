@@ -1,7 +1,6 @@
 /**
  * @file accuracy.c
- * @brief `make accuracy`: flexmath and the CMSIS-DSP functions it replaces,
- *        both against a double reference; prints docs/accuracy.md
+ * @brief `make accuracy`
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -148,7 +147,7 @@ static void sqrt_q31(void) {
   row(&c, "CMSIS-DSP", "10^7 random, every magnitude");
 }
 
-/* CMSIS returns a quotient and a shift; with |a| < |b| the shift is 0 */
+/* CMSIS returns a quotient and a shift */
 static void div_q15(void) {
   ErrStats f, c;
   stats_init(&f, "divide q15", "lsb");
@@ -227,7 +226,7 @@ static void sin_q31(void) {
   row(&c, "CMSIS-DSP", "10^7 random even angles");
 }
 
-/* angle error in 2^-bits turns, mod a turn; CMSIS returns radians */
+/* angle error in 2^-bits turns, mod a turn */
 static double ang_err(double got_turns, double ref_rad, double turn) {
   double e = got_turns - ref_rad * (turn / 6.283185307179586);
   return e - turn * nearbyint(e / turn);
@@ -277,8 +276,7 @@ static void atan2_q31(void) {
   row(&c, "CMSIS-DSP", "10^7 random, every magnitude, not (0, 0)");
 }
 
-/* natural log: ours is Q16.16 in and out; CMSIS takes q31 / q15 in (0, 1)
- * and gives q5.26 / q4.11, so each is in its own output's LSB */
+/* natural log: ours is Q16.16 in and out */
 static void ln_rows(void) {
   ErrStats f, c31, c15;
   stats_init(&f, "ln, Q16.16 out", "lsb");
@@ -303,8 +301,6 @@ static void ln_rows(void) {
   row(&c15, "CMSIS-DSP", "all 32767 positive q15");
 }
 
-/* float sin / cos in ULPs, and absolute error in units of 2^-24 (CMSIS
- * interpolates a table: good absolute error, poor near the zeros) */
 static void sincos_f32(void) {
   static const char *const range[2] = {"10^7 random, x in [-pi, pi]",
                                        "10^7 random, abs(x) pi/4 .. 2^22"};
@@ -378,9 +374,6 @@ static void atan2_f32(void) {
   }
 }
 
-/* 4x4 matrix products: q31 in [-1/4, 1/4) (CMSIS needs its inputs scaled down
- * by log2(4) bits, or its sums wrap), float +-[2^-4, 2^4), and the same with
- * one sum nearly cancelling */
 static void mat4_rows(void) {
   __extension__ typedef __int128 i128;
   ErrStats st[6];
@@ -403,7 +396,7 @@ static void mat4_rows(void) {
       memcpy(&fa[i], &u, sizeof u);
       memcpy(&fb[i], &v, sizeof v);
     }
-    if ((t & 1) != 0) { /* row 0 . column 0 nearly cancels */
+    if ((t & 1) != 0) { /* row 0 . */
       fa[3] = -(fa[0] * fb[0] + fa[1] * fb[4] + fa[2] * fb[8]) / fb[12];
     }
     arm_matrix_instance_q31 ma = {4U, 4U, qa}, mb = {4U, 4U, qb};

@@ -1,14 +1,11 @@
 # flexutils
 
-The small, everyday code of a Cortex-M firmware, made fast and checked on every
-input it can take: bit tricks, formatting and parsing without printf or
-soft-float, CRCs, a lock-free ring for interrupts and DMA, COBS framing,
-debouncing and PRNGs. Plain C11, no allocation, no dependencies beyond
-`arch/fx_arch.h`.
+Everyday Cortex-M code, fast and checked on every input it can take: bit
+tricks, formatting and parsing without printf, CRCs, a lock-free ring, COBS,
+debouncing and PRNGs. Plain C11, no allocation.
 
-Cycles below are medians on an STM32F103 at 72 MHz (`-O2`, GCC 16, warm
-cache), from [docs/results-f103.md](../docs/results-f103.md), next to newlib
-or the obvious alternative in the same firmware.
+Cycles are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
+[docs/results/f103.md](../docs/results/f103.md).
 
 ## Modules
 
@@ -23,23 +20,25 @@ or the obvious alternative in the same firmware.
 | `fu_debounce.h` | integrator for one input; branch-free vertical counter for 32 | 32 inputs per tick: 20 | 16 single integrators 379 |
 | `fu_rand.h` | xorshift32, xoshiro128** with jump, unbiased bounded draws | xoshiro128** 22, unbiased `below(100)` 33 | `rand()` 44 |
 
-## What is guaranteed
+## Guarantees
 
-- `fu_fmt` gives the C library's `%.*f` text exactly, for all 2^32 Q16.16
-  values and all 2^32 floats (`make exhaustive-slow`), with no soft-float and
-  no 64-bit division. Integers and hex are checked on all 2^32 inputs.
-- `fu_parse` reads back everything `fu_fmt` writes (all 2^32 values of each
-  type, Q16.16 included), rounds Q16.16 correctly, ties included, and reports
-  overflow and bad input through `FU_ParseStatus` instead of guessing.
-- CRCs match the published check values and a bitwise reference on random
-  data, for both table sizes.
-- `fu_ring` indices run freely across the 2^32 wrap; the ring needs only
-  compiler barriers on a single-core M3. `fu_ring_from_dma` turns a circular
-  DMA buffer's remaining count into ring data.
-- `fu_xoshiro128_below` and `fu_xorshift32_below` are unbiased (rejection,
-  with UDIV only on the rare rejection). xorshift32's full period is checked.
+- `fu_fmt` matches the C library's `%.*f` exactly for all 2^32 Q16.16 values
+  and floats; integers and hex are checked on all 2^32 inputs.
+- `fu_parse` reads back everything `fu_fmt` writes and rounds Q16.16
+  correctly; errors come back as `FU_ParseStatus`.
+- CRCs match the published check values and a bitwise reference.
+- `fu_xoshiro128_below` and `fu_xorshift32_below` are unbiased.
 
 ## Use
+
+In a [flex](https://github.com/antonykasera/STM32F1-HAL) project (v1.1.0 or
+later), one line in the Makefile:
+
+```make
+FLEXLIB_LIBS := utils
+```
+
+Elsewhere, include the fragment (it only sets variables):
 
 ```make
 include lib/flexlib/flexutils.mk
@@ -66,16 +65,14 @@ Build with `-ffunction-sections -fdata-sections` and link with
 
 ## Options
 
-- `FU_CRC_SMALL`: 16-entry CRC tables instead of byte tables (CRC-32's is
-  4 KB, slice-by-4). Warm, CRC-32 over 256 B then takes 4109 cycles instead of
-  1584; cold, 4672 instead of 14793, because slice-by-4 reads most of its
-  table. Choose it for code that runs rarely, or for flash without a cache.
+- `FU_CRC_SMALL`: 16-entry CRC tables instead of byte tables. CRC-32 over
+  256 B takes 4109 cycles instead of 1584 warm, and 4672 instead of 14793 cold.
 - `FX_ASSERT_FAIL(file, line)` / `FX_DISABLE_ASSERT`: argument checks trap by
   default, with no stdio.
 
 ## Checking it
 
-`make` runs the host tests (ASan, UBSan, gcc and clang), the `-Werror` cross
-builds and the asm audit; `make exhaustive` and `make exhaustive-slow` cover
-every 32-bit input; `make bench-run` measures it on the board. See the
+`make` runs the host tests, the cross builds and the asm audit;
+`make exhaustive` and `make exhaustive-slow` cover every 32-bit input;
+`make bench-run` measures on the board. See the
 [top-level README](../README.md).

@@ -1,7 +1,6 @@
 /**
  * @file test_fm_sqrt.c
- * @brief Host tests for fm_sqrt.h against exact integer references (the
- *        whole input spaces are in test/exhaustive/exhaustive_sqrt.c)
+ * @brief Host tests for fm_sqrt.h against exact integer references
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -76,8 +75,7 @@ void test_fm_sqrt_fixed(void) {
     ASSERT_EQ(fm_sqrt_q31(x), ux == 0U ? 0U : ref_round_sqrt(ux << 31));
     ASSERT_EQ(fm_sqrt_q16(x), ux == 0U ? 0U : ref_round_sqrt(ux << 16));
     if (x > 0) {
-      /* 2^24 / sqrt(x) = sqrt(2^48 / x): nearest r has (2r - 1)^2 x <= 2^50
-       * < (2r + 1)^2 x; and it is within half an LSB in double */
+      /* 2^24 / sqrt(x) = sqrt(2^48 / x): nearest r has (2r - 1)^2 x <= 2^50 < (2r + 1)^2 x */
       uint64_t r = (uint64_t)fm_rsqrt_q16(x);
       ASSERT_TRUE((u128)(2U * r - 1U) * (u128)(2U * r - 1U) *
                       (u128)(uint64_t)x <=

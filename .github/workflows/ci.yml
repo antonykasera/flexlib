@@ -56,7 +56,7 @@ jobs:
       - name: Golden hashes are up to date
         run: |
           make golden
-          git diff --exit-code bench/golden.c
+          git diff --exit-code bench/core/golden.c
 
       - name: Bench firmware (-O2, -Os)
         run: |
@@ -65,3 +65,12 @@ jobs:
 
       - name: Bench timed windows
         run: make bench-windows
+
+      - name: Consumer fragments (any order, included twice)
+        run: make -s -f test/consumer/check.mk
+
+      - name: flex's template with flexlib (FLEXLIB_LIBS)
+        run: |
+          cp -r third_party/flex/template /tmp/app
+          make -C /tmp/app FLEX_DIR=$PWD/third_party/flex FLEXLIB_DIR=$PWD \
+            FLEXLIB_LIBS="math utils" EXTRA_CFLAGS=-Werror

@@ -1,7 +1,6 @@
 /**
  * @file test_fu_rand.c
- * @brief Host tests for fu_rand.h: known answers (from an independent
- *        implementation), uniformity, and the rejection that removes bias
+ * @brief Host tests for fu_rand.h
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -43,7 +42,7 @@ void test_fu_rand_known_answers(void) {
   ASSERT_EQ(j.s[3], 0x02ABD971U);
 }
 
-/* chi-square over n buckets; the bound is ~7 sigma above the mean */
+/* chi-square over n buckets */
 static void check_uniform(uint32_t n, bool xorshift) {
   static uint32_t count[1000];
   memset(count, 0, sizeof count);
@@ -73,8 +72,6 @@ void test_fu_rand_below(void) {
     check_uniform(ns[i], false);
     check_uniform(ns[i], true);
   }
-  /* n = 3 * 2^30: without the rejection, multiples of 3 would come up half
-   * the time instead of a third */
   FU_Xoshiro128 r;
   fu_xoshiro128_seed(&r, 7U);
   uint32_t threes = 0U;

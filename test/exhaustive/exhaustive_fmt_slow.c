@@ -1,7 +1,6 @@
 /**
  * @file exhaustive_fmt_slow.c
- * @brief Checks fu_fmt_q16 and fu_fmt_f32 on every 32-bit input against the C
- *        library's "%.*f" (`make exhaustive-slow`)
+ * @brief Checks fu_fmt_q16 and fu_fmt_f32
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

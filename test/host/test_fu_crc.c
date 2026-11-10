@@ -29,7 +29,7 @@ static uint32_t reflect(uint32_t v, uint32_t bits) {
   return r;
 }
 
-/* one bit at a time, MSB first; reflection done on the data and result */
+/* one bit at a time, MSB first */
 static uint32_t ref_crc(const CrcSpec *c, uint32_t init, const uint8_t *p,
                         size_t len) {
   uint64_t top = 1ULL << (c->width - 1U);

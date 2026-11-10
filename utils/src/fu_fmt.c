@@ -22,7 +22,7 @@ static const uint32_t pow10_tab[10] = {
 
 uint32_t fu_fmt_dec_digits(uint32_t v) {
   v |= 1U;
-  /* bit length * log10(2) (1233 / 4096), off by at most one */
+  /* bits * log10(2) (1233/4096), at most one low */
   uint32_t t = ((32U - fu_clz(v)) * 1233U) >> 12;
   return t + 1U - (v < pow10_tab[t] ? 1U : 0U);
 }
@@ -55,12 +55,10 @@ size_t fu_fmt_i32(char *buf, int32_t v) {
   return fu_fmt_u32(buf, (uint32_t)v);
 }
 
-/* four nibbles to ASCII (SWAR), top nibble in the low byte;
- * alpha = 'A' - '9' - 1 or 'a' - '9' - 1 */
+/* four nibbles to ASCII (SWAR); alpha = 'A' or 'a' minus '9' + 1 */
 FX_INLINE uint32_t hex4(uint32_t x, uint32_t alpha) {
   x = ((x & 0xFF00U) << 8) | (x & 0x00FFU);
-  x = ((x & 0x00F000F0U) << 4) | (x & 0x000F000FU); /* one nibble per byte */
-  uint32_t ge10 = ((x + 0x06060606U) >> 4) & 0x01010101U;
+  x = ((x & 0x00F000F0U) << 4) | (x & 0x000F000FU);  uint32_t ge10 = ((x + 0x06060606U) >> 4) & 0x01010101U;
   return fx_rev(x + 0x30303030U + ge10 * alpha);
 }
 
@@ -78,7 +76,7 @@ size_t fu_fmt_hex32(char *buf, uint32_t v, uint32_t min_digits, bool upper) {
   }
   uint64_t s = (uint64_t)hex4(v >> 16, alpha) |
                (uint64_t)hex4(v & 0xFFFFU, alpha) << 32;
-  s >>= 8U * (8U - n); /* drop the leading zeros; the freed bytes are NULs */
+  s >>= 8U * (8U - n); /* drop leading zeros */
   fu_store_le32(buf, (uint32_t)s);
   fu_store_le32(buf + 4, (uint32_t)(s >> 32));
   buf[n] = '\0';
@@ -97,8 +95,7 @@ static void put_fixed(char *p, uint32_t q, uint32_t d) {
   }
 }
 
-/* [-]ip + f / 2^s (s 1..63, f < 2^24) to d digits; + 2^(s-1) - 1 + odd
- * rounds to nearest even */
+/* [-]ip + f / 2^s (s 1..63, f < 2^24) to d digits, ties to even */
 FX_INLINE size_t fmt_point(char *buf, bool neg, uint32_t ip, uint32_t f,
                            uint32_t s, uint32_t d) {
   uint64_t p = (uint64_t)f * pow10_tab[d];
@@ -134,10 +131,10 @@ FX_COLD static size_t fmt_special(char *buf, bool neg, uint32_t mant) {
   return n;
 }
 
-/* x >= 2^32: m * 2^e in base-10^4 limbs; 9999 << 18 plus a carry fits */
+/* x >= 2^32: m * 2^e in base-10^4 limbs */
 FX_COLD static size_t fmt_big(char *buf, bool neg, uint32_t m, uint32_t e,
                               uint32_t d) {
-  uint32_t limb[10]; /* <= 39 digits, least significant first */
+  uint32_t limb[10]; /* least significant first */
   uint32_t n = 0U;
   do {
     limb[n++] = m % 10000U;

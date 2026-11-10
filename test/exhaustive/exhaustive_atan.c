@@ -1,7 +1,6 @@
 /**
  * @file exhaustive_atan.c
- * @brief fm_atan2_q15 on every pair, fm_asin_q31 / fm_acos_q31 on every input,
- *        fm_atan2_q31 on 2^32 hashed pairs (`make exhaustive`)
+ * @brief fm_atan2_q15 on every pair
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -11,7 +10,7 @@
 #include <math.h>
 #include <stdio.h>
 
-/* got - ref in LSB, mod a turn; in double the difference keeps 2^-22 LSB */
+/* got - ref in LSB, mod a turn */
 static double ang_err(double got, double ref_rad, double turn) {
   double e = got - ref_rad * (turn / 6.283185307179586);
   e -= turn * nearbyint(e / turn);
@@ -36,7 +35,7 @@ int main(void) {
                        atan2((double)y15, (double)x15), 65536.0);
     w15 = e > w15 ? e : w15;
 
-    double z = (int32_t)u / 2147483648.0; /* exact; double is 1e-7 LSB */
+    double z = (int32_t)u / 2147483648.0; /* exact */
     e = ang_err(fm_asin_q31((int32_t)u), asin(z), 4294967296.0);
     double ec = ang_err(fm_acos_q31((int32_t)u), acos(z), 4294967296.0);
     ws = e > ws ? e : ws;

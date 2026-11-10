@@ -10,8 +10,7 @@
 #include "fu_bits.h"
 #include "fu_crc_tab.h"
 
-/* The state runs in a uint32_t; MSB-first CRCs let stale high bits pile up
- * above the CRC width, and the return masks them off. */
+/* state is uint32_t; stale high bits are masked on return */
 
 #ifdef FU_CRC_SMALL
 #define BYTES(step)                                                            \
@@ -20,7 +19,7 @@
     step;                                                                      \
   }
 #else
-/* bytes to the next aligned word, then 4 steps per word load */
+/* align, then 4 bytes per load */
 #define BYTES(step)                                                            \
   size_t h = (0U - (uintptr_t)p) & 3U;                                         \
   for (h = h < len ? h : len, len -= h; h != 0U; h--) {                        \

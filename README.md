@@ -2,98 +2,106 @@
 
 Compute libraries for Cortex-M, measured on the chip they're for:
 
-- **[flexutils](utils/README.md)** (`fu_`): bit tricks, lock-free rings,
-  printf-free formatting and parsing, CRCs, COBS, debouncing, PRNGs.
+- **[flexutils](utils/README.md)** (`fu_`): bit tricks, rings, formatting and
+  parsing, CRCs, COBS, debouncing, PRNGs.
 - **[flexmath](math/README.md)** (`fm_`): fixed point (Q15 / Q31 / Q16.16),
-  float functions built on integer internals for chips with no FPU, and
-  vectors, matrices, quaternions and PID on exact sums of products.
+  float functions without an FPU, vectors, matrices, quaternions and PID.
 
-Each library's README has its functions, their cycle counts next to the
-baselines, and their error bounds.
+Plain C11, no dependencies. Each function states an error bound and a cycle
+count measured on an STM32F103 (Cortex-M3, 72 MHz) next to newlib libm and
+CMSIS-DSP. The bench firmware runs on
+[flex](https://github.com/antonykasera/STM32F1-HAL).
 
-The first target is the STM32F103 (Cortex-M3, 72 MHz, no FPU). Each function
-states an error bound, which the host tests prove against a `double`
-reference, and has a cycle count measured on the board next to newlib libm and
-CMSIS-DSP. flexlib is plain C11 with no dependencies. The bench firmware runs
-on [flex](https://github.com/antonykasera/STM32F1-HAL).
+## Using it
+
+With [flex](https://github.com/antonykasera/STM32F1-HAL) v1.1.0 or later, add
+flexlib as a submodule in `lib/flexlib` and name the libraries in your
+Makefile, next to the flex modules:
+
+```make
+FLEX_MODULES := gpio clock usb
+FLEXLIB_LIBS := math              # utils, math; math brings utils with it
+```
+
+flex's template includes the matching fragments and builds their sources with
+yours. Without flex, include the fragments yourself; they only set variables:
+
+```make
+include lib/flexlib/flexlib.mk    # FLEXLIB_LIBS ?= utils math
+CFLAGS += $(FLEXLIB_CFLAGS)       # include paths only: your MCU flags apply
+SRCS   += $(FLEXLIB_SRCS)
+```
+
+Build with `-ffunction-sections -fdata-sections` and link with
+`--gc-sections`. Define `FX_ASSERT_FAIL(file, line)` for your own assert
+handler, or `FX_DISABLE_ASSERT` to compile the checks out. Each library's
+README lists its other options (`FU_CRC_SMALL`, `FM_LUT_IN_RAM`).
+
+## Libraries and prefixes
+
+Each library has a folder, a fragment, a prefix and its own version tags
+(`flexmath-v0.2.0`). Dependencies run one way: arch, utils, math, then the rest.
+
+| library | folder | fragment | prefix | status |
+|---|---|---|---|---|
+| arch layer | `arch/` | (with every library) | `fx_` | released |
+| flexutils | `utils/` | `flexutils.mk` | `fu_` | 0.1.0 |
+| flexmath | `math/` | `flexmath.mk` | `fm_` | 0.2.0 |
+| flexdsp: FIR, biquad, FFT, windows | `dsp/` | `flexdsp.mk` | `fd_` | planned |
+| flexctrl: observers, Kalman, motor control | `ctrl/` | `flexctrl.mk` | `fct_` | planned |
+| flexcomm: protocols, packet parsers | `comm/` | `flexcomm.mk` | `fco_` | planned |
+| flexnn: int8 inference kernels | `nn/` | `flexnn.mk` | `fnn_` | planned |
+| flextrace: diagnostics, logging | `trace/` | `flextrace.mk` | `ftr_` | planned |
 
 ## Status
 
-Both libraries are complete for their first release. What each part is
-checked with:
-
 | Part | Host | Board |
 |---|---|---|
-| `arch/fx_arch.h` (CLZ, RBIT, REV, SSAT/USAT, SMULL/UMULL/SMLAL, barriers) | tests + asm-audit | golden check passes |
-| bench firmware (DWT cycles, USB CDC output, golden check) | builds | runs |
-| `fu_bits` (clz/ctz 32/64, popcount, bswap, endian loads/stores, sign extension) | exhaustive + random tests, asm-audit | bench + golden check |
-| `fu_fmt` integers (u32, i32, hex) | all 2^32 inputs (u32, hex), tests against snprintf, asm-audit | bench + golden check |
-| `fu_fmt` Q16.16 and float (printf's `%.*f`, exact, no soft-float), `fu_snprintf` | all 2^32 inputs (q16, f32) against the C library's `%.*f`, tests against snprintf, asm-audit | bench + golden check |
-| `fu_crc` (CRC-8 SMBus/Maxim, CRC-16 CCITT/MODBUS, CRC-32 zlib; `FU_CRC_SMALL` 16-entry tables) | check values, random data against a bitwise reference (both table sizes), asm-audit | bench + golden check |
-| `fu_ring` (lock-free SPSC byte ring, fixed-size element queue, circular-DMA receive) | random operations against a reference FIFO (indices across the 2^32 wrap), DMA simulation, asm-audit | bench + golden check |
-| `fu_parse` (u32, i32, hex, Q16.16 correctly rounded; bounded input, status return) | all 2^32 inputs read back from fu_fmt, Q16.16 against an exact reference and at every kind of rounding tie, asm-audit | bench + golden check |
-| `fu_cobs` (COBS encode, strict in-place decode, byte-at-a-time receiver) | reference vectors, random frames against a byte-wise encoder, malformed input, receiver against the block decoder, asm-audit | bench + golden check |
-| `fu_debounce` (integrator for one input, branch-free vertical counter for 32) | against per-input reference counters on bouncing streams, glitch properties, asm-audit | bench + golden check |
-| `fu_rand` (xorshift32, xoshiro128** with jump, unbiased bounded draws) | known answers from an independent implementation, jump checked against the transition matrix, xorshift32 period over all 2^32 states, uniformity and bias tests, asm-audit | bench + golden check |
-| `fm_fixed.h` (Q15/Q31/Q16.16: saturating add/sub, rounding multiply, MAC; exact float conversion without soft-float) | add/sub/mul q15 on all 2^32 pairs, conversions on all 2^32 floats and values, accuracy against CMSIS-DSP, asm-audit | bench + golden check |
-| `fm_sqrt` (isqrt32/64 exact; sqrt q15/q31/Q16.16 and 1/sqrt Q16.16 correctly rounded) | isqrt32 on all 2^32 inputs, the Q functions on every positive input, accuracy against CMSIS-DSP, asm-audit | bench + golden check |
-| `fm_div` (divide q15/q31/Q16.16 and 1/x Q16.16, correctly rounded and saturated, no 64-bit libgcc divide) | q15 on all 2^32 pairs, 1/x on all 2^32 inputs, q31/Q16.16 on 2^32 hashed pairs and constructed near-half cases, accuracy against CMSIS-DSP, asm-audit | bench + golden check |
-| `fm_trig` (sin, cos, sincos of binary angles in q15 and q31, from one 1 KB quarter-wave table) | q15 on all 65536 angles, q31 on all 2^32 angles, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
-| `fm_atan` (atan2, asin, acos in q15 and q31, as binary angles; one 520 B table) | atan2 q15 on all 2^32 pairs, asin/acos on every input, atan2 q31 on 2^32 hashed pairs, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
-| `fm_exp` (log2, ln, log10, dB, exp2, exp, pow in Q16.16; 0.8 KB of tables) | logs on every positive input, exp2/exp on every input, pow on 2^32 hashed pairs against its bound, accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
-| `fm_float` (without an FPU: `fm_sqrtf`, `fm_recipf`, `fm_rsqrtf` correctly rounded; `fm_sinf`, `fm_cosf`, `fm_sincosf` within 0.515 ULP with exact reduction of any argument; `fm_atan2f`, `fm_asinf`, `fm_acosf` within 0.545 ULP; `fm_log2f`, `fm_logf`, `fm_exp2f`, `fm_expf` within 0.52 ULP; subnormals, inf and NaN) | all 2^32 floats: sqrt, 1/x, 1/sqrt bit for bit against correctly rounded references (1/sqrt by an exact midpoint test), sin/cos/asin/acos/log2/ln/exp2/exp against double; atan2 on 2^32 hashed pairs; accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
-| `fm_linalg` (dot, cross, 3x3 and 4x4 matrix times matrix or vector, in q31 and float; each output one exact sum of products rounded once: q31 saturated for every input, float within 0.5 ULP + 2^-32 sum of the products' magnitudes) | q31 bit for bit against exact 128-bit sums, float against long double sums of exact products (random, near-cancelling, subnormal, inf / NaN), accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
-| `fm_quat` (float quaternions: product rounded once per component, normalise within 0.6 ULP for any finite q, rotate a vector, integrate gyro rates by the exact rotation rather than first order) | against long double references (random, any magnitude, drift over 10^5 steps, inf / NaN), accuracy against CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
-| `fm_pid` (PID in Q16.16 and float: anti-windup by integrator clamping, output clamping, derivative on measurement; Q16.16 exact for every input with one rounding, float with one rounding per sum) | Q16.16 bit for bit against 128-bit arithmetic on random controllers (full-scale gains, limits, inputs), float against long double sums, saturation and kick behaviour, inf / NaN, asm-audit | bench + golden check |
+| `arch/fx_arch.h` | tests, asm-audit | golden check |
+| bench firmware | builds | runs |
+| `fu_bits` | exhaustive + random tests, asm-audit | bench + golden check |
+| `fu_fmt` integers | all 2^32 inputs (u32, hex), tests, asm-audit | bench + golden check |
+| `fu_fmt` Q16.16 and float, `fu_snprintf` | all 2^32 inputs against `%.*f`, tests, asm-audit | bench + golden check |
+| `fu_crc` (`FU_CRC_SMALL` 16-entry tables) | check values, random data, asm-audit | bench + golden check |
+| `fu_ring` | random operations, DMA simulation, asm-audit | bench + golden check |
+| `fu_parse` | all 2^32 inputs, Q16.16 rounding ties, asm-audit | bench + golden check |
+| `fu_cobs` | vectors, random frames, malformed input, asm-audit | bench + golden check |
+| `fu_debounce` | reference counters, glitch properties, asm-audit | bench + golden check |
+| `fu_rand` | known answers, jump, period, bias tests, asm-audit | bench + golden check |
+| `fm_fixed.h` | add/sub/mul q15 on all 2^32 pairs, conversions on all 2^32 floats and values, vs CMSIS-DSP, asm-audit | bench + golden check |
+| `fm_sqrt` | isqrt32 on all 2^32 inputs, Q functions on every positive input, vs CMSIS-DSP, asm-audit | bench + golden check |
+| `fm_div` | q15 and 1/x on all 2^32, q31/Q16.16 on 2^32 hashed pairs, vs CMSIS-DSP, asm-audit | bench + golden check |
+| `fm_trig` | q15 on all 65536 angles, q31 on all 2^32, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
+| `fm_atan` | atan2 q15 on all 2^32 pairs, asin/acos on every input, atan2 q31 on 2^32 hashed pairs, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
+| `fm_exp` | logs and exp2/exp on every input, pow on 2^32 hashed pairs, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
+| `fm_float`: `fm_sqrtf`, `fm_recipf`, `fm_rsqrtf` correctly rounded; `fm_sinf`, `fm_cosf`, `fm_sincosf` within 0.515 ULP; `fm_atan2f`, `fm_asinf`, `fm_acosf` within 0.545 ULP; `fm_log2f`, `fm_logf`, `fm_exp2f`, `fm_expf` within 0.52 ULP | all 2^32 floats against correctly rounded references or double; atan2 on 2^32 hashed pairs; vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
+| `fm_linalg` | q31 against exact 128-bit sums, float against long double sums, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
+| `fm_quat` | long double references, drift over 10^5 steps, inf / NaN, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
+| `fm_pid` | Q16.16 against 128-bit arithmetic, float against long double sums, inf / NaN, asm-audit | bench + golden check |
 
 ## Layout
 
 ```
-include/      public headers (fu_*.h, fm_*.h)
-arch/         fx_arch.h: single-instruction wrappers, plain C on the host
-utils/        flexutils: README.md, src/
-math/         flexmath: README.md, src/ (fm_tables.c is generated)
-test/host/    host tests: harness, error statistics, ULP error
-test/asm/     asm-audit spec and probes
-test/accuracy/ error statistics against CMSIS-DSP (make accuracy)
-bench/        F103 bench firmware (flex and CMSIS-DSP as submodules)
-tools/        asm_audit.py, bench_run.py, bench_windows.py, gen_crc_tables.py,
-              gen_math_tables.py
-docs/         results-f103.md, accuracy.md
+flexlib.mk, flexutils.mk, flexmath.mk    consumer fragments (variables only)
+arch/            fx_arch.h: single-instruction wrappers, plain C on the host
+utils/           flexutils: README, CHANGELOG, include/ (public), src/
+math/            flexmath: README, CHANGELOG, include/ (public), src/
+test/host/       host tests: harness, error statistics, ULP error
+test/exhaustive/ every 32-bit input (make exhaustive)
+test/accuracy/   error statistics against CMSIS-DSP (make accuracy)
+test/asm/        asm-audit spec and probes
+bench/           the F103 bench firmware: core/, cases/, port/ (see its README)
+tools/           asm_audit.py, bench_run.py, bench_windows.py; gen/ table generators
+docs/            results/ (bench results), accuracy.md
+mk/              the Makefile's rules, one file per area
+third_party/     flex and CMSIS-DSP (submodules, for the bench only)
 ```
-
-## Using it
-
-```make
-include lib/flexlib/flexmath.mk     # or flexutils.mk on its own
-CFLAGS += $(FLEXLIB_CFLAGS)
-SRCS   += $(FM_SRCS) $(FU_SRCS)
-```
-
-Build with `-ffunction-sections -fdata-sections` and link with
-`--gc-sections`, so the functions you don't call drop out.
-
-Argument checks (`FX_ASSERT`) trap on failure, with no stdio. Define
-`FX_ASSERT_FAIL(file, line)` to call your own handler instead, or
-`FX_DISABLE_ASSERT` to compile the checks out.
-
-Define `FM_LUT_IN_RAM` to put flexmath's tables (2.8 KB) in `.data`, so the
-startup code copies them to SRAM. Warm calls run at the same speed. Calls that
-find the flash cold, or a part whose flash has wait states, skip the table
-fetches: on the bench board a cold `fm_sin_q15` drops from 480 to 368 cycles
-and `fm_sin_q31` from 851 to 738.
-
-Define `FU_CRC_SMALL` to use 16-entry CRC tables instead of byte tables
-(CRC-32's is 4 KB, slice-by-4). With a warm cache, CRC-32 over 256 B then
-takes 4109 cycles instead of 1584. With a cold one it takes 4672 instead of
-14793, because slice-by-4 reads most of its table. Choose it for code that
-runs rarely, or for parts whose flash has wait states and no cache.
 
 ## Building and testing
 
 | Command | What it does |
 |---|---|
-| `make` | `host-test`, `cross`, `lint`, `asm-audit` |
+| `make` | `host-test`, `cross`, `lint`, `asm-audit` (`make help` lists every target) |
 | `make host-test [HOST_CC=clang]` | host tests with ASan + UBSan |
 | `make exhaustive` | checks every 32-bit input or state where that is possible (~8 min on 12 cores) |
 | `make exhaustive-slow` | the same for q16 and float text, against the C library's `%.*f` (~13 min on 12 cores) |
@@ -102,59 +110,22 @@ runs rarely, or for parts whose flash has wait states and no cache.
 | `make asm-audit` | checks the M3 disassembly for the expected instructions and for no soft-float or libgcc calls |
 | `make tables` | regenerates the CRC and math tables (`utils/src/fu_crc_tab.c`, `math/src/fm_tables.c`) |
 | `make accuracy` | flexmath and the CMSIS-DSP functions it replaces against a `double` reference; writes `docs/accuracy.md` (~1 min) |
-| `make golden` | runs the bench cases on the host and writes `bench/golden.c` |
+| `make golden` | runs the bench cases on the host and writes `bench/core/golden.c` |
 | `make bench [BENCH_OPT=-Os]` | builds the bench firmware: flexutils, flexmath's functions, and its structures (`BENCH_SET=utils\|math\|struct` for one) |
-| `make bench-run` | flashes each image over ST-Link in turn, reads `/dev/ttyACM0`, writes `docs/results-f103.md` |
+| `make bench-run` | flashes each image over ST-Link in turn, reads `/dev/ttyACM0`, writes `docs/results/f103.md` |
 | `make bench-windows` | lists the instructions each bench case actually times |
 
 The bench needs the submodules: `git submodule update --init`.
 
 ## Bench
 
-- Each case times one call per input with the DWT cycle counter, over 256
-  fixed pseudo-random inputs, and reports min, median and max. Interrupts are
-  off while it times, and USB is polled. The cost of reading the counter is
-  measured and subtracted.
-- Each case first runs once untimed, so the numbers are warm. The bench board
-  is an F103 clone (CPUID 0x412FC230) whose flash behaves like a cache. The
-  probe below measures 32-byte lines, a capacity between 16 and 32 KB, about
-  113 cycles (1.6 us) per cold line with no next-line prefetch, and hits as
-  fast as SRAM. A genuine STM32F103 has no cache (2 wait states plus a
-  prefetch buffer), so its timings may differ, especially for table lookups
-  and for code that hasn't run recently.
-- Built at `-O2` without LTO, so library functions are timed as real calls.
-  libm is prebuilt newlib, so its numbers don't depend on the bench's flags.
-- `make bench-windows` lists the exact instructions between the two counter
-  reads of every case.
-- The same case code also runs on the host. The board compares its output
-  hash for each case against the host's, which catches any difference between
-  the two builds.
-- Any non-empty window reads one cycle high, because the second counter read
-  no longer pipelines with the first. A single-instruction case shows 2. With
-  GCC, a 16-bit argument costs one extra SXTH. The `empty, int16 arg` row
-  measures both effects.
-- Samples above 2 x median + 4 are counted per case and listed by input
-  index under the table, so data-dependent timing stands out.
-- A "Cold calls" table repeats chosen cases with the flash cache flushed
-  before every sample (32 KB read from SRAM code). The function's code and
-  tables then come from flash, as on a first call. The bench links everything
-  it times above that 32 KB, and the case's own loop is read back first, so
-  the window holds only the call. A function's lines can straddle differently
-  from build to build, so cold numbers move by about one line (113 cycles).
-- A "Flash read cost" section measures the board's flash: cycles per load,
-  cold and warm, by block size and by stride. The loop runs from SRAM so its
-  own fetches don't disturb the result.
-- The firmware is three images, each run in turn: flexutils (with newlib's
-  printf and strtod baselines), flexmath's scalar functions (with CMSIS-DSP
-  and libm), and its vectors, matrices, quaternions and PID (with CMSIS-DSP).
-  The largest needs about 92 KB of flash: an F103CB, or a C8 that has
-  128 KB, as most clones do (`st-info --probe` shows the size).
+[bench/](bench/README.md) times every function on the board in DWT cycles,
+warm and cold, and checks each case's output against the host.
 
 ## Results
 
-[docs/results-f103.md](docs/results-f103.md): every bench case, with the
-newlib, libm and CMSIS-DSP baselines and the candidates each function was
-chosen from. [docs/accuracy.md](docs/accuracy.md): flexmath's errors next to
+[docs/results/f103.md](docs/results/f103.md): every bench case with its
+baselines. [docs/accuracy.md](docs/accuracy.md): flexmath's errors next to
 CMSIS-DSP's.
 
 ## License

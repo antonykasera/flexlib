@@ -1,16 +1,13 @@
 # flexmath
 
 Math for Cortex-M parts without an FPU: fixed point (Q15, Q31, Q16.16), float
-functions computed on integer internals, and the structures built on them
-(vectors, matrices, quaternions, PID). Each function states its error bound,
-which the host tests prove, most of them on every possible input. Plain C11,
-no allocation; flexmath uses flexutils' bit helpers.
+functions on integer internals, and vectors, matrices, quaternions and PID.
+Plain C11, no allocation.
 
-Cycles are medians on an STM32F103 at 72 MHz (`-O2`, GCC 16, warm cache),
-from [docs/results-f103.md](../docs/results-f103.md), with newlib libm,
-libgcc's soft-float and CMSIS-DSP (generic C, as the M3 builds it) in the
-same firmware. Errors are against a `double` (or exact integer) reference; the
-CMSIS-DSP errors come from [docs/accuracy.md](../docs/accuracy.md).
+Cycles are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
+[docs/results/f103.md](../docs/results/f103.md). Errors are against a `double`
+or exact reference; CMSIS-DSP errors are in
+[docs/accuracy.md](../docs/accuracy.md).
 
 ## Fixed point
 
@@ -31,15 +28,13 @@ CMSIS-DSP errors come from [docs/accuracy.md](../docs/accuracy.md).
 | `fm_exp2_q16` / `fm_exp_q16` | 67 / 89 | `expf` via float 1566 | 0.54 LSB | |
 | `fm_pow_q16` | 153 | `powf` via float 5183 | 0.65 LSB + \|y\| 2^-32 | |
 
-Angles in `fm_trig` and `fm_atan` are binary (a full turn is 2^16 or 2^32),
-so wrapping is free. Everything saturates rather than wraps; the logs of x <=
-0 return `INT32_MIN`.
+Angles in `fm_trig` and `fm_atan` are binary (a full turn is 2^16 or 2^32).
+Results saturate; the logs of x <= 0 return `INT32_MIN`.
 
 ## Float without an FPU
 
-Each takes and returns `float` but never calls soft-float: the work is done on
-the bits with integer multiplies. inf, NaN (quieted) and subnormals are
-handled explicitly.
+Each takes and returns `float` and uses only integer operations. inf, NaN
+(quieted) and subnormals are handled.
 
 | function | cycles | newlib / libgcc | max error, on all 2^32 floats | CMSIS-DSP |
 |---|--:|--:|---|---|
@@ -53,18 +48,13 @@ handled explicitly.
 | `fm_log2f` / `fm_logf` | 107 / 121 | 1701 / 1540 | 0.52 ULP | |
 | `fm_exp2f` / `fm_expf` | 87 / 112 | 3546 / 1292 | 0.52 ULP | |
 
-`fm_sinf` and `fm_cosf` reduce any argument exactly (a 96-bit window of
-1/(2 pi)), so large arguments cost the same 150 cycles; newlib's `sinf` takes
-15320 for |x| between pi/4 and 2^22.
+`fm_sinf` and `fm_cosf` reduce any argument exactly, so large arguments cost
+the same 150 cycles; newlib's `sinf` takes 15320 for |x| between pi/4 and 2^22.
 
 ## Vectors, matrices, quaternions, PID
 
-Every output is one sum of products, computed exactly and rounded once. For
-q31 and Q16.16 that holds for every input, sums of up to 2^64 included (CMSIS
-truncates and needs its inputs scaled down to avoid wrapping). For float the
-error is at most 0.5 ULP + 2^-32 times the sum of the products' magnitudes; a
-plain float loop is only within about n 2^-24 of that sum, so cancelling
-terms make it arbitrarily wrong.
+Every output is one exact sum of products rounded once. For float the error
+is at most 0.5 ULP + 2^-32 times the sum of the products' magnitudes.
 
 | function | cycles | plain C (libgcc) | CMSIS-DSP | error | CMSIS / plain error |
 |---|--:|--:|--:|---|---|
@@ -85,21 +75,26 @@ derivative on the error: a smaller controller than flexmath's.
 
 - `fm_linalg`: dot2/3/4, cross2/3, mat3 and mat4 times a matrix or a vector;
   row-major arrays.
-- `fm_quat`: `FM_Quat {w, x, y, z}`. `fm_quat_integrate` applies the exact
-  rotation by |w| dt rather than a first-order step (whose error per step is
-  about (|w| dt / 2)^3 / 3, some 30 x 2^-24 at 2000 deg/s and 1 ms), then
-  renormalises: |q| stays within 2^-22 of 1 (tested over 10^5 steps).
-- `fm_pid`: per step, the integrator is clamped to the output range
-  (anti-windup), the output is clamped, and the derivative acts on the
-  measurement, so setpoint steps don't kick. Gains are per step: ki = Ki dt,
-  kd = Kd / dt.
+- `fm_quat`: `FM_Quat {w, x, y, z}`; `fm_quat_integrate` applies the exact
+  rotation and renormalises.
+- `fm_pid`: integrator clamped to the output range, output clamped, derivative
+  on the measurement. Gains are per step: ki = Ki dt, kd = Kd / dt.
 
 ## Use
+
+In a [flex](https://github.com/antonykasera/STM32F1-HAL) project (v1.1.0 or
+later), one line in the Makefile (flexutils comes with it):
+
+```make
+FLEXLIB_LIBS := math
+```
+
+Elsewhere, include the fragment (it only sets variables):
 
 ```make
 include lib/flexlib/flexmath.mk     # pulls in flexutils too
 CFLAGS += $(FLEXLIB_CFLAGS)
-SRCS   += $(FM_SRCS) $(FU_SRCS)
+SRCS   += $(FLEXLIB_SRCS)
 ```
 
 ```c
@@ -128,18 +123,14 @@ No soft-float anywhere in that loop: about 3.4k cycles, 47 us at 72 MHz.
 
 ## Options
 
-- `FM_LUT_IN_RAM`: puts the tables (2.8 KB) in `.data`, so the startup code
-  copies them to SRAM. Warm calls run at the same speed; calls that find the
-  flash cold, or parts whose flash has wait states and no cache, skip the table
-  fetches (a cold `fm_sin_q15` drops from 480 to 368 cycles).
+- `FM_LUT_IN_RAM`: puts the tables (2.8 KB) in `.data`; a cold `fm_sin_q15`
+  drops from 480 to 368 cycles.
 - `FX_ASSERT_FAIL(file, line)` / `FX_DISABLE_ASSERT`: argument checks trap by
   default, with no stdio.
 
 ## Checking it
 
-`make` runs the host tests (ASan, UBSan, gcc and clang), the `-Werror` cross
-builds and the asm audit, which also checks that no function calls soft-float
-or a libgcc helper. `make exhaustive` runs every 32-bit input (or 2^32 hashed
-pairs) through the functions that take one or two; `make accuracy` writes the
-CMSIS-DSP comparison; `make bench-run` measures it all on the board. See the
+`make` runs the host tests, the cross builds and the asm audit;
+`make exhaustive` runs every 32-bit input; `make accuracy` writes the
+CMSIS-DSP comparison; `make bench-run` measures on the board. See the
 [top-level README](../README.md).

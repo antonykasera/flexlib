@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 # @file bench_windows.py
-# @brief List the instructions each bench case times: everything between its
-#        two CYCCNT reads
+# @brief List the instructions each bench case times
 #
 # Copyright (c) 2026 Antony Kasera
 # SPDX-License-Identifier: MIT
-#
-# usage: bench_windows.py [--objdump X] bench-objects.o...
 
 import argparse
 import re

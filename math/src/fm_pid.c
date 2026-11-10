@@ -14,9 +14,7 @@
 
 /* ---- Q16.16 ---- */
 
-/* the sum clamped to [lo, hi], |lo|, |hi| <= 2^47: |h| >= 3 2^27 means |sum| >
- * 2^62 (h has its sign), otherwise s is the exact sum (h is within 2 per
- * product, up to 4, plus 2^13 for the start value) */
+/* sum clamped to [lo, hi], |lo|, |hi| <= 2^47; h flags overflow, s is exact */
 FX_INLINE int64_t sum_clamp(SumQ31 a, int64_t lo, int64_t hi) {
   int64_t s = (int64_t)a.s;
   if ((uint32_t)a.h + 0x18000000U >= 0x30000000U) {
@@ -25,7 +23,6 @@ FX_INLINE int64_t sum_clamp(SumQ31 a, int64_t lo, int64_t hi) {
   return s < lo ? lo : (s > hi ? hi : s);
 }
 
-/* |v| <= 2^47 is far below what h has to resolve: h starts at 0 */
 FX_INLINE SumQ31 sum_from(int64_t v) {
   SumQ31 a = {(uint64_t)v, 0};
   return a;
@@ -108,8 +105,7 @@ void fm_pid_reset_f32(FM_PidF32 *p, float pv) {
   p->prev = pv;
 }
 
-/* B side unpacked << 5 with its exponent one up (the << 6 scale, halved): five
- * products stay below 2^63 */
+/* B side unpacked << 5, exponent one up: five products stay below 2^63 */
 FX_INLINE int32_t unp_b5(uint32_t b, int32_t *e, uint32_t *bad) {
   int32_t m = unp_f32(b, 5U, e, bad);
   (*e)++;

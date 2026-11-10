@@ -1,7 +1,6 @@
 /**
  * @file test_fm_trig.c
- * @brief Host tests for fm_trig.h against a long double reference (q31 on
- *        every angle is in test/exhaustive/exhaustive_trig.c)
+ * @brief Host tests for fm_trig.h against a long double reference
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

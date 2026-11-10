@@ -1,7 +1,6 @@
 /**
  * @file test_fm_linalg.c
- * @brief Host tests for fm_linalg.h: q31 bit for bit against exact 128-bit
- *        sums, float against long double sums of exact products
+ * @brief Host tests for fm_linalg.h
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -28,7 +27,7 @@ static float u2f(uint32_t b) {
 
 /* ---- q31 ---- */
 
-/* round(sum / 2^31), ties up, saturated; product i negated if bit i of neg */
+/* round(sum / 2^31), ties up, saturated */
 static fm_q31 ref_q31(const fm_q31 *a, const fm_q31 *b, int bs, int n,
                       unsigned neg) {
   i128 s = 0;
@@ -120,8 +119,6 @@ void test_fm_linalg_q31(void) {
 
 /* ---- float ---- */
 
-/* |got - ref| beyond half an ULP of ref, in units of 2^-32 sum |a_i b_i| (the
- * contract is <= 1); ref past the float range must give inf */
 static double excess(float got, long double ref, long double sabs) {
   if (fabsl(ref) >= (long double)FLT_MAX * (1.0L + 0x1p-25L)) {
     return isinf(got) && (got > 0.0f) == (ref > 0.0L) ? 0.0 : HUGE_VAL;
