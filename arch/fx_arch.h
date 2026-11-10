@@ -25,6 +25,13 @@
 #define FX_HAVE_DSP 0
 #endif
 
+/* GCC 13: no ACLE bit intrinsics, and a zero check before every CLZ */
+#if FX_ARM && defined(__thumb2__) && !defined(__clang__) && __GNUC__ < 14
+#define FX_OLD_GCC 1
+#else
+#define FX_OLD_GCC 0
+#endif
+
 #define FX_INLINE static inline __attribute__((always_inline))
 
 /* for tables of 64 B or more: 32 B = M7 cache line */
@@ -55,24 +62,35 @@
 
 /* clz(0) = 32 */
 FX_INLINE uint32_t fx_clz(uint32_t x) {
+#if FX_OLD_GCC
+  if (!__builtin_constant_p(x)) {
+    uint32_t r;
+    __asm__("clz %0, %1" : "=r"(r) : "r"(x));
+    return r;
+  }
+#endif
   return x != 0U ? (uint32_t)__builtin_clz(x) : 32U;
 }
 
 /* ctz(0) = 32 */
 FX_INLINE uint32_t fx_ctz(uint32_t x) {
+#if FX_OLD_GCC
+  if (!__builtin_constant_p(x)) {
+    uint32_t r;
+    __asm__("rbit %0, %1\n\tclz %0, %0" : "=r"(r) : "r"(x));
+    return r;
+  }
+#endif
   return x != 0U ? (uint32_t)__builtin_ctz(x) : 32U;
 }
 
 FX_INLINE uint32_t fx_rbit(uint32_t x) {
-#if FX_ARM && defined(__thumb2__)
-#if defined(__clang__) || __GNUC__ >= 14
-  return __rbit(x);
-#else
-  /* GCC 13's arm_acle.h has no __rbit */
+#if FX_OLD_GCC
   uint32_t r;
   __asm__("rbit %0, %1" : "=r"(r) : "r"(x));
   return r;
-#endif
+#elif FX_ARM && defined(__thumb2__)
+  return __rbit(x);
 #else
   x = ((x >> 1) & 0x55555555U) | ((x & 0x55555555U) << 1);
   x = ((x >> 2) & 0x33333333U) | ((x & 0x33333333U) << 2);
@@ -90,6 +108,13 @@ FX_INLINE uint32_t fx_rotl32(uint32_t x, uint32_t k) {
 
 /* swap bytes within each halfword */
 FX_INLINE uint32_t fx_rev16(uint32_t x) {
+#if FX_OLD_GCC
+  if (!__builtin_constant_p(x)) {
+    uint32_t r;
+    __asm__("rev16 %0, %1" : "=r"(r) : "r"(x));
+    return r;
+  }
+#endif
   return ((x & 0x00FF00FFU) << 8) | ((x >> 8) & 0x00FF00FFU);
 }
 

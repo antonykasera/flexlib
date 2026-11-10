@@ -17,7 +17,7 @@ FLEXLIB_VERSION := $(shell awk '/define FLEXLIB_VERSION_(MAJOR|MINOR|PATCH) / \
 ifneq ($(FLEXLIB_REQUIRE),)
 ifneq ($(shell echo $(FLEXLIB_VERSION) $(FLEXLIB_REQUIRE) | awk '{ \
   split($$1, h, "."); split($$2, r, "."); \
-  print h[1] * 10000 + h[2] * 100 + h[3] >= r[1] * 10000 + r[2] * 100 + r[3] }'),1)
+  print (h[1] * 10000 + h[2] * 100 + h[3] >= r[1] * 10000 + r[2] * 100 + r[3]) }'),1)
 $(error flexlib $(FLEXLIB_VERSION) in $(FLEXLIB_ROOT) is older than FLEXLIB_REQUIRE $(FLEXLIB_REQUIRE))
 endif
 endif

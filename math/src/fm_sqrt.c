@@ -13,18 +13,18 @@
 
 /* s = floor(sqrt(x) 2^k), x << 2k normalized: nearest = (s + 2^(k-1)) >> k */
 
-uint32_t fm_isqrt32(uint32_t x) {
-  if (x == 0U) {
-    return 0U;
-  }
+/* x != 0 */
+FX_INLINE uint32_t isqrt32_nz(uint32_t x) {
   uint32_t lz = fx_clz(x) & 30U;
   return sqrt_norm32(x << lz) >> (lz >> 1);
 }
 
+uint32_t fm_isqrt32(uint32_t x) { return x == 0U ? 0U : isqrt32_nz(x); }
+
 uint32_t fm_isqrt64(uint64_t x) {
   uint32_t hi = (uint32_t)(x >> 32);
   if (hi == 0U) {
-    return fm_isqrt32((uint32_t)x);
+    return x == 0U ? 0U : isqrt32_nz((uint32_t)x);
   }
   uint32_t lz = fx_clz(hi) & 30U;
   return sqrt_norm64(x << lz) >> (lz >> 1);

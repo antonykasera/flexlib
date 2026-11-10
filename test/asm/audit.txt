@@ -4,6 +4,7 @@
 #             [!call=symbol]...
 #
 # max=N caps instructions; `__` calls fail unless calls-ok; no-calls fails any call.
+# Caps allow for GCC 13 (CI), which can spill to r4 where GCC 16 uses ip.
 
 # fx_arch.h: each wrapper is its instruction plus `bx lr`
 probe_clz       max=2  clz
@@ -51,7 +52,7 @@ fu_crc8_smbus         no-calls  ldrb
 fu_crc8_maxim         no-calls  ldrb
 
 # fu_ring: inline put/get; word copies, never memcpy; no modulo
-probe_fu_ring_put     max=16  no-calls
+probe_fu_ring_put     max=19  no-calls
 probe_fu_ring_get     max=16  no-calls
 copy16                no-calls  ldr str
 fu_ring_write         !udiv !call=memcpy
@@ -78,7 +79,7 @@ probe_fu_debounce     max=36  no-calls
 
 # fu_rand: inline generators; below() is a UMULL
 probe_fu_xorshift32   max=8   no-calls
-probe_fu_xoshiro128ss max=16  no-calls
+probe_fu_xoshiro128ss max=17  no-calls
 probe_fx_rotl32       max=4   ror
 probe_fu_xoshiro128_below  umull !udiv
 fu_xoshiro128_below_slow   no-calls  udiv
