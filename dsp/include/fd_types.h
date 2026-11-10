@@ -46,6 +46,9 @@ typedef enum {
   FD_WIN_HAMMING,
   FD_WIN_BLACKMAN,
   FD_WIN_BLACKMAN_HARRIS, /* 4-term, -92 dB sidelobes */
+  FD_WIN_NUTTALL,         /* 4-term, continuous first derivative */
+  FD_WIN_FLATTOP,         /* 5-term, flat for amplitude readings */
+  FD_WIN_BARTLETT,
 } FD_Window;
 
 #endif /* FD_TYPES_H */

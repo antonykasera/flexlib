@@ -338,6 +338,20 @@ const BenchGolden bench_golden[] = {
     {"fd_movavg_q15 n = 30, 64", 0xE6660940U},
     {"fd_movavg_q31 n = 32, 64", 0xB9C7512AU},
     {"fd_median5", 0xB00AEFA9U},
+    {"fd_window_q15 Hann, 256", 0x9AA2EFC5U},
+    {"fd_window_q31 Blackman-Harris, 256", 0x307DD3C5U},
+    {"fd_window_kaiser_q15 beta 8, 256", 0x2DAC77C5U},
+    {"fd_goertzel_q15, 64", 0xBBEDE5DDU},
+    {"fd_goertzel_q31, 64", 0x4E5922C3U},
+    {"fd_nco_q15 sin, 64", 0xC9152FC5U},
+    {"nco q15, 16-bit phase into fm_sin_q15", 0xDD1EAFC5U},
+    {"fd_nco_q31 sin + cos, 64", 0x47C8C7C5U},
+    {"fd_osc_q15 sin, 64", 0xC9152FC5U},
+    {"fd_osc_q31 sin + cos, 64", 0x297D0BC5U},
+    {"fd_noise_uniform_q15, 64", 0x3128EDC5U},
+    {"fd_noise_gauss_q15 (Box-Muller), 64", 0x651B9FC5U},
+    {"gauss q15, sum of 12 uniforms", 0x486967C5U},
+    {"fd_noise_tpdf_q15, 64", 0x0EAB37C5U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

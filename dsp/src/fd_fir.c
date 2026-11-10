@@ -595,25 +595,31 @@ static float sinc_lp(float f, float m) {
 }
 
 static float window(FD_Window win, uint32_t k, uint32_t n) {
-  static const float a[][4] = {
-      {1.0f, 0.0f, 0.0f, 0.0f},                 /* rectangular */
-      {0.5f, 0.5f, 0.0f, 0.0f},                 /* Hann */
-      {0.54f, 0.46f, 0.0f, 0.0f},               /* Hamming */
-      {0.42f, 0.5f, 0.08f, 0.0f},               /* Blackman */
-      {0.35875f, 0.48829f, 0.14128f, 0.01168f}, /* Blackman-Harris */
+  static const float a[][5] = {
+      {1.0f, 0.0f, 0.0f, 0.0f, 0.0f},                     /* rectangular */
+      {0.5f, 0.5f, 0.0f, 0.0f, 0.0f},                     /* Hann */
+      {0.54f, 0.46f, 0.0f, 0.0f, 0.0f},                   /* Hamming */
+      {0.42f, 0.5f, 0.08f, 0.0f, 0.0f},                   /* Blackman */
+      {0.35875f, 0.48829f, 0.14128f, 0.01168f, 0.0f},     /* Blackman-Harris */
+      {0.355768f, 0.487396f, 0.144232f, 0.012604f, 0.0f}, /* Nuttall */
+      {0.21557895f, 0.41663158f, 0.277263158f, 0.083578947f, 0.006947368f},
   };
   if (n == 1U) {
     return 1.0f;
   }
+  if (win == FD_WIN_BARTLETT) {
+    float r = (2.0f * (float)k - (float)(n - 1U)) / (float)(n - 1U);
+    return 1.0f - (r < 0.0f ? -r : r);
+  }
   float t = 2.0f * PI_F * (float)k / (float)(n - 1U);
   const float *c = a[win];
   return c[0] - c[1] * fm_cosf(t) + c[2] * fm_cosf(2.0f * t) -
-         c[3] * fm_cosf(3.0f * t);
+         c[3] * fm_cosf(3.0f * t) + c[4] * fm_cosf(4.0f * t);
 }
 
 FD_Status fd_fir_design(float *h, uint32_t ntaps, FD_Band band, float f1,
                         float f2, FD_Window win) {
-  FX_ASSERT(ntaps >= 1U && (uint32_t)win <= (uint32_t)FD_WIN_BLACKMAN_HARRIS);
+  FX_ASSERT(ntaps >= 1U && (uint32_t)win <= (uint32_t)FD_WIN_BARTLETT);
   bool two = band == FD_BANDPASS || band == FD_BANDSTOP;
   if (!(f1 > 0.0f && f1 < 0.5f) || (two && !(f2 > f1 && f2 < 0.5f))) {
     return FD_ERR_RANGE;

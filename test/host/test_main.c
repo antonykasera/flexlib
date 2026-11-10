@@ -58,6 +58,19 @@ void test_fd_biquad_ef(void);
 void test_fd_filt(void);
 void test_fd_biquad_edges(void);
 
+/* --- fd_window (test_fd_window.c) --- */
+void test_fd_window(void);
+void test_fd_window_param(void);
+void test_fd_window_gains(void);
+
+/* --- fd_tone, fd_noise (test_fd_tone.c) --- */
+void test_fd_goertzel(void);
+void test_fd_nco(void);
+void test_fd_osc(void);
+void test_fd_noise(void);
+void test_fd_window_edges(void);
+void test_fd_tone_edges(void);
+
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
 void test_fx_rbit_rev(void);
@@ -193,6 +206,15 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_biquad_ef);
   TEST_RUN(test_fd_filt);
   TEST_RUN(test_fd_biquad_edges);
+  TEST_RUN(test_fd_window);
+  TEST_RUN(test_fd_window_param);
+  TEST_RUN(test_fd_window_gains);
+  TEST_RUN(test_fd_goertzel);
+  TEST_RUN(test_fd_nco);
+  TEST_RUN(test_fd_osc);
+  TEST_RUN(test_fd_noise);
+  TEST_RUN(test_fd_window_edges);
+  TEST_RUN(test_fd_tone_edges);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

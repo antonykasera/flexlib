@@ -24,7 +24,8 @@ bool bench_scratch_claim(const void *id) {
 
 /* one image per BENCH_SET_x; no set (golden, lint) builds every group */
 #if !defined(BENCH_SET_utils) && !defined(BENCH_SET_math) &&                   \
-    !defined(BENCH_SET_struct) && !defined(BENCH_SET_dsp)
+    !defined(BENCH_SET_struct) && !defined(BENCH_SET_dsp) &&                   \
+    !defined(BENCH_SET_dsp2)
 #define BENCH_SET_ALL 1
 #endif
 #if defined(BENCH_SET_ALL) || defined(BENCH_SET_utils)
@@ -38,6 +39,9 @@ bool bench_scratch_claim(const void *id) {
 #endif
 #if defined(BENCH_SET_ALL) || defined(BENCH_SET_dsp)
 #define BENCH_DSP 1
+#endif
+#if defined(BENCH_SET_ALL) || defined(BENCH_SET_dsp2)
+#define BENCH_DSP2 1
 #endif
 
 extern const BenchGroup bench_group_arch;
@@ -64,6 +68,7 @@ extern const BenchGroup bench_group_pairs;
 extern const BenchGroup bench_group_fd_vec;
 extern const BenchGroup bench_group_fd_fir;
 extern const BenchGroup bench_group_fd_biquad;
+extern const BenchGroup bench_group_fd_tone;
 extern const BenchGroup bench_group_cmsis;
 
 const BenchGroup *const bench_groups[] = {
@@ -97,7 +102,10 @@ const BenchGroup *const bench_groups[] = {
     &bench_group_pairs,
     &bench_group_fd_vec,
     &bench_group_fd_fir,
+#endif
+#ifdef BENCH_DSP2
     &bench_group_fd_biquad,
+    &bench_group_fd_tone,
 #endif
 #if defined(BENCH_HAVE_CMSIS_DSP) && defined(BENCH_MATH)
     &bench_group_cmsis,

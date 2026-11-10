@@ -262,3 +262,22 @@ fd_biquad_butter    calls-ok
 fd_biquad_quantize_q31 calls-ok
 fd_biquad_quantize_q15 calls-ok
 fd_onepole_coef_q15 calls-ok
+
+# fd_window, fd_tone, fd_noise: kernels call only fm_ cores (no soft-float);
+# window setup divides once per call
+fd_window_q15        calls-ok
+fd_window_q31        calls-ok
+fd_window_gains_q15  calls-ok
+fd_goertzel_q15      no-calls
+fd_goertzel_q31      no-calls
+fd_goertzel_power    no-calls
+fd_goertzel_dft      no-calls
+fd_nco_q15           !udiv
+fd_nco_q31           !udiv
+fd_nco_cplx_q15      !udiv
+fd_osc_q15           no-calls
+fd_osc_q31           no-calls
+fd_noise_uniform_q15 no-calls
+fd_noise_uniform_q31 no-calls
+fd_noise_tpdf_q15    no-calls
+gauss_pair           !udiv

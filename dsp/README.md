@@ -1,7 +1,7 @@
 # flexdsp
 
 Signal processing for Cortex-M on flexlib's fixed-point core: block
-arithmetic, filters, transforms and generators in Q15, Q31 and float. Plain
+arithmetic, filters, windows and generators in Q15 and Q31. Plain
 C11, no allocation.
 
 Cycles are medians for a block of 64 on an STM32F103 at 72 MHz (`-O2`, warm
@@ -123,3 +123,33 @@ them, pick the `b` shift and report sections made unstable by rounding.
 | `fd_movavg_q15`, n = 32 / 30 | 1264 / 2429 | exact running sum; a power of two divides by shifting |
 | `fd_movavg_q31`, n = 32 | 2309 | |
 | `fd_median5` | 30 | branchless, also `fd_median3` |
+
+## Windows (`fd_window.h`)
+
+Generated at run time for any length, symmetric (filter design) or periodic
+(spectra), from flexmath's cosine on exact binary angles. Apply one with
+`fd_mul_q15` / `_q31`.
+
+| function | cycles (256) | CMSIS-DSP | error |
+|---|--:|--:|--:|
+| `fd_window_q15` Hann | 23464 | `arm_hanning_f32` 396495 | 0.5 LSB |
+| `fd_window_q31` Blackman-Harris | 54203 | | 3 LSB |
+| `fd_window_kaiser_q15`, beta 8 | 750638 | | 0.52 LSB |
+
+Types: rectangular, Hann, Hamming, Blackman, Blackman-Harris, Nuttall,
+flat-top, Bartlett: checked at every length up to 4096 (q31 at most 2.74 LSB).
+Kaiser, Gaussian and Tukey take a float parameter and are computed in float
+(q31 within 1.5e-6). `fd_window_gains_q15` / `_q31` give the coherent and
+power gains for scaling spectra.
+
+## Tones and noise (`fd_tone.h`, `fd_noise.h`)
+
+| function | cycles (64 samples) | |
+|---|--:|---|
+| `fd_goertzel_q15` / `_q31` | 1374 / 1921 | one DFT term at any frequency; `fd_goertzel_power` exact from the state |
+| `fd_nco_q15` sin | 5303 | 0.5 LSB of the 32-bit phase; a 16-bit phase into `fm_sin_q15` is 2400 but 1.6 LSB |
+| `fd_nco_q31` sin + cos | 7067 | `fm_sincos_q31` (1.11 LSB), linear chirps, complex output |
+| `fd_osc_q15` sin / `fd_osc_q31` sin + cos | 2694 / 3925 | rotation per sample; amplitude within 7e-8, phase drift 5.5e-5 rad over 10^6 samples |
+| `fd_noise_uniform_q15` | 631 | |
+| `fd_noise_gauss_q15` | 14112 | Box-Muller, tails to 6.6 sigma; a sum of 12 uniforms is 7760 but cut at 6 sigma |
+| `fd_noise_tpdf_q15` | 1203 | triangular dither of +-2^bits LSB |
