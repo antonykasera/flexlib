@@ -2,7 +2,8 @@
 
 LINT_FLAGS   = $(STD) $(WARN) -Wpedantic -Werror -fsyntax-only
 LINT_HEADERS = $(wildcard arch/*.h utils/include/*.h math/include/*.h \
-                          utils/src/*.h math/src/*.h) bench/core/bench.h
+                          dsp/include/*.h utils/src/*.h math/src/*.h \
+                          dsp/src/*.h) bench/core/bench.h
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) $(BENCH_INC) $(CROSS_SRCS) \

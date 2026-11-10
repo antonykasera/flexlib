@@ -44,6 +44,43 @@ void stats_print(const ErrStats *s) {
          stats_mean_abs(s), stats_bias(s));
 }
 
+void stats_add_block(ErrStats *s, const double *got, const double *ref,
+                     unsigned n, double lsb) {
+  for (unsigned i = 0U; i < n; i++) {
+    stats_add(s, (double)i, (got[i] - ref[i]) / lsb);
+  }
+}
+
+void snr_init(SnrStats *s, const char *name) {
+  s->name = name;
+  s->n = 0U;
+  s->sum_ref2 = 0.0;
+  s->sum_err2 = 0.0;
+  s->max_abs = 0.0;
+}
+
+void snr_add(SnrStats *s, double got, double ref) {
+  double e = isnan(got) ? HUGE_VAL : got - ref;
+  s->n++;
+  s->sum_ref2 += ref * ref;
+  s->sum_err2 += e * e;
+  if (fabs(e) > s->max_abs) {
+    s->max_abs = fabs(e);
+  }
+}
+
+double snr_db(const SnrStats *s) {
+  if (s->sum_err2 == 0.0) {
+    return HUGE_VAL;
+  }
+  return 10.0 * log10(s->sum_ref2 / s->sum_err2);
+}
+
+void snr_print(const SnrStats *s) {
+  printf("  %-24s n=%-8llu snr=%.2f dB  max|e|=%.4g\n", s->name,
+         (unsigned long long)s->n, snr_db(s), s->max_abs);
+}
+
 double ulp_err_f32(float got, double ref) {
   double g = (double)got;
   if (isnan(g) || isnan(ref)) {

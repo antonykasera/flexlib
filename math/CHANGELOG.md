@@ -1,5 +1,9 @@
 # flexmath changelog
 
+## Unreleased
+
+- `fm_sum.h`: the exact sum-of-products helpers, shared with flexdsp. Internal; no API change, no change in results.
+
 ## 0.2.1 (2026-11-10)
 
 - Public headers moved to `math/include/`. No API change.

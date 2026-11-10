@@ -16,20 +16,20 @@
 
 FX_INLINE fm_q31 dot_q31(const fm_q31 *a, const fm_q31 *b, uint32_t bs,
                          uint32_t n) {
-  SumQ31 acc = {0U, 0};
+  FM_SumQ31 acc = {0U, 0};
 #pragma GCC unroll 4
   for (uint32_t i = 0U; i < n; i++) {
-    sum_mac(&acc, a[i], b[i * bs]);
+    fm_sum_mac(&acc, a[i], b[i * bs]);
   }
-  return sum_q31(acc);
+  return fm_sum_q31(acc);
 }
 
 /* a b - c d */
 FX_INLINE fm_q31 diff_q31(fm_q31 a, fm_q31 b, fm_q31 c, fm_q31 d) {
-  SumQ31 acc = {0U, 0};
-  sum_mac(&acc, a, b);
-  sum_msub(&acc, c, d);
-  return sum_q31(acc);
+  FM_SumQ31 acc = {0U, 0};
+  fm_sum_mac(&acc, a, b);
+  fm_sum_msub(&acc, c, d);
+  return fm_sum_q31(acc);
 }
 
 fm_q31 fm_dot2_q31(const fm_q31 a[2], const fm_q31 b[2]) {
@@ -117,8 +117,8 @@ FX_COLD static uint32_t sum_any(const float *a, const float *b, uint32_t bs,
       nan |= xa == 0U || xb == 0U ? 1U : 0U;
       inf |= 1U << ((ba ^ bb) >> 31);
     }
-    ma[i] = unp_f32(ba, 7U, &ea[i], &bad);
-    mb[i] = unp_f32(bb, 6U, &eb[i], &bad);
+    ma[i] = fm_unp_f32(ba, 7U, &ea[i], &bad);
+    mb[i] = fm_unp_f32(bb, 6U, &eb[i], &bad);
   }
   if (nan != 0U || inf == 3U) {
     return F32_QNAN;
@@ -126,7 +126,7 @@ FX_COLD static uint32_t sum_any(const float *a, const float *b, uint32_t bs,
   if (inf != 0U) {
     return inf == 1U ? 0x7F800000U : 0xFF800000U;
   }
-  return sum_f32(ma, ea, mb, eb, 1U, n);
+  return fm_sum_f32(ma, ea, mb, eb, 1U, n);
 }
 
 FX_INLINE uint32_t dot_f32(const float *a, const float *b, uint32_t bs,
@@ -138,14 +138,14 @@ FX_INLINE uint32_t dot_f32(const float *a, const float *b, uint32_t bs,
   uint32_t bad = 0U;
 #pragma GCC unroll 4
   for (uint32_t i = 0U; i < n; i++) {
-    ma[i] = unp_f32(f2u(a[i]), 7U, &ea[i], &bad);
-    mb[i] = unp_f32(f2u(b[i * bs]) ^ (((neg >> i) & 1U) << 31), 6U, &eb[i],
-                    &bad);
+    ma[i] = fm_unp_f32(f2u(a[i]), 7U, &ea[i], &bad);
+    mb[i] = fm_unp_f32(f2u(b[i * bs]) ^ (((neg >> i) & 1U) << 31), 6U, &eb[i],
+                       &bad);
   }
   if (bad != 0U) {
     return sum_any(a, b, bs, n, neg);
   }
-  return sum_f32(ma, ea, mb, eb, 1U, n);
+  return fm_sum_f32(ma, ea, mb, eb, 1U, n);
 }
 
 /* a b - c d */
@@ -209,11 +209,11 @@ FX_INLINE void mat_f32(float *r, const float *a, const float *b, uint32_t n,
   uint32_t bad = 0U;
 #pragma GCC unroll 4
   for (uint32_t k = 0U; k < n * n; k++) {
-    am[k] = unp_f32(f2u(a[k]), 7U, &ae[k], &bad);
+    am[k] = fm_unp_f32(f2u(a[k]), 7U, &ae[k], &bad);
   }
 #pragma GCC unroll 4
   for (uint32_t k = 0U; k < n * bc; k++) {
-    bm[k] = unp_f32(f2u(b[k]), 6U, &be[k], &bad);
+    bm[k] = fm_unp_f32(f2u(b[k]), 6U, &be[k], &bad);
   }
   if (bad != 0U) {
     mat_any(r, a, b, n, bc);
@@ -223,7 +223,7 @@ FX_INLINE void mat_f32(float *r, const float *a, const float *b, uint32_t n,
 #pragma GCC unroll 4
     for (uint32_t j = 0U; j < bc; j++) {
       put(&r[i * bc + j],
-          sum_f32(am + i * n, ae + i * n, bm + j, be + j, bc, n));
+          fm_sum_f32(am + i * n, ae + i * n, bm + j, be + j, bc, n));
     }
   }
 }

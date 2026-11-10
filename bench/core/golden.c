@@ -260,6 +260,19 @@ const BenchGolden bench_golden[] = {
     {"pid q16, e and d saturated to int32", 0x2189583EU},
     {"fm_pid_f32", 0x9ABF36C2U},
     {"pid f32, the same in plain float", 0x038DD16DU},
+    {"fx_pkhbt", 0xEFFEC47DU},
+    {"fx_pkhtb", 0x551D8375U},
+    {"fx_smlad", 0x1FBB0E96U},
+    {"fx_smlald", 0x59BC30F6U},
+    {"fx_smuad", 0x37E0A249U},
+    {"fx_smusdx", 0x2BFC80A6U},
+    {"fx_qadd16", 0xEB7CAAF0U},
+    {"fx_qsub16", 0xCD1A3855U},
+    {"fx_shadd16", 0xF902C9CBU},
+    {"fx_sxtb16", 0xDF54AF0AU},
+    {"FX_SSAT16(x, 8)", 0x6887C2DDU},
+    {"fx_smmulr", 0x1F72106EU},
+    {"fx_smulwb", 0xD97C0485U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

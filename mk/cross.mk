@@ -6,6 +6,7 @@ CROSS_CPUS = m3 m4 m7
 CROSS_SRCS = $(LIB_SRCS) $(wildcard test/asm/*.c)
 CROSS_OBJS = $(foreach c,$(CROSS_CPUS),$(patsubst %.c,$(BUILD)/cross/$(c)/%.o,$(CROSS_SRCS)))
 M3_OBJS    = $(filter $(BUILD)/cross/m3/%,$(CROSS_OBJS))
+M4_OBJS    = $(filter $(BUILD)/cross/m4/%,$(CROSS_OBJS))
 
 define CROSS_RULE
 $(BUILD)/cross/$(1)/%.o: %.c
@@ -18,9 +19,13 @@ $(eval $(call CROSS_RULE,m7,$(M7_FLAGS)))
 
 cross: $(CROSS_OBJS)
 
-# disassembly check of the -O2 M3 objects, see test/asm/audit.txt
-asm-audit: $(M3_OBJS)
-	$(PYTHON) tools/asm_audit.py --objdump $(ARM_OBJDUMP) --spec test/asm/audit.txt $^
+# disassembly check of the -O2 M3 objects (test/asm/audit.txt), and of the
+# M4 objects for the DSP-extension paths (test/asm/audit_m4.txt)
+asm-audit: $(M3_OBJS) $(M4_OBJS)
+	$(PYTHON) tools/asm_audit.py --objdump $(ARM_OBJDUMP) --spec test/asm/audit.txt \
+		$(M3_OBJS)
+	$(PYTHON) tools/asm_audit.py --objdump $(ARM_OBJDUMP) --spec test/asm/audit_m4.txt \
+		$(M4_OBJS)
 
 # flash/RAM per library object (M3, -O2)
 size: $(M3_OBJS)

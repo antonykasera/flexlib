@@ -24,12 +24,20 @@ void test_rng_reproducible(void);
 void test_stats_tracks_max_mean_bias(void);
 void test_ulp_err_f32(void);
 
+/* --- DSP references (test_ref_dsp.c) --- */
+void test_snr_stats(void);
+void test_ref_fir_conv_corr(void);
+void test_ref_biquad(void);
+void test_ref_dft(void);
+void test_ref_window_resample(void);
+
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
 void test_fx_rbit_rev(void);
 void test_fx_ssat(void);
 void test_fx_usat(void);
 void test_fx_multiplies(void);
+void test_fx_packed(void);
 
 /* --- fu_bits (test_fu_bits.c) --- */
 void test_fu_counts_edges(void);
@@ -132,12 +140,18 @@ int main(int argc, char **argv) {
   TEST_RUN(test_rng_reproducible);
   TEST_RUN(test_stats_tracks_max_mean_bias);
   TEST_RUN(test_ulp_err_f32);
+  TEST_RUN(test_snr_stats);
+  TEST_RUN(test_ref_fir_conv_corr);
+  TEST_RUN(test_ref_biquad);
+  TEST_RUN(test_ref_dft);
+  TEST_RUN(test_ref_window_resample);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);
   TEST_RUN(test_fx_ssat);
   TEST_RUN(test_fx_usat);
   TEST_RUN(test_fx_multiplies);
+  TEST_RUN(test_fx_packed);
 
   TEST_RUN(test_fu_counts_edges);
   TEST_RUN(test_fu_counts_random);

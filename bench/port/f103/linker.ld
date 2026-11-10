@@ -26,7 +26,7 @@ SECTIONS
     *cache_probe.o(.text .text* .rodata .rodata*)
     _cache_probe_end = .;
     /* the bench harness: the cold flush reads its first 32 KB */
-    EXCLUDE_FILE(*/utils/src/*.o */math/src/*.o *cmsis-dsp/*.o *libc_nano.a:*
+    EXCLUDE_FILE(*/utils/src/*.o */math/src/*.o */dsp/src/*.o *cmsis-dsp/*.o *libc_nano.a:*
                  *libc.a:* *libm.a:* *libgcc.a:*) *(.text .text* .rodata .rodata*)
     /* what cases time: padded to the 32 KB the cold flush reads */
     . = MAX(ALIGN(32), ORIGIN(FLASH) + 0x8000);

@@ -57,16 +57,17 @@ static inline uint32_t in_q(uint32_t u) {
 #define QOUT h = bench_hash(h, &qout, sizeof qout)
 #define VOUT h = bench_hash(h, vout, sizeof vout)
 
-/* ---- candidate: first-order integration, q (x) (1, w dt / 2), normalised ---- */
+/* ---- candidate: first-order integration, q (x) (1, w dt / 2), normalised ----
+ */
 
 static inline uint32_t mulf(uint32_t x, uint32_t y, int32_t d) {
   int32_t ex;
   int32_t ey;
   uint32_t bad = 0U;
-  int32_t mx = unp_f32(x, 7U, &ex, &bad);
-  int32_t my = unp_f32(y, 6U, &ey, &bad);
+  int32_t mx = fm_unp_f32(x, 7U, &ex, &bad);
+  int32_t my = fm_unp_f32(y, 6U, &ey, &bad);
   ey += d;
-  return sum_f32(&mx, &ex, &my, &ey, 1U, 1U);
+  return fm_sum_f32(&mx, &ex, &my, &ey, 1U, 1U);
 }
 
 BENCH_CALL static void integrate_first(FM_Quat *r, const FM_Quat *q,
@@ -96,8 +97,7 @@ BENCH_CALL static void mul_plain(FM_Quat *r, const FM_Quat *a,
 }
 
 BENCH_CALL static void normalize_plain(FM_Quat *r, const FM_Quat *q) {
-  float s = 1.0f / sqrtf(q->w * q->w + q->x * q->x + q->y * q->y +
-                         q->z * q->z);
+  float s = 1.0f / sqrtf(q->w * q->w + q->x * q->x + q->y * q->y + q->z * q->z);
   r->w = q->w * s;
   r->x = q->x * s;
   r->y = q->y * s;
@@ -137,8 +137,8 @@ BENCH_CALL static void normalize_cmsis(FM_Quat *r, const FM_Quat *q) {
 
 /* ---- cases ---- */
 
-BENCH_UNARY_POST(k_mul, uint32_t, in_q, uint32_t, (fm_quat_mul(&qout, QA, QB), 0U),
-                 QOUT)
+BENCH_UNARY_POST(k_mul, uint32_t, in_q, uint32_t,
+                 (fm_quat_mul(&qout, QA, QB), 0U), QOUT)
 BENCH_UNARY_POST(k_mul_plain, uint32_t, in_q, uint32_t,
                  (mul_plain(&qout, QA, QB), 0U), QOUT)
 BENCH_UNARY_POST(k_norm, uint32_t, in_q, uint32_t,
@@ -172,16 +172,14 @@ static const BenchCase cases[] = {
     {"arm_quaternion_product_single_f32", "CMSIS-DSP", k_mul_cmsis, false},
 #endif
     {"fm_quat_normalize", "flexmath", k_norm, true},
-    {"quat normalize, 1 / sqrtf and 4 multiplies", "libm", k_norm_plain,
-     false},
+    {"quat normalize, 1 / sqrtf and 4 multiplies", "libm", k_norm_plain, false},
 #ifdef BENCH_HAVE_CMSIS_DSP
     {"arm_quaternion_normalize_f32, one", "CMSIS-DSP", k_norm_cmsis, false},
 #endif
     {"fm_quat_rotate", "flexmath", k_rot, true},
     {"quat rotate, float", "libgcc", k_rot_plain, true},
     {"fm_quat_integrate", "flexmath", k_int, true},
-    {"quat integrate, first order + normalise", "candidate", k_int_first,
-     true},
+    {"quat integrate, first order + normalise", "candidate", k_int_first, true},
     {"quat integrate, float with sqrtf / sinf / cosf", "libm", k_int_plain,
      false},
 };

@@ -35,7 +35,7 @@ FX_INLINE void put4(FM_Quat *r, uint32_t w, uint32_t x, uint32_t y,
 /* one-product sum out of line (normalize, integrate) */
 __attribute__((noinline)) static uint32_t sum1(int32_t ma, int32_t ea,
                                                int32_t mb, int32_t eb) {
-  return sum_f32(&ma, &ea, &mb, &eb, 1U, 1U);
+  return fm_sum_f32(&ma, &ea, &mb, &eb, 1U, 1U);
 }
 
 /* the four components unpacked; nonzero if any is inf or NaN */
@@ -46,7 +46,7 @@ FX_INLINE uint32_t unp4(const FM_Quat *q, uint32_t sh, int32_t m[4],
   memcpy(b, q, sizeof b);
 #pragma GCC unroll 4
   for (uint32_t i = 0U; i < 4U; i++) {
-    m[i] = unp_f32(b[i], sh, &e[i], &bad);
+    m[i] = fm_unp_f32(b[i], sh, &e[i], &bad);
   }
   return bad;
 }
@@ -56,8 +56,8 @@ FX_INLINE uint32_t fmul(uint32_t x, uint32_t y, int32_t d) {
   int32_t ex;
   int32_t ey;
   uint32_t bad = 0U;
-  int32_t mx = unp_f32(x, 7U, &ex, &bad);
-  int32_t my = unp_f32(y, 6U, &ey, &bad);
+  int32_t mx = fm_unp_f32(x, 7U, &ex, &bad);
+  int32_t my = fm_unp_f32(y, 6U, &ey, &bad);
   return sum1(mx, ex, my, ey + d);
 }
 
@@ -73,7 +73,7 @@ FX_INLINE uint32_t hamilton(const int32_t *ma, const int32_t *ea,
     pm[k] = ((neg >> k) & 1U) != 0U ? -mb[j] : mb[j];
     pe[k] = eb[j];
   }
-  return sum_f32(ma, ea, pm, pe, 1U, 4U);
+  return fm_sum_f32(ma, ea, pm, pe, 1U, 4U);
 }
 
 void fm_quat_mul(FM_Quat *r, const FM_Quat *a, const FM_Quat *b) {
@@ -106,7 +106,7 @@ void fm_quat_normalize(FM_Quat *r, const FM_Quat *q) {
     mh[i] = m[i] >> 1;
   }
   int32_t emax;
-  uint64_t s = (uint64_t)sum_f32_s(m, e, mh, e, 1U, 4U, &emax);
+  uint64_t s = (uint64_t)fm_sum_f32_s(m, e, mh, e, 1U, 4U, &emax);
   if (s == 0U) {
     put4(r, 0x3F800000U, 0U, 0U, 0U);
     return;
@@ -116,11 +116,11 @@ void fm_quat_normalize(FM_Quat *r, const FM_Quat *q) {
   int32_t ex = emax - 123 - (int32_t)lz; /* N's biased exponent */
   int32_t k = (ex - 126) >> 1;
   uint32_t es = (uint32_t)(ex - 2 * k); /* 126 or 127 */
-  uint32_t y = f2u(fm_rsqrtf(u2f(((es - 1U) << 23) + (n >> 8)))); /* seed */
+  uint32_t y = f2u(fm_rsqrtf(u2f(((es - 1U) << 23) + (n >> 8))));  /* seed */
   uint32_t y31 = (((y << 8) | 0x80000000U) >> (127U - (y >> 23))); /* Q31 */
   uint32_t x31 = n >> (127U - es);
   uint64_t p = fx_umull(x31, (uint32_t)(fx_umull(y31, y31) >> 32)); /* Q61 */
-  uint32_t d = (uint32_t)(((3ULL << 61) - p) >> 31); /* 3 - N y^2, Q30 */
+  uint32_t d = (uint32_t)(((3ULL << 61) - p) >> 31);        /* 3 - N y^2, Q30 */
   int32_t my = (int32_t)(uint32_t)(fx_umull(y31, d) >> 33); /* Q29 */
   int32_t ey = 127 - k;
   put4(r, sum1(m[0], e[0], my, ey), sum1(m[1], e[1], my, ey),
@@ -138,7 +138,7 @@ void fm_quat_rotate(float r[3], const FM_Quat *q, const float v[3]) {
   uint32_t bad = unp4(q, 7U, mq, eq);
 #pragma GCC unroll 3
   for (uint32_t i = 0U; i < 3U; i++) {
-    mv[i] = unp_f32(vb[i], 6U, &ev[i], &bad);
+    mv[i] = fm_unp_f32(vb[i], 6U, &ev[i], &bad);
   }
   uint32_t out[3];
   if (bad != 0U) {
@@ -156,7 +156,7 @@ void fm_quat_rotate(float r[3], const FM_Quat *q, const float v[3]) {
     const int32_t ae[2] = {eq[1U + j], eq[1U + k]};
     const int32_t bm[2] = {mv[k], -mv[j]};
     const int32_t be[2] = {ev[k], ev[j]};
-    mt[i] = unp_f32(sum_f32(am, ae, bm, be, 1U, 2U), 6U, &et[i], &bad);
+    mt[i] = fm_unp_f32(fm_sum_f32(am, ae, bm, be, 1U, 2U), 6U, &et[i], &bad);
     et[i]++; /* 2 t */
   }
 #pragma GCC unroll 3
@@ -167,7 +167,7 @@ void fm_quat_rotate(float r[3], const FM_Quat *q, const float v[3]) {
     const int32_t ae[4] = {127, eq[0], eq[1U + j], eq[1U + k]};
     const int32_t bm[4] = {mv[i], mt[i], mt[k], -mt[j]};
     const int32_t be[4] = {ev[i], et[i], et[k], et[j]};
-    out[i] = sum_f32(am, ae, bm, be, 1U, 4U);
+    out[i] = fm_sum_f32(am, ae, bm, be, 1U, 4U);
   }
   memcpy(r, out, sizeof out);
 }
@@ -183,10 +183,10 @@ void fm_quat_integrate(FM_Quat *r, const FM_Quat *q, const float w[3],
   memcpy(wb, w, sizeof wb);
 #pragma GCC unroll 3
   for (uint32_t i = 0U; i < 3U; i++) {
-    mw[i] = unp_f32(wb[i], 7U, &ew[i], &bad);
+    mw[i] = fm_unp_f32(wb[i], 7U, &ew[i], &bad);
     mh[i] = mw[i] >> 1;
   }
-  uint32_t n2 = sum_f32(mw, ew, mh, ew, 1U, 3U);
+  uint32_t n2 = fm_sum_f32(mw, ew, mh, ew, 1U, 3U);
   bad |= (f2u(dt) & 0x7F800000U) == 0x7F800000U ? 1U : 0U;
   if (bad != 0U || n2 >= 0x7F800000U) {
     put4(r, F32_QNAN, F32_QNAN, F32_QNAN, F32_QNAN);

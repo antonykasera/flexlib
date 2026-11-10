@@ -24,10 +24,11 @@
 #ifndef BENCH_SET_NAME
 #define BENCH_SET_NAME "?"
 #endif
-#ifdef BENCH_SET_math
-#define BENCH_IS_MATH 1
+/* the flash read cost table, in the images with RAM to spare */
+#if defined(BENCH_SET_utils) || defined(BENCH_SET_struct)
+#define BENCH_CACHE_PROBE 1
 #else
-#define BENCH_IS_MATH 0
+#define BENCH_CACHE_PROBE 0
 #endif
 
 #define LED_PORT GPIOC
@@ -275,8 +276,8 @@ static void run_all(void) {
   print_u32(count[BENCH_GOLDEN_MISSING]);
   print(" missing\r\n");
   run_cold(overhead, golden_str);
-  if (!BENCH_IS_MATH) {
-    print_cache_probe(); /* once, in the utils image */
+  if (BENCH_CACHE_PROBE) {
+    print_cache_probe();
   }
   print("<!-- bench end -->\r\n");
 }

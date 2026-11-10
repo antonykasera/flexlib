@@ -13,9 +13,10 @@ BENCH_CASES_math   = $(addprefix bench/cases/,cases_fixed.c cases_sqrt.c \
                        cases_float.c cases_libm.c)
 BENCH_CASES_struct = $(addprefix bench/cases/,cases_linalg.c cases_quat.c \
                        cases_pid.c)
+BENCH_CASES_dsp    = $(addprefix bench/cases/,cases_pairs.c)
 # everything that also builds on the host (golden, lint)
 BENCH_PORTABLE = bench/core/bench_core.c $(BENCH_CASES_utils) \
-                 $(BENCH_CASES_math) $(BENCH_CASES_struct)
+                 $(BENCH_CASES_math) $(BENCH_CASES_struct) $(BENCH_CASES_dsp)
 
 GOLDEN_BUILD = $(BUILD)/golden
 
@@ -26,8 +27,12 @@ golden:
 		-o $(GOLDEN_BUILD)/golden_gen
 	./$(GOLDEN_BUILD)/golden_gen > $(GOLDEN_BUILD)/golden.c
 	mv $(GOLDEN_BUILD)/golden.c bench/core/golden.c
+	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST -DFX_EMULATE_DSP $(LIB_INC) \
+		$(BENCH_INC) bench/core/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS) -lm \
+		-o $(GOLDEN_BUILD)/golden_gen_dsp
+	./$(GOLDEN_BUILD)/golden_gen_dsp | cmp - bench/core/golden.c
 
-BENCH_SETS     = utils math struct
+BENCH_SETS     = utils math struct dsp
 BENCH_SET     ?=
 BENCH_OPT     ?= -O2
 BENCH_BUILD    = $(BUILD)/bench$(BENCH_OPT)-$(BENCH_SET)
@@ -46,36 +51,41 @@ BENCH_SRCS = $(BENCH_PORTDIR)/main.c $(BENCH_PORTDIR)/cache_probe.c \
 BENCH_DEFS = -DSTM32F103xB -DBENCH_OPT_NAME='"$(BENCH_OPT)"' \
              -DBENCH_SET_$(BENCH_SET) -DBENCH_SET_NAME='"$(BENCH_SET)"'
 
-ifneq ($(filter math struct,$(BENCH_SET)),)
+ifneq ($(filter math struct dsp,$(BENCH_SET)),)
 ifneq ($(wildcard $(CMSIS_DSP_DIR)/Include/arm_math.h),)
 BENCH_SRCS    += $(if $(filter math,$(BENCH_SET)),bench/cases/cases_cmsis.c)
 BENCH_DEFS    += -DBENCH_HAVE_CMSIS_DSP
 CMSIS_DSP_INC  = -isystem $(CMSIS_DSP_DIR)/Include -isystem $(CMSIS_DSP_DIR)/PrivateInclude
-CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
-                   FastMathFunctions/arm_sin_q15.c \
-                   FastMathFunctions/arm_sin_q31.c \
-                   FastMathFunctions/arm_sin_f32.c \
-                   FastMathFunctions/arm_cos_f32.c \
-                   FastMathFunctions/arm_sqrt_q15.c \
-                   FastMathFunctions/arm_sqrt_q31.c \
-                   FastMathFunctions/arm_divide_q15.c \
-                   FastMathFunctions/arm_divide_q31.c \
-                   FastMathFunctions/arm_atan2_q15.c \
-                   FastMathFunctions/arm_atan2_q31.c \
-                   FastMathFunctions/arm_atan2_f32.c \
-                   FastMathFunctions/arm_vlog_q15.c \
-                   FastMathFunctions/arm_vlog_q31.c \
-                   MatrixFunctions/arm_mat_mult_q31.c \
-                   MatrixFunctions/arm_mat_mult_f32.c \
-                   QuaternionMathFunctions/arm_quaternion_product_single_f32.c \
-                   QuaternionMathFunctions/arm_quaternion_normalize_f32.c \
-                   ControllerFunctions/arm_pid_init_q31.c \
-                   ControllerFunctions/arm_pid_init_f32.c \
-                   BasicMathFunctions/arm_abs_q15.c \
-                   BasicMathFunctions/arm_abs_q31.c \
-                   CommonTables/arm_common_tables.c)
+CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/,$(CMSIS_SRCS_$(BENCH_SET)))
+# the dsp image's baselines unroll their loops, as CMSIS-DSP's own build does
+CMSIS_DSP_DEFS = $(if $(filter dsp,$(BENCH_SET)),-DARM_MATH_LOOPUNROLL)
 endif
 endif
+
+CMSIS_SRCS_math   = FastMathFunctions/arm_sin_q15.c \
+                    FastMathFunctions/arm_sin_q31.c \
+                    FastMathFunctions/arm_sin_f32.c \
+                    FastMathFunctions/arm_cos_f32.c \
+                    FastMathFunctions/arm_sqrt_q15.c \
+                    FastMathFunctions/arm_sqrt_q31.c \
+                    FastMathFunctions/arm_divide_q15.c \
+                    FastMathFunctions/arm_divide_q31.c \
+                    FastMathFunctions/arm_atan2_q15.c \
+                    FastMathFunctions/arm_atan2_q31.c \
+                    FastMathFunctions/arm_atan2_f32.c \
+                    FastMathFunctions/arm_vlog_q15.c \
+                    FastMathFunctions/arm_vlog_q31.c \
+                    MatrixFunctions/arm_mat_mult_q31.c \
+                    MatrixFunctions/arm_mat_mult_f32.c \
+                    QuaternionMathFunctions/arm_quaternion_product_single_f32.c \
+                    QuaternionMathFunctions/arm_quaternion_normalize_f32.c \
+                    ControllerFunctions/arm_pid_init_q31.c \
+                    ControllerFunctions/arm_pid_init_f32.c \
+                    BasicMathFunctions/arm_abs_q15.c \
+                    BasicMathFunctions/arm_abs_q31.c \
+                    CommonTables/arm_common_tables.c
+CMSIS_SRCS_struct = $(CMSIS_SRCS_math)
+CMSIS_SRCS_dsp    =
 
 BENCH_BASE_CFLAGS = $(M3_FLAGS) $(STD) $(BENCH_OPT) -g3 \
                     -ffunction-sections -fdata-sections $(BENCH_DEFS) \
@@ -112,7 +122,7 @@ $(FLEX_OBJS): $(BENCH_BUILD)/flex/%.o: %.c
 
 $(CMSIS_OBJS): $(BENCH_BUILD)/cmsis-dsp/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(ARM_CC) $(BENCH_BASE_CFLAGS) -MMD -MP -c $< -o $@
+	$(ARM_CC) $(BENCH_BASE_CFLAGS) $(CMSIS_DSP_DEFS) -MMD -MP -c $< -o $@
 
 $(BENCH_BUILD)/startup.o: $(FLEX_STARTUP)
 	@mkdir -p $(dir $@)

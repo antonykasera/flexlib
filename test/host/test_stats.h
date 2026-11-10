@@ -34,6 +34,30 @@ void stats_print(const ErrStats *s);
     ASSERT_TRUE((s)->n > 0U && (s)->max_abs <= (double)(bound));               \
   } while (0)
 
+/* each err = (got[i] - ref[i]) / lsb, with i as the input */
+void stats_add_block(ErrStats *s, const double *got, const double *ref,
+                     unsigned n, double lsb);
+
+/* signal-to-noise ratio of a block kernel against its reference */
+typedef struct {
+  const char *name;
+  uint64_t n;
+  double sum_ref2;
+  double sum_err2;
+  double max_abs; /* largest |got - ref| */
+} SnrStats;
+
+void snr_init(SnrStats *s, const char *name);
+void snr_add(SnrStats *s, double got, double ref);
+double snr_db(const SnrStats *s); /* HUGE_VAL when the error is zero */
+void snr_print(const SnrStats *s);
+
+#define ASSERT_SNR_MIN(s, db)                                                  \
+  do {                                                                         \
+    snr_print(s);                                                              \
+    ASSERT_TRUE((s)->n > 0U && snr_db(s) >= (double)(db));                     \
+  } while (0)
+
 /* signed ULPs at ref's exponent */
 double ulp_err_f32(float got, double ref);
 

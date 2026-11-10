@@ -14,7 +14,7 @@ include flexlib.mk
 LIB_SRCS = $(patsubst ./%,%,$(FLEXLIB_SRCS))
 LIB_INC  = $(patsubst -I./%,-I%,$(FLEXLIB_CFLAGS))
 # the libraries' private headers (fm_internal.h, fu_crc_tab.h), for tests and the bench
-LIB_PRIV = -Iutils/src -Imath/src
+LIB_PRIV = -Iutils/src -Imath/src -Idsp/src
 
 STD    = -std=c11
 WARN   = -Wall -Wextra -Wshadow -Wconversion -Wsign-conversion -Wdouble-promotion
@@ -43,10 +43,10 @@ help:
 	@echo "make accuracy        flexmath and CMSIS-DSP against double -> docs/accuracy.md"
 	@echo "make cross           -Werror builds for Cortex-M3, M4, M7"
 	@echo "make lint            -Wpedantic everywhere, each header on its own"
-	@echo "make asm-audit       the M3 disassembly against test/asm/audit.txt"
+	@echo "make asm-audit       the M3 / M4 disassembly against test/asm/audit*.txt"
 	@echo "make size            flash / RAM per library object (M3, -O2)"
 	@echo "make golden          bench hashes on the host -> bench/core/golden.c"
-	@echo "make bench           the bench images (BENCH_SET=utils|math|struct for one)"
+	@echo "make bench           the bench images (BENCH_SET=utils|math|struct|dsp for one)"
 	@echo "make bench-run       flash and read each image -> docs/results/f103.md"
 	@echo "make bench-windows   the instructions each bench case times"
 	@echo "make tables          regenerate the CRC and math tables"

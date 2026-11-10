@@ -87,14 +87,14 @@ BENCH_CALL static void mat4_f32_per_sum(float *r, const float *a,
         uint32_t y;
         memcpy(&x, &a[4U * i + k], sizeof x);
         memcpy(&y, &b[4U * k + j], sizeof y);
-        ma[k] = unp_f32(x, 7U, &ea[k], &bad);
-        mb[k] = unp_f32(y, 6U, &eb[k], &bad);
+        ma[k] = fm_unp_f32(x, 7U, &ea[k], &bad);
+        mb[k] = fm_unp_f32(y, 6U, &eb[k], &bad);
       }
       if (bad != 0U) {
         fm_mat4_mul_f32(r, a, b);
         return;
       }
-      uint32_t s = sum_f32(ma, ea, mb, eb, 1U, 4U);
+      uint32_t s = fm_sum_f32(ma, ea, mb, eb, 1U, 4U);
       memcpy(&r[4U * i + j], &s, sizeof s);
     }
   }

@@ -68,7 +68,7 @@ Each library has a folder, a fragment, a prefix and its own version tags
 | arch layer | `arch/` | (with every library) | `fx_` | released |
 | flexutils | `utils/` | `flexutils.mk` | `fu_` | 0.1.1 |
 | flexmath | `math/` | `flexmath.mk` | `fm_` | 0.2.1 |
-| flexdsp: FIR, biquad, FFT, windows | `dsp/` | `flexdsp.mk` | `fd_` | planned |
+| flexdsp: FIR, biquad, FFT, windows | `dsp/` | `flexdsp.mk` | `fd_` | in development |
 | flexctrl: observers, Kalman, motor control | `ctrl/` | `flexctrl.mk` | `fct_` | planned |
 | flexcomm: protocols, packet parsers | `comm/` | `flexcomm.mk` | `fco_` | planned |
 | flexnn: int8 inference kernels | `nn/` | `flexnn.mk` | `fnn_` | planned |
@@ -79,6 +79,7 @@ Each library has a folder, a fragment, a prefix and its own version tags
 | Part | Host | Board |
 | --- | --- | --- |
 | `arch/fx_arch.h` | tests, asm-audit | golden check |
+| `fx_arch.h` packed pairs (`fx_smlad`, `fx_qadd16`, ...) | edge and random pairs against arithmetic on the halves, M4 asm-audit | bench (M3 C path) + golden check |
 | bench firmware | builds | runs |
 | `fu_bits` | exhaustive + random tests, asm-audit | bench + golden check |
 | `fu_fmt` integers | all 2^32 inputs (u32, hex), tests, asm-audit | bench + golden check |
@@ -103,12 +104,14 @@ Each library has a folder, a fragment, a prefix and its own version tags
 ## Layout
 
 ```
-flexlib.mk, flexutils.mk, flexmath.mk    consumer fragments (variables only)
+flexlib.mk, flexutils.mk, flexmath.mk, flexdsp.mk
+                 consumer fragments (variables only)
 arch/            fx_arch.h: single-instruction wrappers, plain C on the host;
                  fx_version.h
 utils/           flexutils: README, CHANGELOG, include/ (public), src/
 math/            flexmath: README, CHANGELOG, include/ (public), src/
-test/host/       host tests: harness, error statistics, ULP error
+dsp/             flexdsp: README, CHANGELOG, include/ (public), src/
+test/host/       host tests: harness, error and SNR statistics, ULP error, DSP references
 test/exhaustive/ every 32-bit input (make exhaustive)
 test/accuracy/   error statistics against CMSIS-DSP (make accuracy)
 test/asm/        asm-audit spec and probes
@@ -129,11 +132,11 @@ third_party/     flex and CMSIS-DSP (submodules, for the bench only)
 | `make exhaustive-slow` | the same for q16 and float text, against the C library's `%.*f` (~13 min on 12 cores) |
 | `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |
-| `make asm-audit` | checks the M3 disassembly for the expected instructions and for no soft-float or libgcc calls |
+| `make asm-audit` | checks the M3 disassembly for the expected instructions and for no soft-float or libgcc calls, and the M4 disassembly of the DSP-extension paths |
 | `make tables` | regenerates the CRC and math tables (`utils/src/fu_crc_tab.c`, `math/src/fm_tables.c`) |
 | `make accuracy` | flexmath and the CMSIS-DSP functions it replaces against a `double` reference; writes `docs/accuracy.md` (~1 min) |
 | `make golden` | runs the bench cases on the host and writes `bench/core/golden.c` |
-| `make bench [BENCH_OPT=-Os]` | builds the bench firmware: flexutils, flexmath's functions, and its structures (`BENCH_SET=utils\|math\|struct` for one) |
+| `make bench [BENCH_OPT=-Os]` | builds the bench firmware: flexutils, flexmath's functions, its structures, and flexdsp (`BENCH_SET=utils\|math\|struct\|dsp` for one) |
 | `make bench-run` | flashes each image over ST-Link in turn, reads `/dev/ttyACM0`, writes `docs/results/f103.md` |
 | `make bench-windows` | lists the instructions each bench case actually times |
 | `make deps` | fetches flex and CMSIS-DSP for the bench, accuracy and examples (`make check` needs neither) |

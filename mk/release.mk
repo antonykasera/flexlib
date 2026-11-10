@@ -5,8 +5,10 @@
 DIST_NAME  = flexlib-$(FLEXLIB_VERSION)
 DIST       = $(BUILD)/dist/$(DIST_NAME).tar.gz
 DIST_FILES = LICENSE README.md CHANGELOG.md flexlib.mk flexutils.mk flexmath.mk \
+             flexdsp.mk \
              $(wildcard arch/*.h utils/*.md utils/include/*.h utils/src/*.[ch] \
-                        math/*.md math/include/*.h math/src/*.[ch]) \
+                        math/*.md math/include/*.h math/src/*.[ch] \
+                        dsp/*.md dsp/include/*.h dsp/src/*.[ch]) \
              docs/README.md docs/accuracy.md $(wildcard docs/results/*.md)
 
 CONSUMER = $(BUILD)/consumer
