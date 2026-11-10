@@ -101,8 +101,6 @@ void fd_fir_interp_q31(FD_FirInterpQ31 *p, const fm_q31 *x, fm_q31 *y,
 
 /* ---- design (float, not timed) ---- */
 
-typedef enum { FD_LOWPASS, FD_HIGHPASS, FD_BANDPASS, FD_BANDSTOP } FD_Band;
-
 /* windowed sinc, f in cycles per sample (0, 0.5), f2 for band types; unit gain
  * at DC, Nyquist or the band centre; highpass / bandstop need odd ntaps */
 FD_Status fd_fir_design(float *h, uint32_t ntaps, FD_Band band, float f1,

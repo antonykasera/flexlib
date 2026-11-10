@@ -325,6 +325,19 @@ const BenchGolden bench_golden[] = {
     {"fd_fir_interp_q15 by 4, 32 taps x 64", 0xE812A022U},
     {"fd_fir_sample_q15, 32 taps", 0xED657022U},
     {"fd_fir_design + quantize, 32 taps", 0x4B0299C5U},
+    {"fd_biquad_q15, 4 sections x 64", 0x42EA9F06U},
+    {"biquad q15 sample-major", 0x42EA9F06U},
+    {"fd_biquad_q15, sum of c >= 4 (64-bit)", 0x4AE4F94AU},
+    {"fd_biquad_q31, 4 sections x 64", 0x7DBED1C9U},
+    {"fd_biquad_q31 error feedback, 4 x 64", 0x03AEE9F0U},
+    {"fd_dcblock_q15, 64", 0x3009CCFEU},
+    {"fd_dcblock_q31, 64", 0x961509F4U},
+    {"fd_onepole_q15, 64", 0x2E38E169U},
+    {"fd_onepole_q31, 64", 0x33E664FDU},
+    {"fd_movavg_q15 n = 32, 64", 0xF84EE423U},
+    {"fd_movavg_q15 n = 30, 64", 0xE6660940U},
+    {"fd_movavg_q31 n = 32, 64", 0xB9C7512AU},
+    {"fd_median5", 0xB00AEFA9U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

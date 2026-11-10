@@ -43,6 +43,13 @@ ACC_CMSIS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
               FilteringFunctions/arm_fir_q31.c \
               FilteringFunctions/arm_fir_fast_q31.c \
               FilteringFunctions/arm_fir_init_q31.c \
+              FilteringFunctions/arm_biquad_cascade_df1_q15.c \
+              FilteringFunctions/arm_biquad_cascade_df1_init_q15.c \
+              FilteringFunctions/arm_biquad_cascade_df1_q31.c \
+              FilteringFunctions/arm_biquad_cascade_df1_fast_q31.c \
+              FilteringFunctions/arm_biquad_cascade_df1_init_q31.c \
+              FilteringFunctions/arm_biquad_cascade_df1_32x64_q31.c \
+              FilteringFunctions/arm_biquad_cascade_df1_32x64_init_q31.c \
               CommonTables/arm_common_tables.c)
 ACC_CMSIS_INC = -isystem $(CMSIS_DSP_DIR)/Include \
                 -isystem $(CMSIS_DSP_DIR)/PrivateInclude -isystem $(FLEX_DIR)/cmsis/inc

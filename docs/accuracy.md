@@ -101,3 +101,15 @@ the bench.
 | FIR q31, 32 taps | flexdsp | 10^6 random samples, Hamming lowpass | 0.5 | 0.25 | -8.1e-05 |
 | FIR q31, 32 taps | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 1 | 0.5 | -0.5 |
 | FIR q31, 32 taps (fast) | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 17 | 2.61 | -0.005 |
+| biquad q31, Butterworth 4, fc 0.01 | flexdsp | 10^6 samples of half-scale noise | 79.7 | 15 | -0.008 |
+| biquad q31, Butterworth 4, fc 0.01 | flexdsp error feedback | 10^6 samples of half-scale noise | 4.98 | 0.842 | -3e-06 |
+| biquad q31, Butterworth 4, fc 0.01 | CMSIS-DSP | 10^6 samples of half-scale noise | 349 | 264 | -2.6e+02 |
+| biquad q31, Butterworth 4, fc 0.01 | CMSIS-DSP fast | 10^6 samples of half-scale noise | 794 | 148 | +0.61 |
+| biquad q31, Butterworth 4, fc 0.01 | CMSIS-DSP 32x64 | 10^6 samples of half-scale noise | 1.74 | 1 | -1 |
+| biquad q15, Butterworth 4, fc 0.01 | flexdsp | 10^6 samples of half-scale noise | 96.4 | 15.7 | -0.02 |
+| biquad q15, Butterworth 4, fc 0.01 | CMSIS-DSP | 10^6 samples of half-scale noise | 355 | 266 | -2.7e+02 |
+| biquad q31, Butterworth 4, fc 5e-4 | flexdsp | 10^6 samples of half-scale noise | 8.17e+03 | 1.33e+03 | -59 |
+| biquad q31, Butterworth 4, fc 5e-4 | flexdsp error feedback | 10^6 samples of half-scale noise | 115 | 3.79 | -0.037 |
+| biquad q31, Butterworth 4, fc 5e-4 | CMSIS-DSP | 10^6 samples of half-scale noise | 1.1e+05 | 1.02e+05 | -1e+05 |
+| biquad q31, Butterworth 4, fc 5e-4 | CMSIS-DSP fast | 10^6 samples of half-scale noise | 1.21e+05 | 2.55e+04 | +7.3e+02 |
+| biquad q31, Butterworth 4, fc 5e-4 | CMSIS-DSP 32x64 | 10^6 samples of half-scale noise | 1.64 | 1 | -1 |

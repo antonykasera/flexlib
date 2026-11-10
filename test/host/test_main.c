@@ -49,6 +49,15 @@ void test_fd_fir_interp(void);
 void test_fd_fir_interp_gain2(void);
 void test_fd_fir_design(void);
 
+/* --- fd_biquad, fd_filt (test_fd_biquad.c) --- */
+void test_fd_biquad_q31(void);
+void test_fd_biquad_q15(void);
+void test_fd_biquad_gain4(void);
+void test_fd_biquad_design(void);
+void test_fd_biquad_ef(void);
+void test_fd_filt(void);
+void test_fd_biquad_edges(void);
+
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
 void test_fx_rbit_rev(void);
@@ -177,6 +186,13 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_fir_interp);
   TEST_RUN(test_fd_fir_interp_gain2);
   TEST_RUN(test_fd_fir_design);
+  TEST_RUN(test_fd_biquad_q31);
+  TEST_RUN(test_fd_biquad_q15);
+  TEST_RUN(test_fd_biquad_gain4);
+  TEST_RUN(test_fd_biquad_design);
+  TEST_RUN(test_fd_biquad_ef);
+  TEST_RUN(test_fd_filt);
+  TEST_RUN(test_fd_biquad_edges);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

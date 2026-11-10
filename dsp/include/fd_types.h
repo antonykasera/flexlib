@@ -38,6 +38,8 @@ typedef enum {
   FD_ERR_RANGE,    /* a parameter outside its stated range */
 } FD_Status;
 
+typedef enum { FD_LOWPASS, FD_HIGHPASS, FD_BANDPASS, FD_BANDSTOP } FD_Band;
+
 typedef enum {
   FD_WIN_RECT,
   FD_WIN_HANN,

@@ -7,6 +7,7 @@
  */
 
 #include "arm_math.h"
+#include "fd_biquad.h"
 #include "fd_fir.h"
 #include "fd_vec.h"
 #include "fm_atan.h"
@@ -19,6 +20,7 @@
 #include "fm_sqrt.h"
 #include "fm_trig.h"
 #include "test_stats.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -730,6 +732,101 @@ static void fd_fir_rows(void) {
   row(&cf31, "CMSIS-DSP", "10^6 random samples, Hamming lowpass");
 }
 
+/* 4th-order Butterworth lowpass, 10^6 samples of uniform noise at half scale,
+ * against the same quantised coefficients in double */
+static void fd_biquad_rows(float fc, const char *label, int q15_rows) {
+  enum { NS = 2, N = 64, NB = 15625 };
+  static char names[7][64];
+  ErrStats e[7];
+  const char *impl[7] = {"flexdsp",         "flexdsp error feedback",
+                         "CMSIS-DSP",       "CMSIS-DSP fast",
+                         "CMSIS-DSP 32x64", "flexdsp",
+                         "CMSIS-DSP"};
+  for (int i = 0; i < 7; i++) {
+    snprintf(names[i], sizeof names[i], "biquad %s, %s", i < 5 ? "q31" : "q15",
+             label);
+    stats_init(&e[i], names[i], "lsb");
+  }
+  FD_BiquadDesign d[NS];
+  fm_q31 c31[5 * NS];
+  fm_q15 c15[5 * NS];
+  q15_t cc15[6 * NS];
+  uint32_t sh31, sh15;
+  (void)fd_biquad_butter(d, 2U * NS, FD_LOWPASS, fc);
+  (void)fd_biquad_quantize_q31(d, NS, c31, &sh31);
+  (void)fd_biquad_quantize_q15(d, NS, c15, &sh15);
+  for (int k = 0; k < NS; k++) {
+    const fm_q15 *c = c15 + 5 * k;
+    q15_t t[6] = {c[0], 0, c[1], c[2], c[3], c[4]};
+    memcpy(cc15 + 6 * k, t, sizeof t);
+  }
+  static fm_q31 s0[FD_BIQUAD_STATE_LEN(NS)], s1[FD_BIQUAD_STATE_LEN(NS)];
+  static fm_q15 s5[FD_BIQUAD_STATE_LEN(NS)];
+  static q31_t cs31[4 * NS], cfs31[4 * NS];
+  static q63_t cs64[4 * NS];
+  static q15_t cs15[4 * NS];
+  FD_BiquadQ31 f0, f1;
+  FD_BiquadQ15 f5;
+  arm_biquad_casd_df1_inst_q31 i31, if31;
+  arm_biquad_cas_df1_32x64_ins_q31 i64;
+  arm_biquad_casd_df1_inst_q15 i15;
+  fd_biquad_init_q31(&f0, c31, NS, sh31, s0);
+  fd_biquad_init_ef_q31(&f1, c31, NS, sh31, s1);
+  fd_biquad_init_q15(&f5, c15, NS, sh15, s5);
+  memset(cs31, 0, sizeof cs31);
+  memset(cfs31, 0, sizeof cfs31);
+  memset(cs64, 0, sizeof cs64);
+  memset(cs15, 0, sizeof cs15);
+  arm_biquad_cascade_df1_init_q31(&i31, NS, c31, cs31, 1);
+  arm_biquad_cascade_df1_init_q31(&if31, NS, c31, cfs31, 1);
+  arm_biquad_cas_df1_32x64_init_q31(&i64, NS, c31, cs64, 1);
+  arm_biquad_cascade_df1_init_q15(&i15, NS, cc15, cs15, 1);
+  double h31[4 * NS] = {0}, h15[4 * NS] = {0}, cf31[5 * NS], cf15[5 * NS];
+  for (int i = 0; i < 5 * NS; i++) {
+    cf31[i] = c31[i] / 1073741824.0;
+    cf15[i] = c15[i] / 16384.0;
+  }
+  uint64_t st = 27U;
+  for (int b = 0; b < NB; b++) {
+    q31_t x[N], y[5][N];
+    q15_t x15[N], y15[2][N];
+    for (int i = 0; i < N; i++) {
+      x[i] = (q31_t)test_rng_u32(&st) >> 1;
+      x15[i] = (q15_t)(x[i] >> 16);
+    }
+    fd_biquad_q31(&f0, x, y[0], N);
+    fd_biquad_q31(&f1, x, y[1], N);
+    arm_biquad_cascade_df1_q31(&i31, x, y[2], N);
+    arm_biquad_cascade_df1_fast_q31(&if31, x, y[3], N);
+    arm_biquad_cas_df1_32x64_q31(&i64, x, y[4], N);
+    fd_biquad_q15(&f5, x15, y15[0], N);
+    arm_biquad_cascade_df1_q15(&i15, x15, y15[1], N);
+    for (int i = 0; i < N; i++) {
+      double v = x[i], w = x15[i];
+      for (int k = 0; k < NS; k++) {
+        const double *q = cf31 + 5 * k, *r = cf15 + 5 * k;
+        double *g = h31 + 4 * k, *u = h15 + 4 * k;
+        double o =
+            q[0] * v + q[1] * g[0] + q[2] * g[1] + q[3] * g[2] + q[4] * g[3];
+        double p =
+            r[0] * w + r[1] * u[0] + r[2] * u[1] + r[3] * u[2] + r[4] * u[3];
+        g[1] = g[0], g[0] = v, g[3] = g[2], g[2] = o, v = o;
+        u[1] = u[0], u[0] = w, u[3] = u[2], u[2] = p, w = p;
+      }
+      if (b > 10) { /* past the start-up */
+        for (int j = 0; j < 5; j++) {
+          stats_add(&e[j], i, y[j][i] - v);
+        }
+        stats_add(&e[5], i, y15[0][i] - w);
+        stats_add(&e[6], i, y15[1][i] - w);
+      }
+    }
+  }
+  for (int i = 0; i < (q15_rows ? 7 : 5); i++) {
+    row(&e[i], impl[i], "10^6 samples of half-scale noise");
+  }
+}
+
 int main(void) {
   printf(
       "# flexlib accuracy\n\n"
@@ -768,5 +865,7 @@ int main(void) {
   fd_moment_rows();
   fd_complex_rows();
   fd_fir_rows();
+  fd_biquad_rows(0.01f, "Butterworth 4, fc 0.01", 1);
+  fd_biquad_rows(0.0005f, "Butterworth 4, fc 5e-4", 0); /* Q2.14 b round to 0 */
   return 0;
 }

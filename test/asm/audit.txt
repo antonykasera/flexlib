@@ -247,3 +247,18 @@ fd_fir_gain_q31     no-calls
 fd_fir_design       calls-ok
 fd_fir_quantize_q15 calls-ok
 fd_fir_quantize_q31 calls-ok
+
+# fd_biquad, fd_filt: kernels inline, no calls; design and q31 movavg's divide call libgcc
+fd_biquad_q31       no-calls  smlal !udiv
+fd_biquad_q15       no-calls  mla ssat !udiv
+fd_dcblock_q15      no-calls  ssat
+fd_dcblock_q31      no-calls  smlal
+fd_onepole_q15      no-calls
+fd_onepole_q31      no-calls  smull
+fd_movavg_q15       no-calls
+fd_movavg_q31       calls-ok
+fd_biquad_design    calls-ok
+fd_biquad_butter    calls-ok
+fd_biquad_quantize_q31 calls-ok
+fd_biquad_quantize_q15 calls-ok
+fd_onepole_coef_q15 calls-ok

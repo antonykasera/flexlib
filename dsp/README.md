@@ -89,3 +89,37 @@ history moves once per chunk. Decimators take any `n` and return the outputs
 written. `fd_fir_design` builds windowed-sinc lowpass, highpass, bandpass and
 bandstop filters in float (rectangular, Hann, Hamming, Blackman,
 Blackman-Harris), and `fd_fir_quantize_q15` / `_q31` round them.
+
+## Biquads (`fd_biquad.h`)
+
+Four sections, blocks of 64 (an 8th-order Butterworth lowpass). DF1 with the
+CMSIS coefficient order and signs, Q2.30 / Q2.14. Each section's output is
+its exact sum rounded once, for any coefficients; large `b` gains use a shift
+on the `b` alone, so the feedback coefficients keep full precision.
+
+| function | cycles | CMSIS-DSP | error, fc 0.01 | CMSIS-DSP error |
+|---|--:|--:|--:|--:|
+| `fd_biquad_q15` | 6555 | 13291 (`fast` 8778) | 96 LSB | 355 LSB |
+| `fd_biquad_q31` | 14145 | 11883 (`fast` 16631) | 80 LSB | 349 LSB |
+| `fd_biquad_q31` with error feedback | 18277 | `32x64` 25739 | 5 LSB | `32x64` 1.7 LSB |
+
+Errors are the recursion's, against the same coefficients in double, over
+10^6 samples of noise ([docs/accuracy.md](../docs/accuracy.md)). At fc 5e-4
+plain q31 reaches 8170 LSB and error feedback 115 (CMSIS: 110000; `32x64`:
+1.6).
+
+`fd_biquad_design` returns RBJ sections (lowpass, highpass, bandpass, notch,
+peak, low and high shelf, allpass) with the poles as deviations from z = 1,
+which keeps low-frequency poles exact in Q2.30; `fd_biquad_butter` gives
+even-order Butterworth cascades; `fd_biquad_quantize_q31` / `_q15` round
+them, pick the `b` shift and report sections made unstable by rounding.
+
+## Small filters (`fd_filt.h`)
+
+| function | cycles (64 samples) | |
+|---|--:|---|
+| `fd_dcblock_q15` / `_q31` | 1064 / 2027 | `y = x - x1 + a y1` |
+| `fd_onepole_q15` / `_q31` | 796 / 1404 | `y += a (x - y)`; `fd_onepole_coef` puts -3 dB at fc |
+| `fd_movavg_q15`, n = 32 / 30 | 1264 / 2429 | exact running sum; a power of two divides by shifting |
+| `fd_movavg_q31`, n = 32 | 2309 | |
+| `fd_median5` | 30 | branchless, also `fd_median3` |

@@ -100,6 +100,7 @@ Each library has a folder, a fragment, a prefix and its own version tags
 | `fm_linalg` | q31 against exact 128-bit sums, float against long double sums, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_quat` | long double references, drift over 10^5 steps, inf / NaN, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_pid` | Q16.16 against 128-bit arithmetic, float against long double sums, inf / NaN, asm-audit | bench + golden check |
+| `fd_biquad`, `fd_filt` | bit-exact against 128-bit recursions (q15, q31, error feedback, wide sums, split calls, in place), saturation and tie boundaries, design against double RBJ and pole precision at fc 1e-4, Butterworth -3 dB, noise shaping +51 dB; vs CMSIS-DSP, asm-audit | bench + golden check |
 | `fd_fir` | every tap count 1-9 and unroll edges, chunk sizes, split calls, in place, gain-2 boundaries, decimation phases and interpolator branches against exact 128-bit convolutions; design against a double reference and window sidelobes; vs CMSIS-DSP, asm-audit | bench + golden check |
 | `fd_vec` | q15 add / sub / mul, complex magnitude and multiply, q31 to q15 on all 2^32 inputs; statistics against exact 128-bit sums; loop tails, in place, overruns; vs CMSIS-DSP, asm-audit | bench + golden check |
 
