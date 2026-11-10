@@ -34,6 +34,7 @@ include mk/cross.mk
 include mk/lint.mk
 include mk/bench.mk
 include mk/tables.mk
+include mk/release.mk
 
 help:
 	@echo "make [check]         host-test, cross, lint, asm-audit"
@@ -49,6 +50,9 @@ help:
 	@echo "make bench-run       flash and read each image -> docs/results/f103.md"
 	@echo "make bench-windows   the instructions each bench case times"
 	@echo "make tables          regenerate the CRC and math tables"
+	@echo "make deps            fetch flex and CMSIS-DSP (bench, accuracy, examples)"
+	@echo "make dist            the release archive -> build/dist/flexlib-<version>.tar.gz"
+	@echo "make consumer        a blank project builds against that archive"
 	@echo "make clean"
 
 # compile_commands.json for clangd (needs bear)

@@ -30,8 +30,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      - name: Submodules (flex, CMSIS-DSP)
+        run: make deps
 
       - name: Install toolchain
         run: |
@@ -66,11 +67,11 @@ jobs:
       - name: Bench timed windows
         run: make bench-windows
 
-      - name: Consumer fragments (any order, included twice)
-        run: make -s -f test/consumer/check.mk
 
-      - name: flex's template with flexlib (FLEXLIB_LIBS)
-        run: |
-          cp -r third_party/flex/template /tmp/app
-          make -C /tmp/app FLEX_DIR=$PWD/third_party/flex FLEXLIB_DIR=$PWD \
-            FLEXLIB_LIBS="math utils" EXTRA_CFLAGS=-Werror
+      - name: Release archive, built into a blank project (flex template, host gcc)
+        run: make consumer
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flexlib-dist
+          path: build/dist/

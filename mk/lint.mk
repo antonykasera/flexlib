@@ -1,4 +1,4 @@
-# -Wpedantic over everything, and each header compiled on its own
+# -Wpedantic over everything, each header compiled on their own
 
 LINT_FLAGS   = $(STD) $(WARN) -Wpedantic -Werror -fsyntax-only
 LINT_HEADERS = $(wildcard arch/*.h utils/include/*.h math/include/*.h \
@@ -14,7 +14,7 @@ lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFM_LUT_IN_RAM $(LIB_INC) math/src/fm_tables.c
 	@for h in $(LINT_HEADERS); do \
 		echo "  header $$h"; \
-		echo "#include \"$$h\"" | $(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) \
+		printf '#include "%s"\ntypedef int lint_tu;\n' $$h | $(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) \
 			-I. -x c - || exit 1; \
 	done
 

@@ -8,6 +8,9 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 - Each library has its own `include/` and `src/`; use `$(FLEXLIB_CFLAGS)` for include paths.
 - `flexlib.mk`: all libraries named in `FLEXLIB_LIBS` in one include.
 - The fragments can be included in any order and more than once.
+- Release archive (`make dist`): the libraries, fragments and docs, about 70 KB.
+- `fx_version.h` (`FLEXLIB_VERSION`, `FLEXLIB_VERSION_NUM`); the fragments set `FLEXLIB_VERSION`, and `FLEXLIB_REQUIRE` stops the build on an older copy.
+- flex and CMSIS-DSP are fetched by `make deps`; `git submodule update --recursive` in a project skips them.
 - Bench moved to `bench/core`, `bench/cases`, `bench/port/f103`; results in `docs/results/`; flex and CMSIS-DSP under `third_party/`.
 
 ## v0.1.0 (2026-11-09)

@@ -14,17 +14,25 @@ CMSIS-DSP. The bench firmware runs on
 
 ## Using it
 
-With [flex](https://github.com/antonykasera/STM32F1-HAL) v1.1.0 or later, add
-flexlib as a submodule in `lib/flexlib` and name the libraries in your
-Makefile, next to the flex modules:
+Put flexlib in `lib/flexlib`: as a submodule pinned to a release, or from the
+release archive (the libraries only, about 70 KB):
+
+```sh
+git submodule add https://github.com/antonykasera/flexlib.git lib/flexlib
+git -C lib/flexlib checkout v0.1.0
+# or
+tar xf flexlib-0.1.0.tar.gz -C lib
+```
+
+With [flex](https://github.com/antonykasera/STM32F1-HAL) v1.1.0 or later,
+start from flex's template and name the libraries next to the flex modules:
 
 ```make
 FLEX_MODULES := gpio clock usb
 FLEXLIB_LIBS := math              # utils, math; math brings utils with it
 ```
 
-flex's template includes the matching fragments and builds their sources with
-yours. Without flex, include the fragments yourself; they only set variables:
+Without flex, include the fragments yourself; they only set variables:
 
 ```make
 include lib/flexlib/flexlib.mk    # FLEXLIB_LIBS ?= utils math
@@ -35,7 +43,20 @@ SRCS   += $(FLEXLIB_SRCS)
 Build with `-ffunction-sections -fdata-sections` and link with
 `--gc-sections`. Define `FX_ASSERT_FAIL(file, line)` for your own assert
 handler, or `FX_DISABLE_ASSERT` to compile the checks out. Each library's
-README lists its other options (`FU_CRC_SMALL`, `FM_LUT_IN_RAM`).
+README lists its other options (`FU_CRC_SMALL`, `FM_LUT_IN_RAM`). Set them in
+your own Makefile, not in `lib/flexlib`, so upgrades don't alter them.
+
+`FLEXLIB_REQUIRE := 0.1.0` before the include stops the build if `lib/flexlib`
+is older; in C, `fx_version.h` has `FLEXLIB_VERSION` and `FLEXLIB_VERSION_NUM`.
+
+### Upgrading
+
+Check the release notes and each library's CHANGELOG first: before 1.0, a
+minor release may change an API (with upgrade notes); a patch release never
+does. Then check out the new tag (`git -C lib/flexlib checkout v0.2.0`) or
+replace `lib/flexlib` with the new archive, and rebuild. flexlib's own
+submodules are for its bench and are skipped by `git submodule update
+--recursive`.
 
 ## Libraries and prefixes
 
@@ -43,7 +64,7 @@ Each library has a folder, a fragment, a prefix and its own version tags
 (`flexmath-v0.2.0`). Dependencies run one way: arch, utils, math, then the rest.
 
 | library | folder | fragment | prefix | status |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | arch layer | `arch/` | (with every library) | `fx_` | released |
 | flexutils | `utils/` | `flexutils.mk` | `fu_` | 0.1.0 |
 | flexmath | `math/` | `flexmath.mk` | `fm_` | 0.2.0 |
@@ -56,7 +77,7 @@ Each library has a folder, a fragment, a prefix and its own version tags
 ## Status
 
 | Part | Host | Board |
-|---|---|---|
+| --- | --- | --- |
 | `arch/fx_arch.h` | tests, asm-audit | golden check |
 | bench firmware | builds | runs |
 | `fu_bits` | exhaustive + random tests, asm-audit | bench + golden check |
@@ -83,7 +104,8 @@ Each library has a folder, a fragment, a prefix and its own version tags
 
 ```
 flexlib.mk, flexutils.mk, flexmath.mk    consumer fragments (variables only)
-arch/            fx_arch.h: single-instruction wrappers, plain C on the host
+arch/            fx_arch.h: single-instruction wrappers, plain C on the host;
+                 fx_version.h
 utils/           flexutils: README, CHANGELOG, include/ (public), src/
 math/            flexmath: README, CHANGELOG, include/ (public), src/
 test/host/       host tests: harness, error statistics, ULP error
@@ -100,7 +122,7 @@ third_party/     flex and CMSIS-DSP (submodules, for the bench only)
 ## Building and testing
 
 | Command | What it does |
-|---|---|
+| --- | --- |
 | `make` | `host-test`, `cross`, `lint`, `asm-audit` (`make help` lists every target) |
 | `make host-test [HOST_CC=clang]` | host tests with ASan + UBSan |
 | `make exhaustive` | checks every 32-bit input or state where that is possible (~8 min on 12 cores) |
@@ -114,8 +136,9 @@ third_party/     flex and CMSIS-DSP (submodules, for the bench only)
 | `make bench [BENCH_OPT=-Os]` | builds the bench firmware: flexutils, flexmath's functions, and its structures (`BENCH_SET=utils\|math\|struct` for one) |
 | `make bench-run` | flashes each image over ST-Link in turn, reads `/dev/ttyACM0`, writes `docs/results/f103.md` |
 | `make bench-windows` | lists the instructions each bench case actually times |
-
-The bench needs the submodules: `git submodule update --init`.
+| `make deps` | fetches flex and CMSIS-DSP for the bench, accuracy and examples (`make check` needs neither) |
+| `make dist` | the release archive and its SHA-256: `build/dist/flexlib-<version>.tar.gz` |
+| `make consumer` | builds a blank project against that archive: flex's template, and host gcc |
 
 ## Bench
 

@@ -127,7 +127,7 @@ $(BENCH_BUILD)/bench.bin: $(BENCH_BUILD)/bench.elf
 
 ifeq ($(FLEX_ROOT),)
 bench bench-run bench-windows:
-	@echo "$(FLEX_DIR) is missing: git submodule update --init, or FLEX_DIR=../flex"
+	@echo "$(FLEX_DIR) is missing: make deps, or FLEX_DIR=../flex"
 	@exit 1
 else ifeq ($(BENCH_SET),)
 # each image in turn
