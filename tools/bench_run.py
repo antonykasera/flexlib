@@ -77,7 +77,7 @@ def main():
         if not args.append:
             f.write("# Bench results: STM32F103C8 (Blue Pill clone)\n\n")
             f.write(f"Written by `make bench-run` on {today}. Do not edit by "
-                    "hand;\nrerun it. Method: [bench/README.md](../../bench/README.md).\n\n")
+                    "hand;\nrerun it. Method: [bench/README.md](https://github.com/antonykasera/flexlib/blob/master/bench/README.md).\n\n")
         else:
             f.write("\n")
         f.write(block + "\n")

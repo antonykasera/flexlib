@@ -19,9 +19,9 @@ release archive (the libraries only, about 70 KB):
 
 ```sh
 git submodule add https://github.com/antonykasera/flexlib.git lib/flexlib
-git -C lib/flexlib checkout v0.1.0
+git -C lib/flexlib checkout v0.2.0
 # or
-tar xf flexlib-0.1.0.tar.gz -C lib
+tar xf flexlib-0.2.0.tar.gz -C lib
 ```
 
 With [flex](https://github.com/antonykasera/STM32F1-HAL) v1.1.0 or later,
@@ -46,7 +46,7 @@ handler, or `FX_DISABLE_ASSERT` to compile the checks out. Each library's
 README lists its other options (`FU_CRC_SMALL`, `FM_LUT_IN_RAM`). Set them in
 your own Makefile, not in `lib/flexlib`, so upgrades don't alter them.
 
-`FLEXLIB_REQUIRE := 0.1.0` before the include stops the build if `lib/flexlib`
+`FLEXLIB_REQUIRE := 0.2.0` before the include stops the build if `lib/flexlib`
 is older; in C, `fx_version.h` has `FLEXLIB_VERSION` and `FLEXLIB_VERSION_NUM`.
 
 ### Upgrading
@@ -61,13 +61,13 @@ submodules are for its bench and are skipped by `git submodule update
 ## Libraries and prefixes
 
 Each library has a folder, a fragment, a prefix and its own version tags
-(`flexmath-v0.2.0`). Dependencies run one way: arch, utils, math, then the rest.
+(`flexmath-v0.2.1`). Dependencies run one way: arch, utils, math, then the rest.
 
 | library | folder | fragment | prefix | status |
 | --- | --- | --- | --- | --- |
 | arch layer | `arch/` | (with every library) | `fx_` | released |
-| flexutils | `utils/` | `flexutils.mk` | `fu_` | 0.1.0 |
-| flexmath | `math/` | `flexmath.mk` | `fm_` | 0.2.0 |
+| flexutils | `utils/` | `flexutils.mk` | `fu_` | 0.1.1 |
+| flexmath | `math/` | `flexmath.mk` | `fm_` | 0.2.1 |
 | flexdsp: FIR, biquad, FFT, windows | `dsp/` | `flexdsp.mk` | `fd_` | planned |
 | flexctrl: observers, Kalman, motor control | `ctrl/` | `flexctrl.mk` | `fct_` | planned |
 | flexcomm: protocols, packet parsers | `comm/` | `flexcomm.mk` | `fco_` | planned |
@@ -142,7 +142,7 @@ third_party/     flex and CMSIS-DSP (submodules, for the bench only)
 
 ## Bench
 
-[bench/](bench/README.md) times every function on the board in DWT cycles,
+[bench/](https://github.com/antonykasera/flexlib/blob/master/bench/README.md) times every function on the board in DWT cycles,
 warm and cold, and checks each case's output against the host.
 
 ## Results

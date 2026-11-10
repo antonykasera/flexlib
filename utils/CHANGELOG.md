@@ -1,6 +1,6 @@
 # flexutils changelog
 
-## Unreleased
+## 0.1.1 (2026-11-10)
 
 - Public headers moved to `utils/include/`. No API change.
 

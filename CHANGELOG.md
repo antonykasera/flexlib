@@ -3,7 +3,9 @@
 Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md).
 
-## Unreleased
+## v0.2.0 (2026-11-10)
+
+flexutils 0.1.1 and flexmath 0.2.1, and the first release archive.
 
 - Each library has its own `include/` and `src/`; use `$(FLEXLIB_CFLAGS)` for include paths.
 - `flexlib.mk`: all libraries named in `FLEXLIB_LIBS` in one include.
