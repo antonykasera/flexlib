@@ -3,12 +3,15 @@
 Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md).
 
-## Unreleased
+## v0.3.0 (2026-11-11)
 
-- flexdsp (`dsp/`, `flexdsp.mk`, prefix `fd_`): the library's folder, fragment and shared types; `FLEXLIB_LIBS` includes it by default. Modules: `fd_vec.h`, `fd_fir.h`, `fd_biquad.h`, `fd_filt.h`.
+flexdsp 0.1.0 (first release), flexmath 0.2.2 and flexutils 0.1.1.
+
+- flexdsp (`dsp/`, `flexdsp.mk`, prefix `fd_`): the library's folder, fragment and shared types; `FLEXLIB_LIBS` includes it by default. Modules: `fd_vec.h`, `fd_fir.h`, `fd_biquad.h`, `fd_filt.h`, `fd_window.h`, `fd_tone.h`, `fd_noise.h`.
+- flex's template compiles flexdsp from v1.1.2; utils and math work with v1.1.0 and later.
+- Bench: the flexdsp cases in two images, `dsp` and `dsp2`.
 - `fx_arch.h`: packed halfword-pair wrappers (`fx_smlad`, `fx_smlald`, `fx_smuad`, `fx_smusdx`, `fx_qadd16`, `fx_qsub16`, `fx_shadd16`, `fx_sxtb16`, `FX_SSAT16`, `fx_pkhbt`, `fx_pkhtb`, `fx_smmulr`, `fx_smulwb`, `fx_smlawb`): one instruction each on Cortex-M4/M7, plain C with the same results elsewhere.
 - `fx_arch.h`: `FX_HAVE_FPU`, `FX_DSP_PATH` (`FX_EMULATE_DSP` runs the DSP-extension paths on the C versions), `FX_RESTRICT`, `FX_LIKELY` / `FX_UNLIKELY`, `FX_ALIGN`, `FX_UNROLL`.
-- Bench: a fourth image, `BENCH_SET=dsp`.
 
 ## v0.2.0 (2026-11-10)
 

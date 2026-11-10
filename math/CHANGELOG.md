@@ -1,6 +1,6 @@
 # flexmath changelog
 
-## Unreleased
+## 0.2.2 (2026-11-11)
 
 - `fm_sum.h`: the exact sum-of-products helpers, shared with flexdsp. Internal; no API change, no change in results.
 

@@ -31,9 +31,9 @@ consumer: dist
 	ln -s $(CURDIR)/third_party/flex $(CONSUMER)/lib/flex
 	cp third_party/flex/template/Makefile third_party/flex/template/linker.ld \
 		test/consumer/main.c $(CONSUMER)/
-	$(MAKE) -C $(CONSUMER) FLEXLIB_LIBS=math FLEXLIB_REQUIRE=$(FLEXLIB_VERSION) \
+	$(MAKE) -C $(CONSUMER) FLEXLIB_LIBS=dsp FLEXLIB_REQUIRE=$(FLEXLIB_VERSION) \
 		EXTRA_CFLAGS=-Werror
-	$(MAKE) -s -C $(CONSUMER) FLEXLIB_LIBS=math FLEXLIB_REQUIRE=99.0.0 2>&1 | \
+	$(MAKE) -s -C $(CONSUMER) FLEXLIB_LIBS=dsp FLEXLIB_REQUIRE=99.0.0 2>&1 | \
 		grep -q "older than FLEXLIB_REQUIRE 99.0.0"
 	$(MAKE) -C $(CONSUMER) -f $(CURDIR)/test/consumer/host.mk HOST_CC=$(HOST_CC)
 

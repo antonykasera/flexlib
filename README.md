@@ -6,6 +6,8 @@ Compute libraries for Cortex-M, measured on the chip they're for:
   parsing, CRCs, COBS, debouncing, PRNGs.
 - **[flexmath](math/README.md)** (`fm_`): fixed point (Q15 / Q31 / Q16.16),
   float functions without an FPU, vectors, matrices, quaternions and PID.
+- **[flexdsp](dsp/README.md)** (`fd_`): block arithmetic, FIR and biquad
+  filters, windows, tone detection and generation, noise.
 
 Plain C11, no dependencies. Each function states an error bound and a cycle
 count measured on an STM32F103 (Cortex-M3, 72 MHz) next to newlib libm and
@@ -15,27 +17,27 @@ CMSIS-DSP. The bench firmware runs on
 ## Using it
 
 Put flexlib in `lib/flexlib`: as a submodule pinned to a release, or from the
-release archive (the libraries only, about 70 KB):
+release archive (the libraries only, about 100 KB):
 
 ```sh
 git submodule add https://github.com/antonykasera/flexlib.git lib/flexlib
-git -C lib/flexlib checkout v0.2.0
+git -C lib/flexlib checkout v0.3.0
 # or
-tar xf flexlib-0.2.0.tar.gz -C lib
+tar xf flexlib-0.3.0.tar.gz -C lib
 ```
 
-With [flex](https://github.com/antonykasera/STM32F1-HAL) v1.1.0 or later,
+With [flex](https://github.com/antonykasera/STM32F1-HAL) v1.1.2 or later,
 start from flex's template and name the libraries next to the flex modules:
 
 ```make
 FLEX_MODULES := gpio clock usb
-FLEXLIB_LIBS := math              # utils, math; math brings utils with it
+FLEXLIB_LIBS := math              # utils, math, dsp; each brings the ones it uses
 ```
 
 Without flex, include the fragments yourself; they only set variables:
 
 ```make
-include lib/flexlib/flexlib.mk    # FLEXLIB_LIBS ?= utils math
+include lib/flexlib/flexlib.mk    # FLEXLIB_LIBS ?= utils math dsp
 CFLAGS += $(FLEXLIB_CFLAGS)       # include paths only: your MCU flags apply
 SRCS   += $(FLEXLIB_SRCS)
 ```
@@ -46,14 +48,14 @@ handler, or `FX_DISABLE_ASSERT` to compile the checks out. Each library's
 README lists its other options (`FU_CRC_SMALL`, `FM_LUT_IN_RAM`). Set them in
 your own Makefile, not in `lib/flexlib`, so upgrades don't alter them.
 
-`FLEXLIB_REQUIRE := 0.2.0` before the include stops the build if `lib/flexlib`
+`FLEXLIB_REQUIRE := 0.3.0` before the include stops the build if `lib/flexlib`
 is older; in C, `fx_version.h` has `FLEXLIB_VERSION` and `FLEXLIB_VERSION_NUM`.
 
 ### Upgrading
 
 Check the release notes and each library's CHANGELOG first: before 1.0, a
 minor release may change an API (with upgrade notes); a patch release never
-does. Then check out the new tag (`git -C lib/flexlib checkout v0.2.0`) or
+does. Then check out the new tag (`git -C lib/flexlib checkout v0.3.0`) or
 replace `lib/flexlib` with the new archive, and rebuild. flexlib's own
 submodules are for its bench and are skipped by `git submodule update
 --recursive`.
@@ -61,14 +63,14 @@ submodules are for its bench and are skipped by `git submodule update
 ## Libraries and prefixes
 
 Each library has a folder, a fragment, a prefix and its own version tags
-(`flexmath-v0.2.1`). Dependencies run one way: arch, utils, math, then the rest.
+(`flexdsp-v0.1.0`). Dependencies run one way: arch, utils, math, then the rest.
 
 | library | folder | fragment | prefix | status |
 | --- | --- | --- | --- | --- |
 | arch layer | `arch/` | (with every library) | `fx_` | released |
 | flexutils | `utils/` | `flexutils.mk` | `fu_` | 0.1.1 |
-| flexmath | `math/` | `flexmath.mk` | `fm_` | 0.2.1 |
-| flexdsp: FIR, biquad, FFT, windows | `dsp/` | `flexdsp.mk` | `fd_` | in development |
+| flexmath | `math/` | `flexmath.mk` | `fm_` | 0.2.2 |
+| flexdsp | `dsp/` | `flexdsp.mk` | `fd_` | 0.1.0 |
 | flexctrl: observers, Kalman, motor control | `ctrl/` | `flexctrl.mk` | `fct_` | planned |
 | flexcomm: protocols, packet parsers | `comm/` | `flexcomm.mk` | `fco_` | planned |
 | flexnn: int8 inference kernels | `nn/` | `flexnn.mk` | `fnn_` | planned |
@@ -100,6 +102,7 @@ Each library has a folder, a fragment, a prefix and its own version tags
 | `fm_linalg` | q31 against exact 128-bit sums, float against long double sums, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_quat` | long double references, drift over 10^5 steps, inf / NaN, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_pid` | Q16.16 against 128-bit arithmetic, float against long double sums, inf / NaN, asm-audit | bench + golden check |
+| `fd_window`, `fd_tone`, `fd_noise` | every window type at every length up to 4096 (both symmetries) against long double; Goertzel bit-exact against a 128-bit recursion and against the DFT; NCO against fm_sin / cos; oscillator drift over 10^6 samples; noise mean, variance, kurtosis, tails, histogram; asm-audit | bench + golden check |
 | `fd_biquad`, `fd_filt` | bit-exact against 128-bit recursions (q15, q31, error feedback, wide sums, split calls, in place), saturation and tie boundaries, design against double RBJ and pole precision at fc 1e-4, Butterworth -3 dB, noise shaping +51 dB; vs CMSIS-DSP, asm-audit | bench + golden check |
 | `fd_fir` | every tap count 1-9 and unroll edges, chunk sizes, split calls, in place, gain-2 boundaries, decimation phases and interpolator branches against exact 128-bit convolutions; design against a double reference and window sidelobes; vs CMSIS-DSP, asm-audit | bench + golden check |
 | `fd_vec` | q15 add / sub / mul, complex magnitude and multiply, q31 to q15 on all 2^32 inputs; statistics against exact 128-bit sums; loop tails, in place, overruns; vs CMSIS-DSP, asm-audit | bench + golden check |
@@ -139,7 +142,7 @@ third_party/     flex and CMSIS-DSP (submodules, for the bench only)
 | `make tables` | regenerates the CRC and math tables (`utils/src/fu_crc_tab.c`, `math/src/fm_tables.c`) |
 | `make accuracy` | flexmath, flexdsp and the CMSIS-DSP functions they replace against `double` or exact references; writes `docs/accuracy.md` (~3 min) |
 | `make golden` | runs the bench cases on the host and writes `bench/core/golden.c` |
-| `make bench [BENCH_OPT=-Os]` | builds the bench firmware: flexutils, flexmath's functions, its structures, and flexdsp (`BENCH_SET=utils\|math\|struct\|dsp` for one) |
+| `make bench [BENCH_OPT=-Os]` | builds the bench firmware: flexutils, flexmath's functions, its structures, and flexdsp in two (`BENCH_SET=utils\|math\|struct\|dsp\|dsp2` for one) |
 | `make bench-run` | flashes each image over ST-Link in turn, reads `/dev/ttyACM0`, writes `docs/results/f103.md` |
 | `make bench-windows` | lists the instructions each bench case actually times |
 | `make deps` | fetches flex and CMSIS-DSP for the bench, accuracy and examples (`make check` needs neither) |
