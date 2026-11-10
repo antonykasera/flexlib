@@ -180,6 +180,9 @@ static const BenchCase *find_case(const char *name) {
 }
 
 static void run_cold(uint32_t overhead, const char *const golden_str[]) {
+  if (bench_cold_groups_n == 0U) {
+    return;
+  }
   __disable_irq();
   uint32_t cold_overhead = bench_overhead(cyc, true);
   __enable_irq();
