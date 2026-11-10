@@ -22,7 +22,7 @@ typedef struct {
   fm_q31 *state;
   uint32_t nsec;
   uint32_t bshift;
-  uint32_t wide; /* a section's sum |c| >= 4: 96-bit sums */
+  uint32_t wide; /* a section's sum |c| >= 4: wider sums for it */
   uint32_t ef;
 } FD_BiquadQ31;
 
@@ -31,7 +31,7 @@ typedef struct {
   fm_q15 *state;
   uint32_t nsec;
   uint32_t bshift;
-  uint32_t wide; /* a section's sum |c| >= 4: 64-bit sums */
+  uint32_t wide; /* a section's sum |c| >= 4: wider sums for it */
 } FD_BiquadQ15;
 
 /* each section's output is its exact sum rounded once (0.5 LSB, saturated) */

@@ -27,6 +27,13 @@ static fm_q15 mb15b[30];
 static fm_q31 mb31[32];
 static FD_BiquadQ31 bq31, bqe31;
 static FD_BiquadQ15 bq15, bqw15;
+/* 48 kHz EQs: sum |c| 6-7 per section; the boost's high shelf needs bshift 1 */
+static fm_q31 eq31[2][5U * NS];
+static fm_q15 eq15[2][5U * NS];
+static fm_q31 sq31[3][FD_BIQUAD_STATE_LEN(NS)];
+static fm_q15 sq15[2][FD_BIQUAD_STATE_LEN(NS)];
+static FD_BiquadQ31 beq31[3];
+static FD_BiquadQ15 beq15[2];
 static FD_DcBlockQ15 dc15;
 static FD_DcBlockQ31 dc31;
 static FD_OnePoleQ15 op15;
@@ -62,6 +69,29 @@ static void setup(void) {
     x31[i] = (fm_q31)s >> 1;
     x15[i] = (fm_q15)((int32_t)s >> 17);
   }
+  static const float eq[2][NS][4] = {
+      {{FD_BQ_LOWSHELF, 100.0f, 0.7f, 6.0f},
+       {FD_BQ_PEAK, 1000.0f, 1.4f, -4.0f},
+       {FD_BQ_PEAK, 3000.0f, 2.0f, 5.0f},
+       {FD_BQ_HIGHSHELF, 8000.0f, 0.7f, 3.0f}},
+      {{FD_BQ_LOWSHELF, 100.0f, 0.7f, 9.0f},
+       {FD_BQ_PEAK, 1000.0f, 1.4f, -4.0f},
+       {FD_BQ_PEAK, 3000.0f, 2.0f, 5.0f},
+       {FD_BQ_HIGHSHELF, 8000.0f, 0.7f, 12.0f}}};
+  for (uint32_t e = 0U; e < 2U; e++) {
+    uint32_t s31, s15;
+    for (uint32_t k = 0U; k < NS; k++) {
+      (void)fd_biquad_design(&d[k], (FD_BiquadType)eq[e][k][0],
+                             eq[e][k][1] / 48000.0f, eq[e][k][2], eq[e][k][3]);
+    }
+    (void)fd_biquad_quantize_q31(d, NS, eq31[e], &s31);
+    (void)fd_biquad_quantize_q15(d, NS, eq15[e], &s15);
+    fd_biquad_init_q31(&beq31[e], eq31[e], NS, s31, sq31[e]);
+    fd_biquad_init_q15(&beq15[e], eq15[e], NS, s15, sq15[e]);
+    if (e == 0U) {
+      fd_biquad_init_ef_q31(&beq31[2], eq31[0], NS, s31, sq31[2]);
+    }
+  }
   fd_biquad_init_q31(&bq31, c31, NS, sh31, st31);
   fd_biquad_init_ef_q31(&bqe31, c31, NS, sh31, ste31);
   fd_biquad_init_q15(&bq15, c15, NS, sh15, st15);
@@ -86,6 +116,11 @@ static void prep(void) {
   fd_biquad_reset_q31(&bqe31);
   fd_biquad_reset_q15(&bq15);
   fd_biquad_reset_q15(&bqw15);
+  for (uint32_t e = 0U; e < 3U; e++) {
+    fd_biquad_reset_q31(&beq31[e]);
+  }
+  fd_biquad_reset_q15(&beq15[0]);
+  fd_biquad_reset_q15(&beq15[1]);
   memset(hist15, 0, sizeof hist15);
   fd_dcblock_init_q15(&dc15, 32604);
   fd_dcblock_init_q31(&dc31, 2136746229);
@@ -128,6 +163,11 @@ BLOCK(b_bq15_sm, biquad15_sample_major(X15, out.q15), BLK * 2U)
 BLOCK(b_bqw15, fd_biquad_q15(&bqw15, X15, out.q15, BLK), BLK * 2U)
 BLOCK(b_bq31, fd_biquad_q31(&bq31, X31, out.q31, BLK), BLK * 4U)
 BLOCK(b_bqe31, fd_biquad_q31(&bqe31, X31, out.q31, BLK), BLK * 4U)
+BLOCK(b_eq31, fd_biquad_q31(&beq31[0], X31, out.q31, BLK), BLK * 4U)
+BLOCK(b_eqs31, fd_biquad_q31(&beq31[1], X31, out.q31, BLK), BLK * 4U)
+BLOCK(b_eqe31, fd_biquad_q31(&beq31[2], X31, out.q31, BLK), BLK * 4U)
+BLOCK(b_eq15, fd_biquad_q15(&beq15[0], X15, out.q15, BLK), BLK * 2U)
+BLOCK(b_eqs15, fd_biquad_q15(&beq15[1], X15, out.q15, BLK), BLK * 2U)
 BLOCK(b_dc15, fd_dcblock_q15(&dc15, X15, out.q15, BLK), BLK * 2U)
 BLOCK(b_dc31, fd_dcblock_q31(&dc31, X31, out.q31, BLK), BLK * 4U)
 BLOCK(b_op15, fd_onepole_q15(&op15, X15, out.q15, BLK), BLK * 2U)
@@ -200,6 +240,11 @@ static const BenchCase cases[] = {
     {"fd_biquad_q15, sum of c >= 4 (64-bit)", "flexlib", b_bqw15, true},
     {"fd_biquad_q31, 4 sections x 64", "flexlib", b_bq31, true},
     {"fd_biquad_q31 error feedback, 4 x 64", "flexlib", b_bqe31, true},
+    {"fd_biquad_q15, 48 kHz EQ, 4 x 64", "flexlib", b_eq15, true},
+    {"fd_biquad_q15, 48 kHz EQ, bshift 1, 4 x 64", "flexlib", b_eqs15, true},
+    {"fd_biquad_q31, 48 kHz EQ, 4 x 64", "flexlib", b_eq31, true},
+    {"fd_biquad_q31, 48 kHz EQ, bshift 1, 4 x 64", "flexlib", b_eqs31, true},
+    {"fd_biquad_q31 error feedback, 48 kHz EQ, 4 x 64", "flexlib", b_eqe31, true},
     {"fd_dcblock_q15, 64", "flexlib", b_dc15, true},
     {"fd_dcblock_q31, 64", "flexlib", b_dc31, true},
     {"fd_onepole_q15, 64", "flexlib", b_op15, true},

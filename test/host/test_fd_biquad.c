@@ -205,6 +205,113 @@ void test_fd_biquad_gain4(void) {
   }
 }
 
+/* sum |b'| < 4 and sum |a| < 4 but sum |c| >= 4: b' x and a y apart, then added
+ * with overflow checks; and sum |a| = 4, which must not take that path */
+void test_fd_biquad_split(void) {
+  static const fm_q31 dn[5] = {INT32_MAX, INT32_MAX, 0, INT32_MAX, 0};
+  static const fm_q31 up[5] = {-INT32_MAX, -INT32_MAX, 0, INT32_MAX, 0};
+  fm_q31 st[FD_BIQUAD_STATE_LEN(1U)], x[3] = {INT32_MIN, INT32_MIN, INT32_MIN},
+                                     y[3];
+  FD_BiquadQ31 b;
+  for (uint32_t sh = 0U; sh <= 3U; sh += 3U) { /* p + q past 2^63, both signs */
+    fd_biquad_init_q31(&b, dn, 1U, sh, st);
+    ASSERT_EQ(b.wide, 1U);
+    fd_biquad_q31(&b, x, y, 3U);
+    ASSERT_EQ(y[1], INT32_MIN);
+    ASSERT_EQ(y[2], INT32_MIN);
+    fd_biquad_init_ef_q31(&b, up, 1U, sh, st);
+    fd_biquad_q31(&b, x, y, 3U);
+    ASSERT_EQ(y[1], INT32_MAX);
+    ASSERT_EQ(y[2], INT32_MAX);
+    ASSERT_EQ(st[FD_BIQUAD_STATE_LEN(1U) - 1U], 0); /* no residue after it */
+  }
+  /* q = a y = 2^63 exactly: sum |a| = 4 takes the 96-bit path */
+  static const fm_q31 a4[5] = {1 << 30, 0, 0, INT32_MIN, INT32_MIN};
+  fd_biquad_init_q31(&b, a4, 1U, 0U, st);
+  st[2] = st[3] = INT32_MIN;
+  x[0] = 0;
+  fd_biquad_q31(&b, x, y, 1U);
+  ASSERT_EQ(y[0], INT32_MAX);
+
+  static const fm_q15 dn15[5] = {32767, 32767, 0, 32767, 0};
+  static const fm_q15 up15[5] = {-32767, -32767, 0, 32767, 0};
+  static const fm_q15 a415[5] = {1 << 14, 0, 0, -32768, -32768};
+  fm_q15 s15[FD_BIQUAD_STATE_LEN(1U)], x15[3] = {-32768, -32768, -32768},
+                                      y15[3];
+  FD_BiquadQ15 b15;
+  for (uint32_t sh = 0U; sh <= 3U; sh += 3U) {
+    fd_biquad_init_q15(&b15, dn15, 1U, sh, s15);
+    ASSERT_EQ(b15.wide, 1U);
+    fd_biquad_q15(&b15, x15, y15, 3U);
+    ASSERT_EQ(y15[1], -32768);
+    ASSERT_EQ(y15[2], -32768);
+    fd_biquad_init_q15(&b15, up15, 1U, sh, s15);
+    fd_biquad_q15(&b15, x15, y15, 3U);
+    ASSERT_EQ(y15[1], 32767);
+    ASSERT_EQ(y15[2], 32767);
+  }
+  fd_biquad_init_q15(&b15, a415, 1U, 0U, s15);
+  s15[2] = s15[3] = -32768;
+  x15[0] = 0;
+  fd_biquad_q15(&b15, x15, y15, 1U);
+  ASSERT_EQ(y15[0], 32767);
+
+  /* ef with bshift 1: the residue's low bit comes from q, and the next sum
+   * lands exactly on 3 x 2^30 only with it */
+  static const fm_q31 lsb[5] = {1, INT32_MAX, 0, INT32_MAX, 0};
+  int32_t h4[4] = {0, 0, 1, 0}, re1[1] = {0}, x2[2] = {0, 1}, r2[2];
+  ref_cascade(lsb, 1U, 1U, 30U, 1, INT32_MIN, INT32_MAX, h4, re1, x2, r2, 2U);
+  fd_biquad_init_ef_q31(&b, lsb, 1U, 1U, st);
+  st[2] = 1;
+  fd_biquad_q31(&b, x2, y, 2U);
+  ASSERT_EQ(r2[1], 3);
+  ASSERT_EQ(y[0], r2[0]);
+  ASSERT_EQ(y[1], r2[1]);
+
+  /* the largest shifts on either side of split / wide, against the reference */
+  static int32_t c[5], xr[NX], r[NX], hist[4], res[1];
+  static fm_q31 yq[NX], sq[FD_BIQUAD_STATE_LEN(1U)];
+  static fm_q15 c15[5], xq15[NX], yq15[NX];
+  for (uint32_t f = 14U; f <= 30U; f += 16U) {
+    for (uint32_t sh = f - 2U; sh <= f + 1U; sh++) {
+      for (int ef = 0; ef < (f == 30U ? 2 : 1); ef++) {
+        for (int i = 0; i < 5; i++) {
+          uint32_t u = test_rng_u32(&rng);
+          int32_t v = f == 30U ? (int32_t)u : (int32_t)(int16_t)(u >> 16);
+          c[i] = i < 3 ? v >> (sh - 2U) : v; /* b 2^s around 4: wide or split */
+        }
+        signal(xr, NX, f, 1);
+        memset(hist, 0, sizeof hist);
+        memset(res, 0, sizeof res);
+        ref_cascade(c, 1U, sh, f, ef, f == 30U ? INT32_MIN : -32768,
+                    f == 30U ? INT32_MAX : 32767, hist, res, xr, r, NX);
+        if (f == 30U) {
+          FD_BiquadQ31 q;
+          if (ef) {
+            fd_biquad_init_ef_q31(&q, c, 1U, sh, sq);
+          } else {
+            fd_biquad_init_q31(&q, c, 1U, sh, sq);
+          }
+          fd_biquad_q31(&q, xr, yq, NX);
+          ASSERT_TRUE(memcmp(yq, r, sizeof yq) == 0);
+        } else {
+          for (int i = 0; i < 5; i++) {
+            c15[i] = (fm_q15)c[i];
+          }
+          for (uint32_t i = 0U; i < NX; i++) {
+            xq15[i] = (fm_q15)xr[i];
+          }
+          fd_biquad_init_q15(&b15, c15, 1U, sh, s15);
+          fd_biquad_q15(&b15, xq15, yq15, NX);
+          for (uint32_t i = 0U; i < NX; i++) {
+            ASSERT_EQ(yq15[i], r[i]);
+          }
+        }
+      }
+    }
+  }
+}
+
 /* RBJ in double, the textbook way */
 static void ref_rbj(double c[5], FD_BiquadType t, double f0, double q,
                     double g) {

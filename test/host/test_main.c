@@ -53,6 +53,7 @@ void test_fd_fir_design(void);
 void test_fd_biquad_q31(void);
 void test_fd_biquad_q15(void);
 void test_fd_biquad_gain4(void);
+void test_fd_biquad_split(void);
 void test_fd_biquad_design(void);
 void test_fd_biquad_ef(void);
 void test_fd_filt(void);
@@ -202,6 +203,7 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_biquad_q31);
   TEST_RUN(test_fd_biquad_q15);
   TEST_RUN(test_fd_biquad_gain4);
+  TEST_RUN(test_fd_biquad_split);
   TEST_RUN(test_fd_biquad_design);
   TEST_RUN(test_fd_biquad_ef);
   TEST_RUN(test_fd_filt);

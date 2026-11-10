@@ -248,9 +248,24 @@ fd_fir_design       calls-ok
 fd_fir_quantize_q15 calls-ok
 fd_fir_quantize_q31 calls-ok
 
-# fd_biquad, fd_filt: kernels inline, no calls; design and q31 movavg's divide call libgcc
-fd_biquad_q31       no-calls  smlal !udiv
-fd_biquad_q15       no-calls  mla ssat !udiv
+# fd_biquad, fd_filt: kernels inline, no calls; design and q31 movavg's divide call libgcc.
+# The drivers inline the narrow kernels and call one kernel per section otherwise.
+fd_biquad_q31       smlal !udiv
+fd_biquad_q15       !udiv
+bq15_mixed          !udiv
+bq31_n              no-calls  smull smlal !udiv
+bq31_nsh            no-calls  smlal !udiv
+bq31_nef            no-calls  smlal !udiv
+bq31_s              no-calls  smull smlal !udiv
+bq31_sef            no-calls  smlal !udiv
+bq31_ssh            no-calls  smlal !udiv
+bq31_sshef          no-calls  smlal !udiv
+bq31_w              no-calls  smull !udiv
+bq31_wef            no-calls  smull !udiv
+bq15_n              no-calls  mla ssat !udiv
+bq15_s              no-calls  mla ssat !udiv
+bq15_ssh            no-calls  mla ssat !udiv
+bq15_w              no-calls  !udiv
 fd_dcblock_q15      no-calls  ssat
 fd_dcblock_q31      no-calls  smlal
 fd_onepole_q15      no-calls

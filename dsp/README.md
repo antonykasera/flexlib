@@ -99,14 +99,26 @@ on the `b` alone, so the feedback coefficients keep full precision.
 
 | function | cycles | CMSIS-DSP | error, fc 0.01 | CMSIS-DSP error |
 |---|--:|--:|--:|--:|
-| `fd_biquad_q15` | 6555 | 13291 (`fast` 8778) | 96 LSB | 355 LSB |
-| `fd_biquad_q31` | 14145 | 11883 (`fast` 16631) | 80 LSB | 349 LSB |
-| `fd_biquad_q31` with error feedback | 18277 | `32x64` 25739 | 5 LSB | `32x64` 1.7 LSB |
+| `fd_biquad_q15` | 6120 | 13291 (`fast` 8778) | 96 LSB | 355 LSB |
+| `fd_biquad_q31` | 14200 | 11883 (`fast` 16631) | 80 LSB | 349 LSB |
+| `fd_biquad_q31` with error feedback | 18052 | `32x64` 25739 | 5 LSB | `32x64` 1.7 LSB |
 
 Errors are the recursion's, against the same coefficients in double, over
 10^6 samples of noise ([docs/accuracy.md](../docs/accuracy.md)). At fc 5e-4
 plain q31 reaches 8170 LSB and error feedback 115 (CMSIS: 110000; `32x64`:
 1.6).
+
+Shelves and peaks, most of an audio EQ, have |b0| + |b1| + |b2| + |a1| + |a2|
+of 4 or more. For those sections the b and a parts are summed apart, each
+exact in 64 bits (q31) or 32 bits (q15), and added with an overflow check;
+only sections whose stored b or a alone reach 4 (strong shelf boosts,
+hand-made coefficients) take 96 / 64-bit sums. A four-section 48 kHz EQ (low
+shelf, two peaks, high shelf):
+
+| EQ, 4 sections x 64 | q15 | q31 | q31 with error feedback |
+|---|--:|--:|--:|
+| `bshift` 0 | 8070 | 16815 | 17831 |
+| `bshift` 1 (a +12 dB high shelf) | 9908 | 22818 | |
 
 `fd_biquad_design` returns RBJ sections (lowpass, highpass, bandpass, notch,
 peak, low and high shelf, allpass) with the poles as deviations from z = 1,
