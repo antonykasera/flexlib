@@ -1,9 +1,6 @@
 /**
  * @file fm_sum.h
- * @brief Exact sums of products, shared by flexmath and flexdsp
- *
- * Internal to flexlib: the names are stable, the behaviour may change with
- * any release. Not part of the documented API.
+ * @brief Exact sums of products for flexmath and flexdsp (internal, not API)
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT
@@ -15,8 +12,7 @@
 #include "fx_arch.h"
 #include <stdint.h>
 
-/* q31 sums of products: s is the sum mod 2^64, h about the sum / 2^34.
- * Exact for up to 7 products (each adds up to 2^28 to h). */
+/* q31 sums of products, exact up to 7 terms: s = sum mod 2^64, h ~ sum/2^34 */
 typedef struct {
   uint64_t s;
   int32_t h;
@@ -98,10 +94,7 @@ FX_INLINE int64_t fm_asr64(int64_t p, uint32_t sh) {
   return p >> sh;
 }
 
-/* sum of n products, aligned to the largest exponent: s 2^(emax - 313).
- * Mantissas from fm_unp_f32 with shifts sa, sb: needs n 2^(48 + sa + sb) <=
- * 2^63. Each term is truncated at the alignment, so the sum is within 2^-32
- * sum|p| of exact. */
+/* s 2^(emax - 313), within 2^-32 sum|p|; needs n 2^(48 + sa + sb) <= 2^63 */
 FX_INLINE int64_t fm_sum_f32_s(const int32_t *ma, const int32_t *ea,
                                const int32_t *mb, const int32_t *eb,
                                uint32_t bs, uint32_t n, int32_t *emax) {

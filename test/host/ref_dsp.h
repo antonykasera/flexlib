@@ -19,9 +19,7 @@ static inline double ref_q31(int32_t x) { return (double)x / 2147483648.0; }
 void ref_fir(const double *h, unsigned ntaps, const double *x, unsigned n,
              double *y);
 
-/* Cascade of DF1 sections from zero state, coefficients b0 b1 b2 a1 a2 per
- * section in the CMSIS-DSP sign convention:
- * y = b0 x + b1 x[-1] + b2 x[-2] + a1 y[-1] + a2 y[-2] */
+/* DF1 sections b0 b1 b2 a1 a2, CMSIS signs: y = b.x + a1 y[-1] + a2 y[-2] */
 void ref_biquad(const double *coef, unsigned nsec, const double *x, unsigned n,
                 double *y);
 
@@ -29,8 +27,7 @@ void ref_biquad(const double *coef, unsigned nsec, const double *x, unsigned n,
 void ref_conv(const double *a, unsigned na, const double *b, unsigned nb,
               double *y);
 
-/* Cross-correlation r[m] = sum_i a[i + lag] b[i], lag = m - (nb - 1),
- * m = 0 .. na + nb - 2 */
+/* r[m] = sum_i a[i + m - nb + 1] b[i], m = 0 .. na + nb - 2 */
 void ref_corr(const double *a, unsigned na, const double *b, unsigned nb,
               double *r);
 
@@ -38,17 +35,14 @@ void ref_corr(const double *a, unsigned na, const double *b, unsigned nb,
 void ref_dft(const double *re, const double *im, unsigned n, double *ore,
              double *oim, int inverse);
 
-/* One DFT term at any frequency (cycles per sample): sum_j x[j] e^(-2 pi i f j)
- */
+/* one DFT term at f cycles per sample */
 void ref_dft_bin(const double *x, unsigned n, double f, double *re, double *im);
 
-/* Cosine-sum window w[k] = sum_j (-1)^j a[j] cos(2 pi j k / d), d = n - 1
- * (symmetric) or n (periodic): Hann {0.5, 0.5}, Hamming {0.54, 0.46}, ... */
+/* sum_j (-1)^j a[j] cos(2 pi j k / d), d = n - 1 (symmetric) or n */
 void ref_window_cosine(const double *a, unsigned terms, unsigned n,
                        int symmetric, double *w);
 
-/* Upsample by l (zero stuffing), FIR h, keep every m-th output; y holds
- * (n * l + m - 1) / m samples */
+/* zero-stuff by l, FIR h, keep every m-th: (n l + m - 1) / m outputs */
 void ref_resample(const double *h, unsigned ntaps, unsigned l, unsigned m,
                   const double *x, unsigned n, double *y);
 

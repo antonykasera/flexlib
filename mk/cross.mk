@@ -19,8 +19,7 @@ $(eval $(call CROSS_RULE,m7,$(M7_FLAGS)))
 
 cross: $(CROSS_OBJS)
 
-# disassembly check of the -O2 M3 objects (test/asm/audit.txt), and of the
-# M4 objects for the DSP-extension paths (test/asm/audit_m4.txt)
+# disassembly checks: M3 objects (audit.txt), M4 DSP-extension paths (audit_m4.txt)
 asm-audit: $(M3_OBJS) $(M4_OBJS)
 	$(PYTHON) tools/asm_audit.py --objdump $(ARM_OBJDUMP) --spec test/asm/audit.txt \
 		$(M3_OBJS)

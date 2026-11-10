@@ -13,7 +13,7 @@ BENCH_CASES_math   = $(addprefix bench/cases/,cases_fixed.c cases_sqrt.c \
                        cases_float.c cases_libm.c)
 BENCH_CASES_struct = $(addprefix bench/cases/,cases_linalg.c cases_quat.c \
                        cases_pid.c)
-BENCH_CASES_dsp    = $(addprefix bench/cases/,cases_pairs.c)
+BENCH_CASES_dsp    = $(addprefix bench/cases/,cases_pairs.c cases_fd_vec.c)
 # everything that also builds on the host (golden, lint)
 BENCH_PORTABLE = bench/core/bench_core.c $(BENCH_CASES_utils) \
                  $(BENCH_CASES_math) $(BENCH_CASES_struct) $(BENCH_CASES_dsp)
@@ -85,7 +85,22 @@ CMSIS_SRCS_math   = FastMathFunctions/arm_sin_q15.c \
                     BasicMathFunctions/arm_abs_q31.c \
                     CommonTables/arm_common_tables.c
 CMSIS_SRCS_struct = $(CMSIS_SRCS_math)
-CMSIS_SRCS_dsp    =
+CMSIS_SRCS_dsp    = $(addprefix BasicMathFunctions/,arm_add_q15.c arm_add_q31.c \
+                      arm_mult_q15.c arm_mult_q31.c arm_scale_q15.c \
+                      arm_scale_q31.c arm_shift_q15.c arm_offset_q15.c \
+                      arm_negate_q15.c arm_abs_q15.c arm_clip_q15.c \
+                      arm_dot_prod_q15.c arm_dot_prod_q31.c) \
+                    $(addprefix SupportFunctions/,arm_fill_q15.c arm_copy_q15.c \
+                      arm_q31_to_q15.c arm_q15_to_float.c arm_float_to_q15.c) \
+                    $(addprefix StatisticsFunctions/,arm_mean_q15.c \
+                      arm_power_q15.c arm_power_q31.c arm_rms_q15.c \
+                      arm_rms_q31.c arm_var_q15.c arm_std_q15.c arm_max_q15.c \
+                      arm_absmax_q15.c) \
+                    $(addprefix ComplexMathFunctions/,arm_cmplx_mult_cmplx_q15.c \
+                      arm_cmplx_mult_cmplx_q31.c arm_cmplx_mag_q15.c \
+                      arm_cmplx_mag_q31.c arm_cmplx_mag_squared_q15.c) \
+                    FastMathFunctions/arm_sqrt_q15.c FastMathFunctions/arm_sqrt_q31.c \
+                    CommonTables/arm_common_tables.c
 
 BENCH_BASE_CFLAGS = $(M3_FLAGS) $(STD) $(BENCH_OPT) -g3 \
                     -ffunction-sections -fdata-sections $(BENCH_DEFS) \

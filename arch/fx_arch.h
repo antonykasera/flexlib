@@ -25,8 +25,7 @@
 #define FX_HAVE_DSP 0
 #endif
 
-/* Kernels take their packed-pair path here; FX_EMULATE_DSP runs it on the
- * C fallbacks below */
+/* the packed-pair paths; FX_EMULATE_DSP runs them on the C versions */
 #if FX_HAVE_DSP || defined(FX_EMULATE_DSP)
 #define FX_DSP_PATH 1
 #else
@@ -193,10 +192,7 @@ FX_INLINE uint32_t fx_umull_hi(uint32_t a, uint32_t b) {
   return (uint32_t)(fx_umull(a, b) >> 32);
 }
 
-/* ---- packed halfword pairs (SIMD32 on M4/M7) ----
- * A pair is an int32_t: bits 0-15 the low element, 16-31 the high one, as a
- * word load of two int16_t gives on little-endian. The C versions define the
- * results; the instructions match them. */
+/* ---- int16 pairs, low element in bits 0-15 (SIMD32 on M4/M7) ---- */
 
 FX_INLINE int32_t fx_lo16(int32_t x) { return (int16_t)x; }
 FX_INLINE int32_t fx_hi16(int32_t x) { return x >> 16; }
@@ -325,8 +321,7 @@ FX_INLINE int32_t fx_smmulr(int32_t a, int32_t b) {
 #endif
 }
 
-/* SMULWB / SMLAWB: (a * b.lo) >> 16 rounded down, the latter plus acc
- * (wrapping) */
+/* SMULWB: (a * b.lo) >> 16 rounded down; SMLAWB adds acc, wrapping */
 FX_INLINE int32_t fx_smulwb(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   int32_t r;

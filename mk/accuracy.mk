@@ -1,4 +1,4 @@
-# flexmath and the CMSIS-DSP functions it replaces, against a double reference
+# flexmath, flexdsp and the CMSIS-DSP functions they replace, against references
 
 FLEX_DIR      ?= third_party/flex
 CMSIS_DSP_DIR ?= third_party/cmsis-dsp
@@ -28,6 +28,15 @@ ACC_CMSIS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
               QuaternionMathFunctions/arm_quaternion_normalize_f32.c \
               BasicMathFunctions/arm_abs_q15.c \
               BasicMathFunctions/arm_abs_q31.c \
+              BasicMathFunctions/arm_scale_q15.c \
+              BasicMathFunctions/arm_dot_prod_q31.c \
+              SupportFunctions/arm_q31_to_q15.c \
+              StatisticsFunctions/arm_power_q31.c \
+              StatisticsFunctions/arm_rms_q15.c \
+              StatisticsFunctions/arm_var_q15.c \
+              StatisticsFunctions/arm_std_q15.c \
+              ComplexMathFunctions/arm_cmplx_mag_q15.c \
+              ComplexMathFunctions/arm_cmplx_mult_cmplx_q15.c \
               CommonTables/arm_common_tables.c)
 ACC_CMSIS_INC = -isystem $(CMSIS_DSP_DIR)/Include \
                 -isystem $(CMSIS_DSP_DIR)/PrivateInclude -isystem $(FLEX_DIR)/cmsis/inc

@@ -22,8 +22,7 @@ bool bench_scratch_claim(const void *id) {
   return changed;
 }
 
-/* The firmware is one image per set (BENCH_SET_utils, _math, _struct, _dsp);
- * with no set (golden, lint) every group is built. */
+/* one image per BENCH_SET_x; no set (golden, lint) builds every group */
 #if !defined(BENCH_SET_utils) && !defined(BENCH_SET_math) &&                   \
     !defined(BENCH_SET_struct) && !defined(BENCH_SET_dsp)
 #define BENCH_SET_ALL 1
@@ -62,6 +61,7 @@ extern const BenchGroup bench_group_linalg;
 extern const BenchGroup bench_group_quat;
 extern const BenchGroup bench_group_pid;
 extern const BenchGroup bench_group_pairs;
+extern const BenchGroup bench_group_fd_vec;
 extern const BenchGroup bench_group_cmsis;
 
 const BenchGroup *const bench_groups[] = {
@@ -93,6 +93,7 @@ const BenchGroup *const bench_groups[] = {
 #endif
 #ifdef BENCH_DSP
     &bench_group_pairs,
+    &bench_group_fd_vec,
 #endif
 #if defined(BENCH_HAVE_CMSIS_DSP) && defined(BENCH_MATH)
     &bench_group_cmsis,

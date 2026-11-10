@@ -1,5 +1,4 @@
-# asm-audit spec for the -O2 Cortex-M4 objects: the DSP-extension paths.
-# Same format as audit.txt.
+# asm-audit spec for the -O2 Cortex-M4 objects (format: audit.txt)
 
 # fx_arch.h packed pairs: each wrapper is its instruction plus `bx lr`
 probe_pkhbt     max=2  pkhbt

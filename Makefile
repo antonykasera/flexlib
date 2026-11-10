@@ -40,7 +40,7 @@ help:
 	@echo "make [check]         host-test, cross, lint, asm-audit"
 	@echo "make host-test       host tests, ASan + UBSan (HOST_CC=clang for the other compiler)"
 	@echo "make exhaustive      every 32-bit input (exhaustive-slow: the text checks, ~13 min)"
-	@echo "make accuracy        flexmath and CMSIS-DSP against double -> docs/accuracy.md"
+	@echo "make accuracy        flexmath, flexdsp and CMSIS-DSP errors -> docs/accuracy.md"
 	@echo "make cross           -Werror builds for Cortex-M3, M4, M7"
 	@echo "make lint            -Wpedantic everywhere, each header on its own"
 	@echo "make asm-audit       the M3 / M4 disassembly against test/asm/audit*.txt"

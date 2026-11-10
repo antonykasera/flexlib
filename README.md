@@ -100,6 +100,7 @@ Each library has a folder, a fragment, a prefix and its own version tags
 | `fm_linalg` | q31 against exact 128-bit sums, float against long double sums, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_quat` | long double references, drift over 10^5 steps, inf / NaN, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_pid` | Q16.16 against 128-bit arithmetic, float against long double sums, inf / NaN, asm-audit | bench + golden check |
+| `fd_vec` | q15 add / sub / mul, complex magnitude and multiply, q31 to q15 on all 2^32 inputs; statistics against exact 128-bit sums; loop tails, in place, overruns; vs CMSIS-DSP, asm-audit | bench + golden check |
 
 ## Layout
 
@@ -134,7 +135,7 @@ third_party/     flex and CMSIS-DSP (submodules, for the bench only)
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |
 | `make asm-audit` | checks the M3 disassembly for the expected instructions and for no soft-float or libgcc calls, and the M4 disassembly of the DSP-extension paths |
 | `make tables` | regenerates the CRC and math tables (`utils/src/fu_crc_tab.c`, `math/src/fm_tables.c`) |
-| `make accuracy` | flexmath and the CMSIS-DSP functions it replaces against a `double` reference; writes `docs/accuracy.md` (~1 min) |
+| `make accuracy` | flexmath, flexdsp and the CMSIS-DSP functions they replace against `double` or exact references; writes `docs/accuracy.md` (~3 min) |
 | `make golden` | runs the bench cases on the host and writes `bench/core/golden.c` |
 | `make bench [BENCH_OPT=-Os]` | builds the bench firmware: flexutils, flexmath's functions, its structures, and flexdsp (`BENCH_SET=utils\|math\|struct\|dsp` for one) |
 | `make bench-run` | flashes each image over ST-Link in turn, reads `/dev/ttyACM0`, writes `docs/results/f103.md` |
@@ -151,7 +152,7 @@ warm and cold, and checks each case's output against the host.
 ## Results
 
 [docs/results/f103.md](docs/results/f103.md): every bench case with its
-baselines. [docs/accuracy.md](docs/accuracy.md): flexmath's errors next to
+baselines. [docs/accuracy.md](docs/accuracy.md): flexmath's and flexdsp's errors next to
 CMSIS-DSP's.
 
 ## License

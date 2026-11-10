@@ -3,7 +3,7 @@
 HOST_BUILD  = $(BUILD)/host-$(HOST_CC)
 HOST_CFLAGS = $(STD) $(WARN) $(WERROR) -O2 -g \
               -fsanitize=address,undefined -fno-sanitize-recover=undefined \
-              -fno-omit-frame-pointer $(LIB_INC) -Itest/host
+              -fno-omit-frame-pointer $(LIB_INC) $(LIB_PRIV) -Itest/host
 TEST_SRCS   = $(wildcard test/host/*.c) $(LIB_SRCS)
 
 host-test:

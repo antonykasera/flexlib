@@ -168,3 +168,67 @@ fm_quat_integrate     smull
 # fm_pid: exact integer sums, no soft-float, no calls
 fm_pid_q16            no-calls  smull !udiv
 fm_pid_f32            no-calls  smull clz !udiv
+
+# fd_vec element-wise: no calls (memcpy / memset / libgcc) in the loops
+fd_add_q15        no-calls  ldrsh ssat
+fd_sub_q15        no-calls  ldrsh ssat
+fd_mul_q15        no-calls  mul ssat
+fd_add_q31        no-calls
+fd_sub_q31        no-calls
+fd_mul_q31        no-calls  smlal
+fd_scale_q15      no-calls  mla ssat
+fd_scale_q31      no-calls  smlal
+fd_shift_q15      no-calls
+fd_shift_q31      no-calls
+fd_offset_q15     no-calls  ssat
+fd_negate_q15     no-calls  ssat
+fd_abs_q15        no-calls  ssat
+fd_abs_q31        no-calls
+fd_clip_q15       no-calls
+fd_clip_q31       no-calls
+fd_fill_q15       no-calls
+fd_fill_q31       no-calls
+fd_copy_q15       no-calls
+fd_copy_q31       no-calls
+fd_q15_to_q31     no-calls
+fd_q31_to_q15     no-calls  ssat
+fd_q7_to_q15      no-calls
+fd_q15_to_q7      no-calls  ssat
+# float conversions and dB call the fm_ cores, never soft-float
+fd_q15_to_f32     !udiv
+fd_f32_to_q15     !udiv
+fd_q31_to_f32     !udiv
+fd_f32_to_q31     !udiv
+fd_db_q15         !udiv
+fd_db_q31         !udiv
+
+# fd_vec statistics: exact sums with no divides; one libgcc divide per call
+fd_sum_q15        no-calls  !udiv
+fd_sum_q31        no-calls
+fd_dot_q15        no-calls  smlal
+fd_dot_q31        no-calls  smlal
+fd_power_q15      no-calls
+fd_power_q31      !udiv
+power96_q31       no-calls  smlal
+fd_mean_q15       calls-ok
+fd_mean_q31       calls-ok
+fd_min_q15        no-calls
+fd_max_q31        no-calls
+fd_absmax_q15     no-calls
+fd_absmax_q31     no-calls
+fd_minmax_q15     no-calls
+fd_minmax_q31     no-calls
+
+# fd_vec complex
+fd_cmul_q15       no-calls  mul ssat
+fd_cmul_q31       no-calls  smull
+fd_cmul_real_q15  no-calls  mul ssat
+fd_conj_q15       no-calls  ssat
+fd_cmag_q15       !udiv
+fd_cmag_q31       !udiv
+fd_cmag2_q15      no-calls  mul
+fd_cmag2_q31      no-calls  smull
+fd_cdot_q15       no-calls  mul
+fd_cdot_q31       no-calls  smlal
+fd_interleave_q15 no-calls
+fd_deinterleave_q31 no-calls

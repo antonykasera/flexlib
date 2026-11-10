@@ -1,7 +1,6 @@
 /**
  * @file cases_pairs.c
- * @brief Bench cases for the fx_arch.h packed-pair wrappers (their C path on
- * the M3)
+ * @brief Bench cases for the fx_arch.h packed pairs (C path on the M3)
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: MIT

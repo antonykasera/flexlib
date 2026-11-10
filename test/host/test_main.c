@@ -31,6 +31,16 @@ void test_ref_biquad(void);
 void test_ref_dft(void);
 void test_ref_window_resample(void);
 
+/* --- fd_vec (test_fd_vec.c) --- */
+void test_fd_vec_binary(void);
+void test_fd_vec_unary(void);
+void test_fd_vec_convert(void);
+void test_fd_vec_db(void);
+void test_fd_vec_stats(void);
+void test_fd_vec_complex(void);
+void test_fd_vec_wide(void);
+void test_fd_vec_cdot_long(void);
+
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
 void test_fx_rbit_rev(void);
@@ -145,6 +155,14 @@ int main(int argc, char **argv) {
   TEST_RUN(test_ref_biquad);
   TEST_RUN(test_ref_dft);
   TEST_RUN(test_ref_window_resample);
+  TEST_RUN(test_fd_vec_binary);
+  TEST_RUN(test_fd_vec_unary);
+  TEST_RUN(test_fd_vec_convert);
+  TEST_RUN(test_fd_vec_db);
+  TEST_RUN(test_fd_vec_stats);
+  TEST_RUN(test_fd_vec_complex);
+  TEST_RUN(test_fd_vec_wide);
+  TEST_RUN(test_fd_vec_cdot_long);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

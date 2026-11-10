@@ -7,6 +7,7 @@
  */
 
 #include "arm_math.h"
+#include "fd_vec.h"
 #include "fm_atan.h"
 #include "fm_div.h"
 #include "fm_exp.h"
@@ -242,9 +243,9 @@ static void atan2_q15(void) {
       arm_atan2_q15((q15_t)y, (q15_t)x, &out);
       double ref = atan2(y, x);
       stats_add(&f, y, ang_err(fm_atan2_q15((fm_q15)y, (fm_q15)x), ref, 65536));
-      stats_add(&c, y,
-                ang_err(out / 8192.0 * (65536 / 6.283185307179586), ref,
-                        65536));
+      stats_add(
+          &c, y,
+          ang_err(out / 8192.0 * (65536 / 6.283185307179586), ref, 65536));
     }
   }
   row(&f, "flexmath", "every 3rd y, 5th x");
@@ -456,8 +457,8 @@ static void quat_rows(void) {
         la[0] * lb[1] + la[1] * lb[0] + la[2] * lb[3] - la[3] * lb[2],
         la[0] * lb[2] - la[1] * lb[3] + la[2] * lb[0] + la[3] * lb[1],
         la[0] * lb[3] + la[1] * lb[2] - la[2] * lb[1] + la[3] * lb[0]};
-    long double nn = sqrtl(la[0] * la[0] + la[1] * la[1] + la[2] * la[2] +
-                           la[3] * la[3]);
+    long double nn =
+        sqrtl(la[0] * la[0] + la[1] * la[1] + la[2] * la[2] + la[3] * la[3]);
     FM_Quat qa, qb, qr, qn;
     memcpy(&qa, a, sizeof qa);
     memcpy(&qb, b, sizeof qb);
@@ -481,16 +482,192 @@ static void quat_rows(void) {
   }
 }
 
+/* ---- flexdsp: blocks of 64 ---- */
+
+__extension__ typedef __int128 i128;
+#define BLK 64U
+#define NBLK 100000
+
+static void fill_q15(uint64_t *st, q15_t *v, unsigned n) {
+  for (unsigned i = 0U; i < n; i++) {
+    v[i] = (q15_t)(test_rng_u32(st) >> 16);
+  }
+}
+
+static void fill_q31(uint64_t *st, q31_t *v, unsigned n) {
+  for (unsigned i = 0U; i < n; i++) {
+    v[i] = (q31_t)test_rng_u32(st);
+  }
+}
+
+static double clampd(double v, double lo, double hi) {
+  return v < lo ? lo : (v > hi ? hi : v);
+}
+
+static void fd_scale_rows(void) {
+  ErrStats f, c;
+  stats_init(&f, "scale q15", "lsb");
+  stats_init(&c, "scale q15", "lsb");
+  uint64_t st = 21U;
+  q15_t x[BLK], yf[BLK], yc[BLK];
+  for (int b = 0; b < NBLK; b++) {
+    fill_q15(&st, x, BLK);
+    q15_t k = (q15_t)(test_rng_u32(&st) >> 16);
+    fd_scale_q15(x, k, 0, yf, BLK);
+    arm_scale_q15(x, k, 0, yc, BLK);
+    for (unsigned i = 0U; i < BLK; i++) {
+      double ref = clampd((double)x[i] * k / 32768.0, -32768.0, 32767.0);
+      stats_add(&f, x[i], yf[i] - ref);
+      stats_add(&c, x[i], yc[i] - ref);
+    }
+  }
+  row(&f, "flexdsp", "10^5 blocks of 64, random k");
+  row(&c, "CMSIS-DSP", "10^5 blocks of 64, random k");
+}
+
+static void fd_q31_to_q15_rows(void) {
+  ErrStats f, c;
+  stats_init(&f, "q31 to q15", "lsb");
+  stats_init(&c, "q31 to q15", "lsb");
+  uint64_t st = 22U;
+  q31_t x[BLK];
+  q15_t yf[BLK], yc[BLK];
+  for (int b = 0; b < NBLK; b++) {
+    fill_q31(&st, x, BLK);
+    fd_q31_to_q15(x, yf, BLK);
+    arm_q31_to_q15(x, yc, BLK);
+    for (unsigned i = 0U; i < BLK; i++) {
+      double ref = clampd(x[i] / 65536.0, -32768.0, 32767.0);
+      stats_add(&f, x[i], yf[i] - ref);
+      stats_add(&c, x[i], yc[i] - ref);
+    }
+  }
+  row(&f, "flexdsp", "10^5 blocks of 64");
+  row(&c, "CMSIS-DSP", "10^5 blocks of 64");
+}
+
+static void fd_dot_rows(void) {
+  ErrStats f, c, pf, pc;
+  stats_init(&f, "dot q31, Q16.48 out", "lsb");
+  stats_init(&c, "dot q31, Q16.48 out", "lsb");
+  stats_init(&pf, "power q31, Q16.48 out", "lsb");
+  stats_init(&pc, "power q31, Q16.48 out", "lsb");
+  uint64_t st = 23U;
+  q31_t a[BLK], bb[BLK];
+  for (int b = 0; b < NBLK; b++) {
+    fill_q31(&st, a, BLK);
+    fill_q31(&st, bb, BLK);
+    i128 s = 0, p = 0;
+    for (unsigned i = 0U; i < BLK; i++) {
+      s += (i128)a[i] * bb[i];
+      p += (i128)a[i] * a[i];
+    }
+    q63_t rc, prc;
+    arm_dot_prod_q31(a, bb, BLK, &rc);
+    arm_power_q31(a, BLK, &prc);
+    int64_t rf = fd_dot_q31(a, bb, BLK);
+    uint64_t prf = fd_power_q31(a, BLK);
+    stats_add(&f, b, (double)((i128)rf * 16384 - s) / 16384.0);
+    stats_add(&c, b, (double)((i128)rc * 16384 - s) / 16384.0);
+    stats_add(&pf, b, (double)((i128)prf * 16384 - p) / 16384.0);
+    stats_add(&pc, b, (double)((i128)prc * 16384 - p) / 16384.0);
+  }
+  row(&f, "flexdsp", "10^5 blocks of 64");
+  row(&c, "CMSIS-DSP", "10^5 blocks of 64");
+  row(&pf, "flexdsp", "10^5 blocks of 64");
+  row(&pc, "CMSIS-DSP", "10^5 blocks of 64");
+}
+
+static void fd_moment_rows(void) {
+  ErrStats rf, rc, vf, vc, sf, sc;
+  stats_init(&rf, "rms q15", "lsb");
+  stats_init(&rc, "rms q15", "lsb");
+  stats_init(&vf, "var q15", "lsb");
+  stats_init(&vc, "var q15", "lsb");
+  stats_init(&sf, "std q15", "lsb");
+  stats_init(&sc, "std q15", "lsb");
+  uint64_t st = 24U;
+  q15_t x[BLK];
+  for (int b = 0; b < NBLK; b++) {
+    fill_q15(&st, x, BLK);
+    unsigned sh = test_rng_u32(&st) % 8U; /* every amplitude */
+    double s1 = 0.0, s2 = 0.0;
+    for (unsigned i = 0U; i < BLK; i++) {
+      x[i] = (q15_t)(x[i] >> sh);
+      s1 += x[i];
+      s2 += (double)x[i] * x[i];
+    }
+    double rms = sqrt(s2 / BLK);
+    double var = (BLK * s2 - s1 * s1) / ((double)BLK * (BLK - 1U)) / 32768.0;
+    double sd = sqrt((BLK * s2 - s1 * s1) / ((double)BLK * (BLK - 1U)));
+    q15_t c;
+    arm_rms_q15(x, BLK, &c);
+    stats_add(&rf, b, fd_rms_q15(x, BLK) - clampd(rms, 0.0, 32767.0));
+    stats_add(&rc, b, c - clampd(rms, 0.0, 32767.0));
+    arm_var_q15(x, BLK, &c);
+    stats_add(&vf, b, fd_var_q15(x, BLK) - clampd(var, 0.0, 32767.0));
+    stats_add(&vc, b, c - clampd(var, 0.0, 32767.0));
+    arm_std_q15(x, BLK, &c);
+    stats_add(&sf, b, fd_std_q15(x, BLK) - clampd(sd, 0.0, 32767.0));
+    stats_add(&sc, b, c - clampd(sd, 0.0, 32767.0));
+  }
+  row(&rf, "flexdsp", "10^5 blocks of 64, every amplitude");
+  row(&rc, "CMSIS-DSP", "10^5 blocks of 64, every amplitude");
+  row(&vf, "flexdsp", "10^5 blocks of 64, every amplitude");
+  row(&vc, "CMSIS-DSP", "10^5 blocks of 64, every amplitude");
+  row(&sf, "flexdsp", "10^5 blocks of 64, every amplitude");
+  row(&sc, "CMSIS-DSP", "10^5 blocks of 64, every amplitude");
+}
+
+static void fd_complex_rows(void) {
+  ErrStats mf, mc, cf, cc;
+  stats_init(&mf, "complex magnitude q15, UQ1.15 out", "lsb");
+  stats_init(&mc, "complex magnitude q15, Q2.14 out", "lsb");
+  stats_init(&cf, "complex multiply q15, q15 out", "lsb");
+  stats_init(&cc, "complex multiply q15, Q3.13 out", "lsb");
+  uint64_t st = 25U;
+  fd_cq15 a[BLK], bb[BLK], yf[BLK];
+  q15_t yc[2U * BLK];
+  uint16_t m[BLK];
+  for (int b = 0; b < NBLK; b++) {
+    fill_q15(&st, (q15_t *)a, 2U * BLK);
+    fill_q15(&st, (q15_t *)bb, 2U * BLK);
+    fd_cmag_q15(a, m, BLK);
+    arm_cmplx_mag_q15((const q15_t *)a, yc, BLK);
+    for (unsigned i = 0U; i < BLK; i++) {
+      double ref = sqrt((double)a[i].re * a[i].re + (double)a[i].im * a[i].im);
+      stats_add(&mf, b, m[i] - ref);
+      stats_add(&mc, b, yc[i] - ref / 2.0);
+    }
+    fd_cmul_q15(a, bb, yf, BLK);
+    arm_cmplx_mult_cmplx_q15((const q15_t *)a, (const q15_t *)bb, yc, BLK);
+    for (unsigned i = 0U; i < BLK; i++) {
+      double re = ((double)a[i].re * bb[i].re - (double)a[i].im * bb[i].im);
+      double im = ((double)a[i].re * bb[i].im + (double)a[i].im * bb[i].re);
+      stats_add(&cf, b, yf[i].re - clampd(re / 32768.0, -32768.0, 32767.0));
+      stats_add(&cf, b, yf[i].im - clampd(im / 32768.0, -32768.0, 32767.0));
+      stats_add(&cc, b, yc[2U * i] - re / 131072.0);
+      stats_add(&cc, b, yc[2U * i + 1U] - im / 131072.0);
+    }
+  }
+  row(&mf, "flexdsp", "10^5 blocks of 64");
+  row(&mc, "CMSIS-DSP", "10^5 blocks of 64");
+  row(&cf, "flexdsp", "10^5 blocks of 64");
+  row(&cc, "CMSIS-DSP", "10^5 blocks of 64");
+}
+
 int main(void) {
-  printf("# flexmath accuracy\n\n"
-         "Generated by `make accuracy` on the host: each flexmath function and "
-         "the\nCMSIS-DSP function it replaces (built from the same sources as "
-         "the bench),\nboth against a `double` reference. Errors are in LSBs "
-         "of the output, or\nULPs for float outputs; bias is the mean signed "
-         "error. CMSIS-DSP is built with its\ndefault flags (no "
-         "ARM_MATH_ROUNDING), as on the bench.\n\n"
-         "| function | impl | inputs | max | mean | bias |\n"
-         "|---|---|---|--:|--:|--:|\n");
+  printf(
+      "# flexlib accuracy\n\n"
+      "Generated by `make accuracy` on the host: each flexmath and flexdsp "
+      "function\nand the CMSIS-DSP function it replaces (built from the same "
+      "sources as the\nbench), both against a `double` or exact reference. "
+      "Errors are in LSBs of each\nfunction's own output format, or ULPs for "
+      "float outputs; bias is the mean signed\nerror. CMSIS-DSP is built "
+      "with its default flags (no ARM_MATH_ROUNDING), as on\nthe bench.\n\n"
+      "## flexmath\n\n"
+      "| function | impl | inputs | max | mean | bias |\n"
+      "|---|---|---|--:|--:|--:|\n");
   mul_q15();
   mul_q31();
   f32_to_q15();
@@ -508,5 +685,13 @@ int main(void) {
   atan2_f32();
   mat4_rows();
   quat_rows();
+  printf("\n## flexdsp\n\n"
+         "| function | impl | inputs | max | mean | bias |\n"
+         "|---|---|---|--:|--:|--:|\n");
+  fd_scale_rows();
+  fd_q31_to_q15_rows();
+  fd_dot_rows();
+  fd_moment_rows();
+  fd_complex_rows();
   return 0;
 }
