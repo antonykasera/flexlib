@@ -13,7 +13,8 @@ BENCH_CASES_math   = $(addprefix bench/cases/,cases_fixed.c cases_sqrt.c \
                        cases_float.c cases_libm.c)
 BENCH_CASES_struct = $(addprefix bench/cases/,cases_linalg.c cases_quat.c \
                        cases_pid.c)
-BENCH_CASES_dsp    = $(addprefix bench/cases/,cases_pairs.c cases_fd_vec.c)
+BENCH_CASES_dsp    = $(addprefix bench/cases/,cases_pairs.c cases_fd_vec.c \
+                       cases_fd_fir.c)
 # everything that also builds on the host (golden, lint)
 BENCH_PORTABLE = bench/core/bench_core.c $(BENCH_CASES_utils) \
                  $(BENCH_CASES_math) $(BENCH_CASES_struct) $(BENCH_CASES_dsp)
@@ -99,6 +100,11 @@ CMSIS_SRCS_dsp    = $(addprefix BasicMathFunctions/,arm_add_q15.c arm_add_q31.c 
                     $(addprefix ComplexMathFunctions/,arm_cmplx_mult_cmplx_q15.c \
                       arm_cmplx_mult_cmplx_q31.c arm_cmplx_mag_q15.c \
                       arm_cmplx_mag_q31.c arm_cmplx_mag_squared_q15.c) \
+                    $(addprefix FilteringFunctions/,arm_fir_q15.c arm_fir_fast_q15.c \
+                      arm_fir_init_q15.c arm_fir_q31.c arm_fir_fast_q31.c \
+                      arm_fir_init_q31.c arm_fir_decimate_q15.c \
+                      arm_fir_decimate_init_q15.c arm_fir_interpolate_q15.c \
+                      arm_fir_interpolate_init_q15.c) \
                     FastMathFunctions/arm_sqrt_q15.c FastMathFunctions/arm_sqrt_q31.c \
                     CommonTables/arm_common_tables.c
 

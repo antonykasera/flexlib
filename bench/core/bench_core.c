@@ -62,6 +62,7 @@ extern const BenchGroup bench_group_quat;
 extern const BenchGroup bench_group_pid;
 extern const BenchGroup bench_group_pairs;
 extern const BenchGroup bench_group_fd_vec;
+extern const BenchGroup bench_group_fd_fir;
 extern const BenchGroup bench_group_cmsis;
 
 const BenchGroup *const bench_groups[] = {
@@ -94,6 +95,7 @@ const BenchGroup *const bench_groups[] = {
 #ifdef BENCH_DSP
     &bench_group_pairs,
     &bench_group_fd_vec,
+    &bench_group_fd_fir,
 #endif
 #if defined(BENCH_HAVE_CMSIS_DSP) && defined(BENCH_MATH)
     &bench_group_cmsis,

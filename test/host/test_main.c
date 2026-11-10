@@ -41,6 +41,14 @@ void test_fd_vec_complex(void);
 void test_fd_vec_wide(void);
 void test_fd_vec_cdot_long(void);
 
+/* --- fd_fir (test_fd_fir.c) --- */
+void test_fd_fir_q15(void);
+void test_fd_fir_q31(void);
+void test_fd_fir_decim(void);
+void test_fd_fir_interp(void);
+void test_fd_fir_interp_gain2(void);
+void test_fd_fir_design(void);
+
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
 void test_fx_rbit_rev(void);
@@ -163,6 +171,12 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_vec_complex);
   TEST_RUN(test_fd_vec_wide);
   TEST_RUN(test_fd_vec_cdot_long);
+  TEST_RUN(test_fd_fir_q15);
+  TEST_RUN(test_fd_fir_q31);
+  TEST_RUN(test_fd_fir_decim);
+  TEST_RUN(test_fd_fir_interp);
+  TEST_RUN(test_fd_fir_interp_gain2);
+  TEST_RUN(test_fd_fir_design);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

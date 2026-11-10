@@ -7,6 +7,7 @@
  */
 
 #include "arm_math.h"
+#include "fd_fir.h"
 #include "fd_vec.h"
 #include "fm_atan.h"
 #include "fm_div.h"
@@ -656,6 +657,79 @@ static void fd_complex_rows(void) {
   row(&cc, "CMSIS-DSP", "10^5 blocks of 64");
 }
 
+static void fd_fir_rows(void) {
+  enum { T = 32, N = 64, NB = 15625 }; /* 10^6 samples */
+  ErrStats f15, c15, cf15, f31, c31, cf31;
+  stats_init(&f15, "FIR q15, 32 taps", "lsb");
+  stats_init(&c15, "FIR q15, 32 taps", "lsb");
+  stats_init(&cf15, "FIR q15, 32 taps (fast)", "lsb");
+  stats_init(&f31, "FIR q31, 32 taps", "lsb");
+  stats_init(&c31, "FIR q31, 32 taps", "lsb");
+  stats_init(&cf31, "FIR q31, 32 taps (fast)", "lsb");
+  float hf[T];
+  q15_t h15[T], r15[T];
+  q31_t h31[T], r31[T];
+  (void)fd_fir_design(hf, T, FD_LOWPASS, 0.1f, 0.0f, FD_WIN_HAMMING);
+  (void)fd_fir_quantize_q15(hf, h15, T);
+  (void)fd_fir_quantize_q31(hf, h31, T);
+  for (int k = 0; k < T; k++) { /* CMSIS stores them time-reversed */
+    r15[k] = h15[T - 1 - k];
+    r31[k] = h31[T - 1 - k];
+  }
+  static q15_t s15[T - 1 + N], cs15[T + N], cfs15[T + N];
+  static q31_t s31[T - 1 + N], cs31[T + N], cfs31[T + N];
+  FD_FirQ15 a15;
+  FD_FirQ31 a31;
+  arm_fir_instance_q15 i15, if15;
+  arm_fir_instance_q31 i31, if31;
+  fd_fir_init_q15(&a15, h15, T, s15, T - 1 + N);
+  fd_fir_init_q31(&a31, h31, T, s31, T - 1 + N);
+  (void)arm_fir_init_q15(&i15, T, r15, cs15, N);
+  (void)arm_fir_init_q15(&if15, T, r15, cfs15, N);
+  arm_fir_init_q31(&i31, T, r31, cs31, N);
+  arm_fir_init_q31(&if31, T, r31, cfs31, N);
+  static q15_t hx15[T - 1 + N];
+  static q31_t hx31[T - 1 + N];
+  uint64_t st = 26U;
+  for (int b = 0; b < NB; b++) {
+    q15_t x15[N], y15[N], yc15[N], ycf15[N];
+    q31_t x31[N], y31[N], yc31[N], ycf31[N];
+    fill_q15(&st, x15, N);
+    fill_q31(&st, x31, N);
+    fd_fir_q15(&a15, x15, y15, N);
+    arm_fir_q15(&i15, x15, yc15, N);
+    arm_fir_fast_q15(&if15, x15, ycf15, N);
+    fd_fir_q31(&a31, x31, y31, N);
+    arm_fir_q31(&i31, x31, yc31, N);
+    arm_fir_fast_q31(&if31, x31, ycf31, N);
+    memmove(hx15, hx15 + N, (T - 1) * sizeof hx15[0]);
+    memmove(hx31, hx31 + N, (T - 1) * sizeof hx31[0]);
+    memcpy(hx15 + T - 1, x15, sizeof x15);
+    memcpy(hx31 + T - 1, x31, sizeof x31);
+    for (int i = 0; i < N; i++) {
+      i128 s = 0, S = 0;
+      for (int k = 0; k < T; k++) {
+        s += (i128)h15[k] * hx15[i + T - 1 - k];
+        S += (i128)h31[k] * hx31[i + T - 1 - k];
+      }
+      double r = clampd((double)s / 32768.0, -32768.0, 32767.0);
+      double R = clampd((double)S / 2147483648.0, -2147483648.0, 2147483647.0);
+      stats_add(&f15, i, y15[i] - r);
+      stats_add(&c15, i, yc15[i] - r);
+      stats_add(&cf15, i, ycf15[i] - r);
+      stats_add(&f31, i, y31[i] - R);
+      stats_add(&c31, i, yc31[i] - R);
+      stats_add(&cf31, i, ycf31[i] - R);
+    }
+  }
+  row(&f15, "flexdsp", "10^6 random samples, Hamming lowpass");
+  row(&c15, "CMSIS-DSP", "10^6 random samples, Hamming lowpass");
+  row(&cf15, "CMSIS-DSP", "10^6 random samples, Hamming lowpass");
+  row(&f31, "flexdsp", "10^6 random samples, Hamming lowpass");
+  row(&c31, "CMSIS-DSP", "10^6 random samples, Hamming lowpass");
+  row(&cf31, "CMSIS-DSP", "10^6 random samples, Hamming lowpass");
+}
+
 int main(void) {
   printf(
       "# flexlib accuracy\n\n"
@@ -693,5 +767,6 @@ int main(void) {
   fd_dot_rows();
   fd_moment_rows();
   fd_complex_rows();
+  fd_fir_rows();
   return 0;
 }

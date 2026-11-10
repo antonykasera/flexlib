@@ -95,3 +95,9 @@ the bench.
 | complex magnitude q15, Q2.14 out | CMSIS-DSP | 10^5 blocks of 64 | 1 | 0.498 | -0.5 |
 | complex multiply q15, q15 out | flexdsp | 10^5 blocks of 64 | 0.5 | 0.241 | -3.4e-05 |
 | complex multiply q15, Q3.13 out | CMSIS-DSP | 10^5 blocks of 64 | 2 | 0.667 | -0.5 |
+| FIR q15, 32 taps | flexdsp | 10^6 random samples, Hamming lowpass | 0.5 | 0.25 | -9.3e-05 |
+| FIR q15, 32 taps | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 1 | 0.5 | -0.5 |
+| FIR q15, 32 taps (fast) | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 1 | 0.5 | -0.5 |
+| FIR q31, 32 taps | flexdsp | 10^6 random samples, Hamming lowpass | 0.5 | 0.25 | -8.1e-05 |
+| FIR q31, 32 taps | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 1 | 0.5 | -0.5 |
+| FIR q31, 32 taps (fast) | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 17 | 2.61 | -0.005 |

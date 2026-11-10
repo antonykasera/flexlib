@@ -313,6 +313,18 @@ const BenchGolden bench_golden[] = {
     {"fd_cmag_q31, 64", 0xDD75141BU},
     {"fd_cmag2_q15, 64", 0x234B6706U},
     {"fd_cdot_q15, 64", 0xB7B1F305U},
+    {"fd_fir_q15, 32 taps x 64", 0xE7364A8EU},
+    {"fir q15 one output per pass", 0xE7364A8EU},
+    {"fir q15 two outputs per pass", 0xE7364A8EU},
+    {"fir q15 symmetric, four per pass", 0xE7364A8EU},
+    {"fd_fir_q15, gain 2 or more (64-bit)", 0x9D27BB68U},
+    {"fd_fir_q31, 32 taps x 64", 0x523CAE7DU},
+    {"fir q31 two outputs per pass", 0x523CAE7DU},
+    {"fir q31 four outputs per pass", 0x523CAE7DU},
+    {"fd_fir_decim_q15 by 4, 32 taps x 64", 0x8A67A47AU},
+    {"fd_fir_interp_q15 by 4, 32 taps x 64", 0xE812A022U},
+    {"fd_fir_sample_q15, 32 taps", 0xED657022U},
+    {"fd_fir_design + quantize, 32 taps", 0x4B0299C5U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

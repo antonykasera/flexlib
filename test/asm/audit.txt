@@ -232,3 +232,18 @@ fd_cdot_q15       no-calls  mul
 fd_cdot_q31       no-calls  smlal
 fd_interleave_q15 no-calls
 fd_deinterleave_q31 no-calls
+
+# fd_fir: kernels inline, the history moves without memcpy; design is float
+fd_fir_q15          mla smlal !udiv !call=memcpy !call=memmove
+fd_fir_q31          smlal !udiv !call=memcpy !call=memmove
+fd_fir_decim_q15    mla !call=memcpy
+fd_fir_decim_q31    smlal !call=memcpy
+fd_fir_interp_q15   mla smlal !call=memcpy
+fd_fir_interp_q31   smlal !call=memcpy
+take15              no-calls
+take31              no-calls
+fd_fir_gain_q15     no-calls
+fd_fir_gain_q31     no-calls
+fd_fir_design       calls-ok
+fd_fir_quantize_q15 calls-ok
+fd_fir_quantize_q31 calls-ok

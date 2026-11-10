@@ -67,3 +67,25 @@ wrapping past 2^15.
 
 `fd_cmag` returns unsigned UQ1.15 / UQ1.31, so magnitudes up to sqrt 2 need
 no saturation.
+
+## FIR filters (`fd_fir.h`)
+
+32 taps, blocks of 64. Every output is the exact sum rounded once, for any
+coefficients: init picks 32-bit (q15) or 64-bit (q31) sums when sum |h| < 2,
+wider ones otherwise. `h[0]` multiplies the newest sample.
+
+| function | cycles | CMSIS-DSP | error | CMSIS-DSP error |
+|---|--:|--:|--:|--:|
+| `fd_fir_q15` | 8078 | 19863 (`fast` 13941) | 0.5 LSB | 1 LSB |
+| `fd_fir_q15`, sum \|h\| >= 2 | 18134 | | 0.5 LSB | |
+| `fd_fir_q31` | 17836 | 16593 (`fast` 22446) | 0.5 LSB | 1 LSB (`fast` 17) |
+| `fd_fir_decim_q15` by 4 | 3686 | 4854 | 0.5 LSB | |
+| `fd_fir_interp_q15` by 4 | 12522 | 20806 | 0.5 LSB | |
+| `fd_fir_sample_q15` | 453 | | 0.5 LSB | |
+
+The state holds `ntaps - 1` history samples plus a chunk of any size
+(`FD_FIR_STATE_LEN`); a block is processed in chunk-sized pieces, and the
+history moves once per chunk. Decimators take any `n` and return the outputs
+written. `fd_fir_design` builds windowed-sinc lowpass, highpass, bandpass and
+bandstop filters in float (rectangular, Hann, Hamming, Blackman,
+Blackman-Harris), and `fd_fir_quantize_q15` / `_q31` round them.

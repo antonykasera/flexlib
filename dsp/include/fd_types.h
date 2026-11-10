@@ -38,4 +38,12 @@ typedef enum {
   FD_ERR_RANGE,    /* a parameter outside its stated range */
 } FD_Status;
 
+typedef enum {
+  FD_WIN_RECT,
+  FD_WIN_HANN,
+  FD_WIN_HAMMING,
+  FD_WIN_BLACKMAN,
+  FD_WIN_BLACKMAN_HARRIS, /* 4-term, -92 dB sidelobes */
+} FD_Window;
+
 #endif /* FD_TYPES_H */

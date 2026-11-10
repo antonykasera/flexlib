@@ -37,6 +37,12 @@ ACC_CMSIS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
               StatisticsFunctions/arm_std_q15.c \
               ComplexMathFunctions/arm_cmplx_mag_q15.c \
               ComplexMathFunctions/arm_cmplx_mult_cmplx_q15.c \
+              FilteringFunctions/arm_fir_q15.c \
+              FilteringFunctions/arm_fir_fast_q15.c \
+              FilteringFunctions/arm_fir_init_q15.c \
+              FilteringFunctions/arm_fir_q31.c \
+              FilteringFunctions/arm_fir_fast_q31.c \
+              FilteringFunctions/arm_fir_init_q31.c \
               CommonTables/arm_common_tables.c)
 ACC_CMSIS_INC = -isystem $(CMSIS_DSP_DIR)/Include \
                 -isystem $(CMSIS_DSP_DIR)/PrivateInclude -isystem $(FLEX_DIR)/cmsis/inc
