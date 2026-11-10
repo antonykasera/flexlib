@@ -67,8 +67,8 @@ is at most 0.5 ULP + 2^-32 times the sum of the products' magnitudes.
 | `fm_quat_normalize` | 534 | 937 | 914 | 0.6 ULP, any finite q | 2.8 ULP |
 | `fm_quat_rotate` | 843 | 1491 | | 2^-22 \|v\| | |
 | `fm_quat_integrate` | 2083 | 5108 (libm) | | 2^-22, exact rotation | |
-| `fm_pid_q16` | 147 | | 39 * | exact, one rounding | |
-| `fm_pid_f32` | 442 | 695 | 192 * | one rounding per sum | |
+| `fm_pid_q16` | 171 | | 39 * | exact, one rounding | |
+| `fm_pid_f32` | 501 | 695 | 192 * | one rounding per sum | |
 
 \* CMSIS's PID is the velocity form with no output clamping, no anti-windup and
 derivative on the error: a smaller controller than flexmath's.
@@ -77,8 +77,9 @@ derivative on the error: a smaller controller than flexmath's.
   row-major arrays.
 - `fm_quat`: `FM_Quat {w, x, y, z}`; `fm_quat_integrate` applies the exact
   rotation and renormalises.
-- `fm_pid`: integrator clamped to the output range, output clamped, derivative
-  on the measurement. Gains are per step: ki = Ki dt, kd = Kd / dt.
+- `fm_pid`: output clamped; anti-windup stops the integrator at the output
+  limit while saturated (no overshoot after saturation); derivative on the
+  measurement. Gains are per step: ki = Ki dt, kd = Kd / dt.
 
 ## Use
 
@@ -119,7 +120,7 @@ float control_step(const float gyro[3]) {
 }
 ```
 
-No soft-float anywhere in that loop: about 3.4k cycles, 47 us at 72 MHz.
+No soft-float anywhere in that loop: about 3.4k cycles, 48 us at 72 MHz.
 
 ## Options
 

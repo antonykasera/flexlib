@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 /* gains per step: ki = Ki dt, kd = Kd / dt; derivative on measurement */
+/* anti-windup: I stops at the output limit while saturated */
 typedef struct {
   fm_q16 kp, ki, kd;
   fm_q16 out_min, out_max;

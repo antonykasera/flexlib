@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Public headers moved to `math/include/`. No API change.
+- `fm_pid`: anti-windup now stops the integrator at the output limit while the output is saturated; a saturating step no longer overshoots (it could by ~7%). 171 / 501 cycles (was 147 / 442).
 
 ## 0.2.0 (2026-11-09)
 

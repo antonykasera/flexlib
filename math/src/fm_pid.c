@@ -8,11 +8,10 @@
 
 #include "fm_pid.h"
 #include "fm_internal.h"
+#include <stdbool.h>
 #include <string.h>
 
 #define F32_QNAN 0x7FC00000U
-
-/* ---- Q16.16 ---- */
 
 /* sum clamped to [lo, hi], |lo|, |hi| <= 2^47; h flags overflow, s is exact */
 FX_INLINE int64_t sum_clamp(SumQ31 a, int64_t lo, int64_t hi) {
@@ -49,22 +48,34 @@ void fm_pid_reset_q16(FM_PidQ16 *p, fm_q16 pv) {
 fm_q16 fm_pid_q16(FM_PidQ16 *p, fm_q16 sp, fm_q16 pv) {
   int64_t lo = (int64_t)p->out_min * 65536;
   int64_t hi = (int64_t)p->out_max * 65536;
-  SumQ31 a = sum_from(p->i);
+  int64_t i0 = p->i;
+  SumQ31 a = sum_from(i0);
   sum_mac(&a, p->ki, sp);
   sum_msub(&a, p->ki, pv);
   int64_t i = sum_clamp(a, lo, hi);
+  SumQ31 pd = sum_from(0);
+  sum_mac(&pd, p->kp, sp);
+  sum_msub(&pd, p->kp, pv);
+  sum_mac(&pd, p->kd, p->prev);
+  sum_msub(&pd, p->kd, pv);
+  SumQ31 o = pd;
+  o.s += (uint64_t)i;
+  int64_t out = sum_clamp(o, lo, hi);
+  /* anti-windup: I moves no further than the output limit */
+  bool up = out == hi && i > i0;
+  if (up || (out == lo && i < i0)) {
+    int64_t lim = out - sum_clamp(pd, -(1LL << 61), 1LL << 61);
+    i = up ? (lim < i0 ? i0 : (lim > i ? i : lim))
+           : (lim > i0 ? i0 : (lim < i ? i : lim));
+    o = pd;
+    o.s += (uint64_t)i;
+    out = sum_clamp(o, lo, hi);
+  }
   p->i = i;
-  SumQ31 o = sum_from(i);
-  sum_mac(&o, p->kp, sp);
-  sum_msub(&o, p->kp, pv);
-  sum_mac(&o, p->kd, p->prev);
-  sum_msub(&o, p->kd, pv);
   p->prev = pv;
   /* lo and hi are multiples of 2^16: clamping before rounding is the same */
-  return (fm_q16)((sum_clamp(o, lo, hi) + 32768) >> 16);
+  return (fm_q16)((out + 32768) >> 16);
 }
-
-/* ---- float ---- */
 
 FX_INLINE uint32_t f2u(float x) {
   uint32_t b;
@@ -133,19 +144,33 @@ float fm_pid_f32(FM_PidF32 *p, float sp, float pv) {
   }
   uint32_t lo = f2u(p->out_min);
   uint32_t hi = f2u(p->out_max);
-  /* I + ki sp - ki pv */
+  uint32_t i0 = f2u(p->i);
   const int32_t am[3] = {mi, mki, mki};
   const int32_t ae[3] = {ei, eki, eki};
   const int32_t bm[3] = {1 << 28, msp, -mpv};
   const int32_t be[3] = {128, esp, epv};
   uint32_t i = fclamp(sum_f32(am, ae, bm, be, 1U, 3U), lo, hi);
-  memcpy(&p->i, &i, sizeof i);
-  p->prev = pv;
-  /* I + kp sp - kp pv + kd prev - kd pv */
-  mi = unp_f32(i, 7U, &ei, &bad);
-  const int32_t om[5] = {mi, mkp, mkp, mkd, mkd};
-  const int32_t oe[5] = {ei, ekp, ekp, ekd, ekd};
   const int32_t pm[5] = {1 << 28, msp, -mpv, mpr, -mpv};
   const int32_t pe[5] = {128, esp, epv, epr, epv};
-  return u2f(fclamp(sum_f32(om, oe, pm, pe, 1U, 5U), lo, hi));
+  int32_t om[5] = {0, mkp, mkp, mkd, mkd};
+  int32_t oe[5] = {0, ekp, ekp, ekd, ekd};
+  om[0] = unp_f32(i, 7U, &oe[0], &bad);
+  uint32_t out = fclamp(sum_f32(om, oe, pm, pe, 1U, 5U), lo, hi);
+  /* anti-windup: I moves no further than the output limit */
+  bool up = out == hi && fkey(i) > fkey(i0);
+  if (up || (out == lo && fkey(i) < fkey(i0))) {
+    int32_t lm[5] = {0, mkp, mkp, mkd, mkd};
+    int32_t le[5] = {0, ekp, ekp, ekd, ekd};
+    const int32_t qm[5] = {1 << 28, -msp, mpv, -mpr, mpv};
+    lm[0] = unp_f32(out, 7U, &le[0], &bad);
+    uint32_t lim = sum_f32(lm, le, qm, pe, 1U, 5U);
+    uint32_t a = up ? i0 : i;
+    uint32_t b = up ? i : i0;
+    i = fkey(lim) < fkey(a) ? a : (fkey(lim) > fkey(b) ? b : lim);
+    om[0] = unp_f32(i, 7U, &oe[0], &bad);
+    out = fclamp(sum_f32(om, oe, pm, pe, 1U, 5U), lo, hi);
+  }
+  memcpy(&p->i, &i, sizeof i);
+  p->prev = pv;
+  return u2f(out);
 }
