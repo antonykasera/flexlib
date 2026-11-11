@@ -13,6 +13,8 @@ lint:
 		$(BENCH_PORTABLE) bench/core/golden_gen.c
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFU_CRC_SMALL $(LIB_INC) utils/src/fu_crc.c
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFM_LUT_IN_RAM $(LIB_INC) math/src/fm_tables.c
+	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFD_FFT_MAX=4096 -DFD_LUT_IN_RAM $(LIB_INC) \
+		dsp/src/fd_fft.c dsp/src/fd_rfft.c
 	@for h in $(LINT_HEADERS); do \
 		echo "  header $$h"; \
 		printf '#include "%s"\ntypedef int lint_tu;\n' $$h | $(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) \

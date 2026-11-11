@@ -147,6 +147,22 @@ void test_ref_dft(void) {
     ASSERT_NEAR(br[i] / N, re[i], 1e-15);
     ASSERT_NEAR(bi[i] / N, im[i], 1e-15);
   }
+
+  /* the FFT against the DFT, both directions, every size up to N */
+  for (unsigned n = 1U; n <= N; n *= 2U) {
+    for (int inv = 0; inv <= 1; inv++) {
+      for (unsigned i = 0U; i < n; i++) {
+        re[i] = br[i] = rnd(&s);
+        im[i] = bi[i] = rnd(&s);
+      }
+      ref_dft(re, im, n, fr, fi, inv);
+      ref_fft(br, bi, n, inv);
+      for (unsigned k = 0U; k < n; k++) {
+        ASSERT_NEAR(br[k], fr[k], 1e-14);
+        ASSERT_NEAR(bi[k], fi[k], 1e-14);
+      }
+    }
+  }
 }
 
 void test_ref_window_resample(void) {

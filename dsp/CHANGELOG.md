@@ -1,5 +1,11 @@
 # flexdsp changelog
 
+## Unreleased
+
+- `fd_fft.h`: complex FFTs (`fd_cfft_q15` / `_q31`, any power of two from 2 to `FD_FFT_MAX`), real FFTs (`fd_rfft_q15` / `_q31`, packed n/2 bins in place) and their inverses. Radix-4 with block floating point: each stage scales by the block's own headroom and rounds its exact result once, so nothing saturates or wraps; the result's exponent is returned. `fd_fft_rescale_q15` / `_q31` convert to a given exponent (CMSIS-DSP's X / n among them), `fd_fft_db_q15` / `_q31` give power in dB with the exponent folded in.
+- `FD_FFT_MAX` (default 1024): 2048 and 4096 add a 4 KB table; up to 1024 the twiddles come from flexmath's sine table.
+- `fd_headroom_q15` / `_q31`: the spare sign bits of a block.
+
 ## 0.1.1 (2026-11-11)
 
 - `fd_biquad_q15` / `_q31`: faster sections whose coefficients sum to 4 or more (shelves, peaks). Results unchanged.

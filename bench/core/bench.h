@@ -36,8 +36,15 @@ extern volatile uint32_t bench_in[BENCH_N];
 extern uint8_t bench_arg_a[BENCH_N * 8U];
 extern uint8_t bench_arg_b[BENCH_N * 8U];
 
-/* Bytes the case groups share, since only one runs at a time. */
+/* Bytes the case groups share, since only one runs at a time; the FFT image
+ * (and the builds of every group) needs a 1024-point q31 block */
+#if defined(BENCH_SET_utils) || defined(BENCH_SET_math) ||                     \
+    defined(BENCH_SET_struct) || defined(BENCH_SET_dsp) ||                     \
+    defined(BENCH_SET_dsp2)
 #define BENCH_SCRATCH_SIZE 3584U
+#else
+#define BENCH_SCRATCH_SIZE 8192U
+#endif
 extern uint8_t bench_scratch[BENCH_SCRATCH_SIZE];
 bool bench_scratch_claim(const void *id);
 

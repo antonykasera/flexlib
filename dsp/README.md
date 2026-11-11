@@ -15,7 +15,7 @@ against exact references; CMSIS-DSP's are in
   `{re, im}` pairs (`fd_cq15`, `fd_cq31`), the CMSIS-DSP layout.
 - Block functions take `(x, y, n)`; `y` may equal an input of the same type.
 - Results round to nearest (ties up) and saturate: within 0.5 LSB unless
-  stated.
+  stated. The FFTs round ties down and never need to saturate (below).
 - Programmer errors (a bad shift, `n == 0` where a result is needed) trip
   `FX_ASSERT`.
 - On Cortex-M4 and M7 the DSP-extension instructions are used where they
@@ -54,7 +54,7 @@ against exact references; CMSIS-DSP's are in
 | `fd_max_q15`, `fd_absmax_q15` | 559, 850 | 530, 1097 | exact | exact |
 
 q31 dot and power return Q16.48, CMSIS-DSP's format, saturating instead of
-wrapping past 2^15.
+wrapping past 2^15. `fd_headroom_q15` / `_q31` return a block's spare sign bits.
 
 ## Complex vectors
 
@@ -165,3 +165,66 @@ power gains for scaling spectra.
 | `fd_noise_uniform_q15` | 631 | |
 | `fd_noise_gauss_q15` | 14112 | Box-Muller, tails to 6.6 sigma; a sum of 12 uniforms is 7760 but cut at 6 sigma |
 | `fd_noise_tpdf_q15` | 1203 | triangular dither of +-2^bits LSB |
+
+## Transforms (`fd_fft.h`)
+
+Complex FFTs of any power of two from 2 to `FD_FFT_MAX` points, in place on
+`fd_cq15` / `fd_cq31`; real FFTs of 4 to `FD_FFT_MAX` points as a half-size
+complex one plus a split pass; and the inverses of both. `FD_FFT_MAX` is 1024
+by default, with the twiddles taken from flexmath's sine table (no table of
+their own); 2048 or 4096 add a 4 KB table. Radix-4, decimation in time.
+
+Block floating point: before each stage the block's headroom is measured, and
+the stage scales by exactly what its growth needs, left as well as right, so a
+quiet input keeps its bits. The transform is `x[k] 2^e` in integer units, with
+`e` the return value. Every stage output is its exact value rounded once (to
+nearest, ties down), and nothing saturates or wraps for any input. An all-zero
+block gives zeros and `e = 0`.
+
+| transform | cycles | CMSIS-DSP | SNR, white noise | CMSIS-DSP |
+|---|--:|--:|--:|--:|
+| `fd_cfft_q15`, 256 | 32433 | 32665 | 72.4 dB | 60.1 dB |
+| `fd_cfft_q15`, 1024 | 157075 | 159716 | 68.3 dB | 54.0 dB |
+| `fd_cfft_q31`, 256 | 63682 | 36223 | 167.8 dB | 152.6 dB |
+| `fd_cfft_q31`, 1024 | 311908 | 182148 | 164.4 dB | 147.5 dB |
+| `fd_rfft_q15`, 512 | 40107 | 109437 | 69.8 dB | 57.1 dB |
+| `fd_rfft_q31`, 512 | 85806 | | 166.7 dB | 150.8 dB |
+| `fd_icfft_q15`, 256 / `fd_irfft_q15`, 512 | 33849 / 41266 | | | |
+| `fd_fft_db_q15`, 128 bins | 15160 | | 0.5003 LSB | |
+
+SNR is against the exact DFT; white noise at full scale, 40 blocks
+([docs/accuracy.md](../docs/accuracy.md) has tones, two tones and quiet input).
+CMSIS-DSP scales by a fixed 1/4 per stage, so a quiet signal loses its low
+bits: white noise at -40 dB keeps 70.4 dB here at 256 points (CMSIS-DSP 20.1),
+and q31 keeps 164.9 dB at 1024 (107.5). The q31 butterflies sum each output
+exactly in 64 bits; CMSIS-DSP keeps the truncated high word of each product,
+which is why it is faster there.
+
+Layouts and scaling:
+
+- Complex: `fd_cq15` / `fd_cq31` arrays, bin k at `x[k]`.
+- Real: n samples in, n/2 complex values out, in place: `x[0]` = Re X[0],
+  `x[1]` = Re X[n/2] (both bins are real), then `x[2k]`, `x[2k + 1]` = X[k] for
+  k = 1 .. n/2 - 1. The buffer must be 4-byte aligned. CMSIS-DSP's
+  `arm_rfft_q15` writes X[0] .. X[n/2] to a second buffer (with zero imaginary
+  parts at 0 and n/2), scaled by 1/n.
+- `fd_fft_rescale_q15(x, n, e, to)` moves bins to exponent `to`, rounded and
+  saturated; `to = log2 n` gives CMSIS-DSP's X / n.
+- Magnitude and power are `fd_cmag_*` and `fd_cmag2_*`. `fd_fft_db_q15` /
+  `_q31` give 10 log10 |X|^2 with the exponent folded in, 0 dB at |X| = full
+  scale.
+
+A spectrum in dB from 512 samples:
+
+```c
+static fm_q15 w[512], x[512] __attribute__((aligned(4)));
+fm_q16 db[256];
+
+fd_window_q15(w, 512U, FD_WIN_HANN, true);       /* once */
+fd_mul_q15(x, w, x, 512U);
+int32_t e = fd_rfft_q15(x, 512U);
+fd_fft_db_q15((fd_cq15 *)(void *)x, e, db, 256U); /* db[0] mixes DC and n/2 */
+```
+
+A full-scale sine reads 20 log10(n/2), less the window's coherent gain
+(`fd_window_gains_q15`), above 0 dB.

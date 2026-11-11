@@ -84,6 +84,10 @@ fm_q31 fd_var_q31(const fm_q31 *x, uint32_t n);
 fm_q15 fd_std_q15(const fm_q15 *x, uint32_t n);
 fm_q31 fd_std_q31(const fm_q31 *x, uint32_t n);
 
+/* spare sign bits of the block: every value fits 16 - h (32 - h) bits */
+uint32_t fd_headroom_q15(const fm_q15 *x, uint32_t n);
+uint32_t fd_headroom_q31(const fm_q31 *x, uint32_t n);
+
 /* n >= 1; index (may be NULL) of the first occurrence */
 fm_q15 fd_min_q15(const fm_q15 *x, uint32_t n, uint32_t *index);
 fm_q31 fd_min_q31(const fm_q31 *x, uint32_t n, uint32_t *index);

@@ -113,3 +113,76 @@ the bench.
 | biquad q31, Butterworth 4, fc 5e-4 | CMSIS-DSP | 10^6 samples of half-scale noise | 1.1e+05 | 1.02e+05 | -1e+05 |
 | biquad q31, Butterworth 4, fc 5e-4 | CMSIS-DSP fast | 10^6 samples of half-scale noise | 1.21e+05 | 2.55e+04 | +7.3e+02 |
 | biquad q31, Butterworth 4, fc 5e-4 | CMSIS-DSP 32x64 | 10^6 samples of half-scale noise | 1.64 | 1 | -1 |
+
+## flexdsp transforms
+
+Signal-to-noise against the exact DFT, and the largest bin over the largest
+error, both in dB (the output formats differ: a block exponent here, X / n
+in CMSIS-DSP). 40 blocks per row.
+
+| transform | impl | n | input | SNR dB | peak / max error dB |
+|---|---|--:|---|--:|--:|
+| cfft q15 | flexdsp | 64 | white | 74.7 | 75.1 |
+| cfft q15 | CMSIS-DSP | 64 | white | 66.1 | 64.7 |
+| cfft q31 | flexdsp | 64 | white | 170.5 | 170.2 |
+| cfft q31 | CMSIS-DSP | 64 | white | 156.6 | 153.9 |
+| cfft q15 | flexdsp | 64 | tone | 73.2 | 81.5 |
+| cfft q15 | CMSIS-DSP | 64 | tone | 67.7 | 73.3 |
+| cfft q31 | flexdsp | 64 | tone | 169.0 | 177.2 |
+| cfft q31 | CMSIS-DSP | 64 | tone | 158.3 | 162.9 |
+| cfft q15 | flexdsp | 64 | two tones | 72.1 | 80.3 |
+| cfft q15 | CMSIS-DSP | 64 | two tones | 64.7 | 69.9 |
+| cfft q31 | flexdsp | 64 | two tones | 169.0 | 178.1 |
+| cfft q31 | CMSIS-DSP | 64 | two tones | 155.3 | 162.1 |
+| cfft q15 | flexdsp | 64 | white, -40 dB | 74.5 | 74.6 |
+| cfft q15 | CMSIS-DSP | 64 | white, -40 dB | 26.0 | 25.4 |
+| cfft q31 | flexdsp | 64 | white, -40 dB | 170.9 | 169.7 |
+| cfft q31 | CMSIS-DSP | 64 | white, -40 dB | 116.5 | 114.5 |
+| cfft q15 | flexdsp | 256 | white | 72.4 | 70.9 |
+| cfft q15 | CMSIS-DSP | 256 | white | 60.1 | 57.4 |
+| cfft q31 | flexdsp | 256 | white | 167.8 | 167.5 |
+| cfft q31 | CMSIS-DSP | 256 | white | 152.6 | 147.7 |
+| cfft q15 | flexdsp | 256 | tone | 66.5 | 81.5 |
+| cfft q15 | CMSIS-DSP | 256 | tone | 61.8 | 72.3 |
+| cfft q31 | flexdsp | 256 | tone | 163.3 | 177.8 |
+| cfft q31 | CMSIS-DSP | 256 | tone | 154.3 | 162.2 |
+| cfft q15 | flexdsp | 256 | two tones | 66.4 | 78.4 |
+| cfft q15 | CMSIS-DSP | 256 | two tones | 58.7 | 69.0 |
+| cfft q31 | flexdsp | 256 | two tones | 163.8 | 175.3 |
+| cfft q31 | CMSIS-DSP | 256 | two tones | 151.4 | 158.9 |
+| cfft q15 | flexdsp | 256 | white, -40 dB | 70.4 | 70.9 |
+| cfft q15 | CMSIS-DSP | 256 | white, -40 dB | 20.1 | 18.5 |
+| cfft q31 | flexdsp | 256 | white, -40 dB | 166.6 | 167.6 |
+| cfft q31 | CMSIS-DSP | 256 | white, -40 dB | 112.6 | 108.3 |
+| cfft q15 | flexdsp | 1024 | white | 68.3 | 65.2 |
+| cfft q15 | CMSIS-DSP | 1024 | white | 54.0 | 50.5 |
+| cfft q31 | flexdsp | 1024 | white | 164.4 | 162.7 |
+| cfft q31 | CMSIS-DSP | 1024 | white | 147.5 | 142.7 |
+| cfft q15 | flexdsp | 1024 | tone | 60.7 | 80.0 |
+| cfft q15 | CMSIS-DSP | 1024 | tone | 55.7 | 70.4 |
+| cfft q31 | flexdsp | 1024 | tone | 156.9 | 174.1 |
+| cfft q31 | CMSIS-DSP | 1024 | tone | 149.2 | 161.3 |
+| cfft q15 | flexdsp | 1024 | two tones | 62.7 | 78.9 |
+| cfft q15 | CMSIS-DSP | 1024 | two tones | 52.6 | 67.2 |
+| cfft q31 | flexdsp | 1024 | two tones | 158.8 | 174.6 |
+| cfft q31 | CMSIS-DSP | 1024 | two tones | 146.2 | 157.9 |
+| cfft q15 | flexdsp | 1024 | white, -40 dB | 68.7 | 68.9 |
+| cfft q15 | CMSIS-DSP | 1024 | white, -40 dB | 14.0 | 11.7 |
+| cfft q31 | flexdsp | 1024 | white, -40 dB | 164.9 | 165.1 |
+| cfft q31 | CMSIS-DSP | 1024 | white, -40 dB | 107.5 | 101.8 |
+| rfft q15 | flexdsp | 512 | white | 69.8 | 65.4 |
+| rfft q15 | CMSIS-DSP | 512 | white | 57.1 | 51.9 |
+| rfft q31 | flexdsp | 512 | white | 166.7 | 159.7 |
+| rfft q31 | CMSIS-DSP | 512 | white | 150.8 | 141.6 |
+| rfft q15 | flexdsp | 512 | tone | 60.6 | 72.6 |
+| rfft q15 | CMSIS-DSP | 512 | tone | 58.7 | 65.6 |
+| rfft q31 | flexdsp | 512 | tone | 157.1 | 169.2 |
+| rfft q31 | CMSIS-DSP | 512 | tone | 152.5 | 156.2 |
+| rfft q15 | flexdsp | 512 | two tones | 62.1 | 71.5 |
+| rfft q15 | CMSIS-DSP | 512 | two tones | 55.6 | 62.6 |
+| rfft q31 | flexdsp | 512 | two tones | 158.5 | 168.4 |
+| rfft q31 | CMSIS-DSP | 512 | two tones | 149.5 | 153.0 |
+| rfft q15 | flexdsp | 512 | white, -40 dB | 69.0 | 69.9 |
+| rfft q15 | CMSIS-DSP | 512 | white, -40 dB | 17.1 | 11.7 |
+| rfft q31 | flexdsp | 512 | white, -40 dB | 165.2 | 166.3 |
+| rfft q31 | CMSIS-DSP | 512 | white, -40 dB | 110.8 | 103.5 |

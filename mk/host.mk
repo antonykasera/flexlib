@@ -16,6 +16,9 @@ host-test:
 	$(HOST_CC) $(HOST_CFLAGS) -DFX_EMULATE_DSP $(TEST_SRCS) -lm \
 		-o $(HOST_BUILD)/test_runner_dsp
 	./$(HOST_BUILD)/test_runner_dsp fd_
+	$(HOST_CC) $(HOST_CFLAGS) -DFD_FFT_MAX=4096 $(TEST_SRCS) -lm \
+		-o $(HOST_BUILD)/test_runner_fft4096
+	./$(HOST_BUILD)/test_runner_fft4096 fd_fft
 	@echo "--- Host tests passed ($(HOST_CC)) ---"
 
 # exhaustive-slow runs the *_slow.c checks (~13 min), kept out of CI

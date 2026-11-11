@@ -10,7 +10,7 @@ Compute libraries for Cortex-M, measured on the chip they're for:
 - **[flexmath](math/README.md)** (`fm_`): fixed point (Q15 / Q31 / Q16.16),
   float functions without an FPU, vectors, matrices, quaternions and PID.
 - **[flexdsp](dsp/README.md)** (`fd_`): block arithmetic, FIR and biquad
-  filters, windows, tone detection and generation, noise.
+  filters, windows, tone detection and generation, noise, FFTs.
 
 Plain C11, no dependencies. Each function states an error bound and a cycle
 count measured on an STM32F103 (Cortex-M3, 72 MHz) next to newlib libm and
@@ -105,6 +105,7 @@ Each library has a folder, a fragment, a prefix and its own version tags
 | `fm_linalg` | q31 against exact 128-bit sums, float against long double sums, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_quat` | long double references, drift over 10^5 steps, inf / NaN, vs CMSIS-DSP, asm-audit | bench (warm and cold) + golden check |
 | `fm_pid` | Q16.16 against 128-bit arithmetic, float against long double sums, inf / NaN, asm-audit | bench + golden check |
+| `fd_fft` | every size up to 4096, complex, real and inverse, bit-exact against an integer model of every stage that also checks no stage leaves its type; corner inputs that reach each stage's growth bound; every bin of every size up to 1024 against the exact DFT of the quantised tone; scaling invariance, round trips; vs CMSIS-DSP, asm-audit | bench + golden check |
 | `fd_window`, `fd_tone`, `fd_noise` | every window type at every length up to 4096 (both symmetries) against long double; Goertzel bit-exact against a 128-bit recursion and against the DFT; NCO against fm_sin / cos; oscillator drift over 10^6 samples; noise mean, variance, kurtosis, tails, histogram; asm-audit | bench + golden check |
 | `fd_biquad`, `fd_filt` | bit-exact against 128-bit recursions (q15, q31, error feedback, wide sums, split calls, in place), saturation and tie boundaries, design against double RBJ and pole precision at fc 1e-4, Butterworth -3 dB, noise shaping +51 dB; vs CMSIS-DSP, asm-audit | bench + golden check |
 | `fd_fir` | every tap count 1-9 and unroll edges, chunk sizes, split calls, in place, gain-2 boundaries, decimation phases and interpolator branches against exact 128-bit convolutions; design against a double reference and window sidelobes; vs CMSIS-DSP, asm-audit | bench + golden check |

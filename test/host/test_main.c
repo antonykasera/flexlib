@@ -72,6 +72,19 @@ void test_fd_noise(void);
 void test_fd_window_edges(void);
 void test_fd_tone_edges(void);
 
+/* --- fd_fft (test_fd_fft.c) --- */
+void test_fd_fft_scan(void);
+void test_fd_fft_twiddles(void);
+void test_fd_fft_model(void);
+void test_fd_fft_real_model(void);
+void test_fd_fft_bounds(void);
+void test_fd_fft_accuracy(void);
+void test_fd_fft_shift_invariance(void);
+void test_fd_fft_round_trip(void);
+void test_fd_fft_edges(void);
+void test_fd_fft_rescale(void);
+void test_fd_fft_db(void);
+
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
 void test_fx_rbit_rev(void);
@@ -217,6 +230,17 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_noise);
   TEST_RUN(test_fd_window_edges);
   TEST_RUN(test_fd_tone_edges);
+  TEST_RUN(test_fd_fft_scan);
+  TEST_RUN(test_fd_fft_twiddles);
+  TEST_RUN(test_fd_fft_model);
+  TEST_RUN(test_fd_fft_real_model);
+  TEST_RUN(test_fd_fft_bounds);
+  TEST_RUN(test_fd_fft_accuracy);
+  TEST_RUN(test_fd_fft_shift_invariance);
+  TEST_RUN(test_fd_fft_round_trip);
+  TEST_RUN(test_fd_fft_edges);
+  TEST_RUN(test_fd_fft_rescale);
+  TEST_RUN(test_fd_fft_db);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

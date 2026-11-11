@@ -50,6 +50,21 @@ ACC_CMSIS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
               FilteringFunctions/arm_biquad_cascade_df1_init_q31.c \
               FilteringFunctions/arm_biquad_cascade_df1_32x64_q31.c \
               FilteringFunctions/arm_biquad_cascade_df1_32x64_init_q31.c \
+              TransformFunctions/arm_cfft_q15.c \
+              TransformFunctions/arm_cfft_q31.c \
+              TransformFunctions/arm_cfft_radix4_q15.c \
+              TransformFunctions/arm_cfft_radix4_q31.c \
+              TransformFunctions/arm_bitreversal.c \
+              TransformFunctions/arm_bitreversal2.c \
+              TransformFunctions/arm_cfft_init_q15.c \
+              TransformFunctions/arm_cfft_init_q31.c \
+              TransformFunctions/arm_rfft_q15.c \
+              TransformFunctions/arm_rfft_init_q15.c \
+              TransformFunctions/arm_rfft_q31.c \
+              TransformFunctions/arm_rfft_init_q31.c \
+              BasicMathFunctions/arm_shift_q15.c \
+              BasicMathFunctions/arm_shift_q31.c \
+              CommonTables/arm_const_structs.c \
               CommonTables/arm_common_tables.c)
 ACC_CMSIS_INC = -isystem $(CMSIS_DSP_DIR)/Include \
                 -isystem $(CMSIS_DSP_DIR)/PrivateInclude -isystem $(FLEX_DIR)/cmsis/inc
@@ -61,7 +76,7 @@ accuracy:
 			-o $(ACC_BUILD)/$$(basename $$f .c).o || exit 1; \
 	done
 	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 $(LIB_INC) -Itest/host $(ACC_CMSIS_INC) \
-		test/accuracy/accuracy.c test/host/test_stats.c $(LIB_SRCS) \
+		test/accuracy/accuracy.c test/host/test_stats.c test/host/ref_dsp.c $(LIB_SRCS) \
 		$(patsubst %.c,$(ACC_BUILD)/%.o,$(notdir $(ACC_CMSIS))) -lm \
 		-o $(ACC_BUILD)/accuracy
 	./$(ACC_BUILD)/accuracy > docs/accuracy.md

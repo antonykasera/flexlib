@@ -3,6 +3,12 @@
 Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md).
 
+## Unreleased
+
+- flexdsp: complex and real FFTs in q15 / q31 with block floating point ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
+- flexmath: `fm_core.h`, an internal header for flexdsp ([math/CHANGELOG.md](math/CHANGELOG.md)).
+- Bench: a sixth image, `dsp3`, for the transforms; its shared scratch is 8 KB.
+
 ## v0.3.1 (2026-11-11)
 
 flexdsp 0.1.1.

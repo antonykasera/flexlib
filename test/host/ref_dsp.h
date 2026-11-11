@@ -35,6 +35,9 @@ void ref_corr(const double *a, unsigned na, const double *b, unsigned nb,
 void ref_dft(const double *re, const double *im, unsigned n, double *ore,
              double *oim, int inverse);
 
+/* the same transform in O(n log n), n a power of two; in place */
+void ref_fft(double *re, double *im, unsigned n, int inverse);
+
 /* one DFT term at f cycles per sample */
 void ref_dft_bin(const double *x, unsigned n, double f, double *re, double *im);
 

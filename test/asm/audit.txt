@@ -296,3 +296,33 @@ fd_noise_uniform_q15 no-calls
 fd_noise_uniform_q31 no-calls
 fd_noise_tpdf_q15    no-calls
 gauss_pair           !udiv
+
+# fd_fft: the stage kernels call nothing and divide nothing; q15 products are
+# MUL / MLA (exact in int32), never long multiplies or saturation
+fd_fft15_scan      no-calls  !udiv
+fd_fft15_rev       no-calls  rbit !udiv
+fd_fft15_t2r       no-calls  !mul !udiv
+fd_fft15_t2l       no-calls  !mul !udiv
+fd_fft15_t4r       no-calls  !mul !udiv
+fd_fft15_t4l       no-calls  !mul !udiv
+fd_fft15_r4        no-calls  mul mla !smull !smlal !ssat !udiv
+fd_fft15_r4w       no-calls  mul mla !smull !smlal !ssat !udiv
+fd_fft15_cfft      clz rbit !udiv !call=memcpy
+fd_fft31_scan      no-calls  !udiv
+fd_fft31_rev       no-calls  rbit !udiv
+fd_fft31_t2r       no-calls  !udiv
+fd_fft31_t4r       no-calls  !udiv
+fd_fft31_t4l       no-calls  !udiv
+fd_fft31_r4        no-calls  smull smlal !udiv
+fd_fft31_r4x       no-calls  smull smlal !udiv
+fd_fft31_cfft      clz rbit !udiv !call=memcpy
+fd_fft15_flip      no-calls
+fd_fft31_flip      no-calls
+fd_rfft_q15        !udiv
+fd_rfft_q31        !udiv
+fd_irfft_q15       !udiv
+fd_irfft_q31       !udiv
+fd_fft_db_q15      !udiv
+fd_fft_db_q31      !udiv
+fd_headroom_q15    no-calls  clz
+fd_headroom_q31    no-calls  clz

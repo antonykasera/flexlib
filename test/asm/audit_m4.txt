@@ -15,3 +15,12 @@ probe_ssat16x8  max=2  ssat16
 probe_smmulr    max=2  smmulr
 probe_smulwb    max=2  smulwb
 probe_smlawb    max=2  smlawb
+
+# fd_fft: the M4 build of the stage kernels calls nothing either
+fd_fft15_r4        no-calls  !udiv
+fd_fft15_r4w       no-calls  !udiv
+fd_fft15_t4r       no-calls  !udiv
+fd_fft31_r4        no-calls  smlal !udiv
+fd_fft31_r4x       no-calls  smlal !udiv
+fd_fft15_cfft      !udiv
+fd_fft31_cfft      !udiv

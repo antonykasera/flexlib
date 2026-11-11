@@ -6,8 +6,10 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "arm_const_structs.h"
 #include "arm_math.h"
 #include "fd_biquad.h"
+#include "fd_fft.h"
 #include "fd_fir.h"
 #include "fd_vec.h"
 #include "fm_atan.h"
@@ -19,6 +21,7 @@
 #include "fm_quat.h"
 #include "fm_sqrt.h"
 #include "fm_trig.h"
+#include "ref_dsp.h"
 #include "test_stats.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -827,6 +830,174 @@ static void fd_biquad_rows(float fc, const char *label, int q15_rows) {
   }
 }
 
+/* ---- transforms: error energy and the peak error, both against the
+ * largest bin, as the output formats differ (block exponent vs X / n) ---- */
+
+typedef struct {
+  double sig, err, peak, worst; /* sums of squares; largest |X|, |error| */
+} FftErr;
+
+static void fft_add(FftErr *e, double got_re, double got_im, double re,
+                    double im) {
+  double dr = got_re - re, di = got_im - im;
+  e->sig += re * re + im * im;
+  e->err += dr * dr + di * di;
+  e->peak = fmax(e->peak, fmax(fabs(re), fabs(im)));
+  e->worst = fmax(e->worst, fmax(fabs(dr), fabs(di)));
+}
+
+static void fft_row(const char *name, const char *impl, unsigned n,
+                    const char *input, const FftErr *e) {
+  printf("| %s | %s | %u | %s | %.1f | %.1f |\n", name, impl, n, input,
+         10.0 * log10(e->sig / e->err), 20.0 * log10(e->peak / e->worst));
+}
+
+/* kind 0 white, 1 tone (off-bin), 2 two tones, 3 white at -40 dB */
+static void fft_input(uint64_t *st, int kind, double full, unsigned len,
+                      double *v) {
+  double f1 = 3.0 + (double)(test_rng_u32(st) % 50U) + 0.37;
+  double f2 = f1 * 2.71 + 5.2;
+  for (unsigned i = 0U; i < len; i++) {
+    double r = (double)(int32_t)test_rng_u32(st) / 2147483648.0;
+    double t = 6.283185307179586 * (double)(i / 2U) / (len / 2U);
+    double a = (i & 1U) == 0U ? cos(f1 * t) : sin(f1 * t);
+    double b = (i & 1U) == 0U ? cos(f2 * t) : -sin(f2 * t);
+    double x = kind == 0
+                   ? r
+                   : (kind == 1 ? a : (kind == 2 ? 0.5 * (a + b) : r / 100.0));
+    v[i] = fmin(fmax(floor(x * full + 0.5), -full), full - 1.0);
+  }
+}
+
+static void fd_fft_rows(void) {
+  static const char *const kinds[4] = {"white", "tone", "two tones",
+                                       "white, -40 dB"};
+  static const unsigned sizes[3] = {64U, 256U, 1024U};
+  enum { REPS = 40 };
+  static double v[2048], re[1024], im[1024];
+  static fd_cq15 a15[1024];
+  static fd_cq31 a31[1024];
+  static q15_t c15[2048];
+  static q31_t c31[2048];
+  for (unsigned si = 0U; si < 3U; si++) {
+    unsigned n = sizes[si];
+    const arm_cfft_instance_q15 *i15 =
+        n == 64U
+            ? &arm_cfft_sR_q15_len64
+            : (n == 256U ? &arm_cfft_sR_q15_len256 : &arm_cfft_sR_q15_len1024);
+    const arm_cfft_instance_q31 *i31 =
+        n == 64U
+            ? &arm_cfft_sR_q31_len64
+            : (n == 256U ? &arm_cfft_sR_q31_len256 : &arm_cfft_sR_q31_len1024);
+    for (int kind = 0; kind < 4; kind++) {
+      FftErr e[4];
+      memset(e, 0, sizeof e);
+      uint64_t st = 99U + (uint64_t)kind;
+      for (int rep = 0; rep < REPS; rep++) {
+        for (int q31 = 0; q31 <= 1; q31++) {
+          double full = q31 ? 2147483648.0 : 32768.0;
+          fft_input(&st, kind, full, 2U * n, v);
+          for (unsigned i = 0U; i < n; i++) {
+            re[i] = v[2U * i];
+            im[i] = v[2U * i + 1U];
+          }
+          ref_fft(re, im, n, 0);
+          for (unsigned i = 0U; i < 2U * n; i++) {
+            if (q31) {
+              c31[i] = (q31_t)v[i];
+            } else {
+              c15[i] = (q15_t)v[i];
+            }
+          }
+          for (unsigned i = 0U; i < n; i++) {
+            if (q31) {
+              a31[i].re = c31[2U * i];
+              a31[i].im = c31[2U * i + 1U];
+            } else {
+              a15[i].re = c15[2U * i];
+              a15[i].im = c15[2U * i + 1U];
+            }
+          }
+          int32_t x = q31 ? fd_cfft_q31(a31, n) : fd_cfft_q15(a15, n);
+          if (q31) {
+            arm_cfft_q31(i31, c31, 0U, 1U);
+          } else {
+            arm_cfft_q15(i15, c15, 0U, 1U);
+          }
+          double u = ldexp(1.0, x);
+          for (unsigned k = 0U; k < n; k++) {
+            double fr = q31 ? a31[k].re : a15[k].re;
+            double fi = q31 ? a31[k].im : a15[k].im;
+            double cr = q31 ? c31[2U * k] : c15[2U * k];
+            double ci = q31 ? c31[2U * k + 1U] : c15[2U * k + 1U];
+            fft_add(&e[2 * q31], fr * u, fi * u, re[k], im[k]);
+            fft_add(&e[2 * q31 + 1], cr * n, ci * n, re[k], im[k]);
+          }
+        }
+      }
+      fft_row("cfft q15", "flexdsp", n, kinds[kind], &e[0]);
+      fft_row("cfft q15", "CMSIS-DSP", n, kinds[kind], &e[1]);
+      fft_row("cfft q31", "flexdsp", n, kinds[kind], &e[2]);
+      fft_row("cfft q31", "CMSIS-DSP", n, kinds[kind], &e[3]);
+    }
+  }
+  /* real transforms, n = 512 */
+  static q15_t rs15[512], rd15[1024];
+  static q31_t rs31[512], rd31[1024];
+  static fm_q15 r15[512] __attribute__((aligned(4)));
+  static fm_q31 r31[512];
+  arm_rfft_instance_q15 ri15;
+  arm_rfft_instance_q31 ri31;
+  (void)arm_rfft_init_512_q15(&ri15, 0U, 1U);
+  (void)arm_rfft_init_512_q31(&ri31, 0U, 1U);
+  for (int kind = 0; kind < 4; kind++) {
+    FftErr e[4];
+    memset(e, 0, sizeof e);
+    uint64_t st = 199U + (uint64_t)kind;
+    for (int rep = 0; rep < REPS; rep++) {
+      for (int q31 = 0; q31 <= 1; q31++) {
+        double full = q31 ? 2147483648.0 : 32768.0;
+        fft_input(&st, kind, full, 512U, v);
+        for (unsigned i = 0U; i < 512U; i++) {
+          re[i] = v[i];
+          im[i] = 0.0;
+          if (q31) {
+            r31[i] = rs31[i] = (q31_t)v[i];
+          } else {
+            r15[i] = rs15[i] = (q15_t)v[i];
+          }
+        }
+        ref_fft(re, im, 512U, 0);
+        int32_t x = q31 ? fd_rfft_q31(r31, 512U) : fd_rfft_q15(r15, 512U);
+        if (q31) {
+          arm_rfft_q31(&ri31, rs31, rd31);
+        } else {
+          arm_rfft_q15(&ri15, rs15, rd15);
+        }
+        double u = ldexp(1.0, x);
+        for (unsigned k = 0U; k <= 256U; k++) {
+          double fr, fi;
+          if (k == 0U || k == 256U) {
+            fr = (q31 ? r31[k == 0U ? 0U : 1U] : r15[k == 0U ? 0U : 1U]) * u;
+            fi = 0.0;
+          } else {
+            fr = (q31 ? r31[2U * k] : r15[2U * k]) * u;
+            fi = (q31 ? r31[2U * k + 1U] : r15[2U * k + 1U]) * u;
+          }
+          double cr = (q31 ? rd31[2U * k] : rd15[2U * k]) * 512.0;
+          double ci = (q31 ? rd31[2U * k + 1U] : rd15[2U * k + 1U]) * 512.0;
+          fft_add(&e[2 * q31], fr, fi, re[k], im[k]);
+          fft_add(&e[2 * q31 + 1], cr, ci, re[k], im[k]);
+        }
+      }
+    }
+    fft_row("rfft q15", "flexdsp", 512U, kinds[kind], &e[0]);
+    fft_row("rfft q15", "CMSIS-DSP", 512U, kinds[kind], &e[1]);
+    fft_row("rfft q31", "flexdsp", 512U, kinds[kind], &e[2]);
+    fft_row("rfft q31", "CMSIS-DSP", 512U, kinds[kind], &e[3]);
+  }
+}
+
 int main(void) {
   printf(
       "# flexlib accuracy\n\n"
@@ -867,5 +1038,13 @@ int main(void) {
   fd_fir_rows();
   fd_biquad_rows(0.01f, "Butterworth 4, fc 0.01", 1);
   fd_biquad_rows(0.0005f, "Butterworth 4, fc 5e-4", 0); /* Q2.14 b round to 0 */
+  printf("\n## flexdsp transforms\n\n"
+         "Signal-to-noise against the exact DFT, and the largest bin over the "
+         "largest\nerror, both in dB (the output formats differ: a block "
+         "exponent here, X / n\nin CMSIS-DSP). %d blocks per row.\n\n"
+         "| transform | impl | n | input | SNR dB | peak / max error dB |\n"
+         "|---|---|--:|---|--:|--:|\n",
+         40);
+  fd_fft_rows();
   return 0;
 }

@@ -29,6 +29,27 @@ int64_t fd_sum_q15(const fm_q15 *x, uint32_t n) {
   return s;
 }
 
+/* v ^ (v << 1) has its top bit at the first bit below the sign run */
+uint32_t fd_headroom_q15(const fm_q15 *x, uint32_t n) {
+  uint32_t acc = 0U;
+  FX_UNROLL(4)
+  for (uint32_t i = 0U; i < n; i++) {
+    uint32_t v = (uint32_t)(int32_t)x[i];
+    acc |= v ^ (v << 1);
+  }
+  return 15U - (31U - fx_clz(acc | 1U));
+}
+
+uint32_t fd_headroom_q31(const fm_q31 *x, uint32_t n) {
+  uint32_t acc = 0U;
+  FX_UNROLL(4)
+  for (uint32_t i = 0U; i < n; i++) {
+    uint32_t v = (uint32_t)x[i];
+    acc |= v ^ (v << 1);
+  }
+  return fx_clz(acc | 1U);
+}
+
 int64_t fd_sum_q31(const fm_q31 *x, uint32_t n) {
   int64_t s = 0;
   FX_UNROLL(4)

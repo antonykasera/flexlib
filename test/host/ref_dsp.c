@@ -93,6 +93,43 @@ void ref_dft(const double *re, const double *im, unsigned n, double *ore,
   }
 }
 
+void ref_fft(double *re, double *im, unsigned n, int inverse) {
+  const long double sign = inverse ? 1.0L : -1.0L;
+  unsigned m = 0U;
+  while ((1U << m) < n) {
+    m++;
+  }
+  for (unsigned i = 0U; i < n; i++) {
+    unsigned r = 0U;
+    for (unsigned b = 0U; b < m; b++) {
+      r |= ((i >> b) & 1U) << (m - 1U - b);
+    }
+    if (i < r) {
+      double t = re[i];
+      re[i] = re[r];
+      re[r] = t;
+      t = im[i];
+      im[i] = im[r];
+      im[r] = t;
+    }
+  }
+  for (unsigned h = 1U; h < n; h *= 2U) {
+    for (unsigned j = 0U; j < h; j++) {
+      long double t = sign * (long double)two_pi * (long double)j / (2U * h);
+      long double c = cosl(t), s = sinl(t);
+      for (unsigned p = j; p < n; p += 2U * h) {
+        long double br = (long double)re[p + h], bi = (long double)im[p + h];
+        long double pr = br * c - bi * s, pi = br * s + bi * c;
+        long double ar = (long double)re[p], ai = (long double)im[p];
+        re[p] = (double)(ar + pr);
+        im[p] = (double)(ai + pi);
+        re[p + h] = (double)(ar - pr);
+        im[p + h] = (double)(ai - pi);
+      }
+    }
+  }
+}
+
 void ref_dft_bin(const double *x, unsigned n, double f, double *re,
                  double *im) {
   long double sr = 0.0L, si = 0.0L;
