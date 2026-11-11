@@ -40,6 +40,21 @@ static void noise(uint32_t words, uint32_t seed) {
   }
 }
 
+/* white noise 60 dB down: the left-shift kernels */
+static void quiet15(uint32_t n, uint32_t seed) {
+  noise(n, seed);
+  for (uint32_t i = 0U; i < 2U * n; i++) {
+    r15[i] = (fm_q15)(r15[i] / 1024);
+  }
+}
+
+static void quiet31(uint32_t n, uint32_t seed) {
+  noise(2U * n, seed);
+  for (uint32_t i = 0U; i < 2U * n; i++) {
+    r31[i] /= 1024;
+  }
+}
+
 static void tone(uint32_t n, uint32_t seed) {
   (void)bench_scratch_claim(&scratch_id);
   FD_Nco o;
@@ -140,8 +155,7 @@ BENCH_CALL static void r4_tab_w(int16_t *x, uint32_t n, uint32_t q,
 /* the library driver, its twiddle stages swapped for the table ones */
 BENCH_CALL static int32_t cfft_b(fd_cq15 *xc, uint32_t n) {
   int16_t *x = (int16_t *)(void *)xc;
-  uint32_t b = fd_fft15_scan(x, n);
-  fd_fft15_rev(x, n);
+  uint32_t b = fd_fft15_rev(x, n); /* the first scan, as the library's */
   int32_t e = 0;
   for (uint32_t q = 1U; 4U * q <= n; q *= 4U) {
     int32_t sh = (int32_t)b - (q == 1U ? 13 : 12);
@@ -167,8 +181,7 @@ BENCH_CALL static int32_t cfft_b(fd_cq15 *xc, uint32_t n) {
  * stage's output is below 2^15) */
 BENCH_CALL static int32_t cfft_s2(fd_cq15 *xc, uint32_t n) {
   int16_t *x = (int16_t *)(void *)xc;
-  uint32_t b = fd_fft15_scan(x, n);
-  fd_fft15_rev(x, n);
+  uint32_t b = fd_fft15_rev(x, n); /* the first scan, as the library's */
   int32_t e = 0;
   uint32_t i = 0U;
   for (uint32_t q = 1U; 4U * q <= n; q *= 4U, i++) {
@@ -216,7 +229,7 @@ static int32_t shift_for(uint32_t m, uint32_t g) {
 BENCH_CALL static int32_t cfft_s3(fd_cq15 *xc, uint32_t n) {
   int16_t *x = (int16_t *)(void *)xc;
   uint32_t m = absmax15(x, n);
-  fd_fft15_rev(x, n);
+  (void)fd_fft15_rev(x, n);
   int32_t e = 0;
   for (uint32_t q = 1U; 4U * q <= n; q *= 4U) {
     /* growth 4 and 5.2431 in Q16 */
@@ -299,8 +312,7 @@ BENCH_CALL static void r2_stage(int16_t *x, uint32_t n, uint32_t h,
 
 BENCH_CALL static int32_t cfft_r2(fd_cq15 *xc, uint32_t n) {
   int16_t *x = (int16_t *)(void *)xc;
-  uint32_t b = fd_fft15_scan(x, n);
-  fd_fft15_rev(x, n);
+  uint32_t b = fd_fft15_rev(x, n); /* the first scan, as the library's */
   int32_t sh = (int32_t)b - 14;
   if (sh > 0) {
     fd_fft15_t2r(x, n, sh);
@@ -393,11 +405,21 @@ CASE(b_cfft31_1024, fd_cfft_q31(c31, 1024U), 8192U, N31(1024U))
 CASE(b_rfft15_512, fd_rfft_q15(r15, 512U), 1024U, N15(256U))
 CASE(b_irfft15_512, fd_irfft_q15(r15, 512U), 1024U, N15(256U))
 CASE(b_rfft31_512, fd_rfft_q31(r31, 512U), 2048U, N31(256U))
+CASE(b_cfft15_512, fd_cfft_q15(c15, 512U), 2048U, N15(512U))
+CASE(b_cfft15_quiet, fd_cfft_q15(c15, 256U), 1024U, quiet15(256U, i))
+CASE(b_cfft31_128, fd_cfft_q31(c31, 128U), 1024U, N31(128U))
+CASE(b_cfft31_quiet, fd_cfft_q31(c31, 256U), 2048U, quiet31(256U, i))
+CASE(b_icfft31_256, fd_icfft_q31(c31, 256U), 2048U, N31(256U))
+CASE(b_irfft31_512, fd_irfft_q31(r31, 512U), 2048U, N31(256U))
+CASE(b_db31_128, (fd_fft_db_q31(c31, -3, db, 128U), db[5]), 0U, N31(128U))
 CASE(b_db15_128, (fd_fft_db_q15(c15, -3, db, 128U), db[5]), 0U, N15(128U))
 
 /* the kernels alone, n = 256 */
 CASE(b_scan15, (int32_t)fd_fft15_scan(&c15[0].re, 256U), 0U, N15(256U))
-CASE(b_rev15, (fd_fft15_rev(&c15[0].re, 256U), 0), 1024U, N15(256U))
+CASE(b_rev15, (int32_t)fd_fft15_rev(&c15[0].re, 256U), 1024U, N15(256U))
+CASE(b_rev31, (int32_t)fd_fft31_rev(&c31[0].re, 256U), 2048U, N31(256U))
+CASE(b_t4r31, (fd_fft31_t4r(&c31[0].re, 256U, 1U, 2), 0), 2048U,
+     noise(512U, i ^ 0x55U))
 CASE(b_t4r15, (fd_fft15_t4r(&c15[0].re, 256U, 1U, 2), 0), 1024U,
      noise(256U, i ^ 0x55U))
 CASE(b_r4w15, (fd_fft15_r4w(&c15[0].re, 256U, 16U, 3), 0), 1024U,
@@ -447,9 +469,18 @@ static const BenchCase cases[] = {
     {"fd_rfft_q15, 512", "flexlib", b_rfft15_512, true},
     {"fd_irfft_q15, 512", "flexlib", b_irfft15_512, true},
     {"fd_rfft_q31, 512", "flexlib", b_rfft31_512, true},
+    {"fd_cfft_q15, 512", "flexlib", b_cfft15_512, true},
+    {"fd_cfft_q15, 256, -60 dB", "flexlib", b_cfft15_quiet, true},
+    {"fd_cfft_q31, 128", "flexlib", b_cfft31_128, true},
+    {"fd_cfft_q31, 256, -60 dB", "flexlib", b_cfft31_quiet, true},
+    {"fd_icfft_q31, 256", "flexlib", b_icfft31_256, true},
+    {"fd_irfft_q31, 512", "flexlib", b_irfft31_512, true},
+    {"fd_fft_db_q31, 128 bins", "flexlib", b_db31_128, true},
     {"fd_fft_db_q15, 128 bins", "flexlib", b_db15_128, true},
     {"fft q15 scan, 256", "kernel", b_scan15, true},
-    {"fft q15 bit reversal, 256", "kernel", b_rev15, true},
+    {"fft q15 bit reversal + scan, 256", "kernel", b_rev15, true},
+    {"fft q31 bit reversal + scan, 256", "kernel", b_rev31, true},
+    {"fft q31 stage q = 1, 256", "kernel", b_t4r31, true},
     {"fft q15 stage q = 1, 256", "kernel", b_t4r15, true},
     {"fft q15 twiddle stage q = 16 (b 15), 256", "kernel", b_r4w15, true},
     {"fft q31 scan, 256", "kernel", b_scan31, true},

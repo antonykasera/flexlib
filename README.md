@@ -144,7 +144,7 @@ third_party/     flex and CMSIS-DSP (submodules, for the bench only)
 | `make cross` | `-Werror` builds for Cortex-M3, M4, M7 |
 | `make lint` | `-Wpedantic` everywhere, each header compiled on its own |
 | `make asm-audit` | checks the M3 disassembly for the expected instructions and for no soft-float or libgcc calls, and the M4 disassembly of the DSP-extension paths |
-| `make tables` | regenerates the CRC and math tables (`utils/src/fu_crc_tab.c`, `math/src/fm_tables.c`) |
+| `make tables` | regenerates the CRC, math and FFT tables (`utils/src/fu_crc_tab.c`, `math/src/fm_tables.c`, `dsp/src/fd_fft_tab.h`) |
 | `make accuracy` | flexmath, flexdsp and the CMSIS-DSP functions they replace against `double` or exact references; writes `docs/accuracy.md` (~3 min) |
 | `make golden` | runs the bench cases on the host and writes `bench/core/golden.c` |
 | `make bench [BENCH_OPT=-Os]` | builds the bench firmware: flexutils, flexmath's functions, its structures, and flexdsp in two (`BENCH_SET=utils\|math\|struct\|dsp\|dsp2` for one) |

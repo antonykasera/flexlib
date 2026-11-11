@@ -329,7 +329,9 @@ static int32_t m_irfft(int64_t *x, uint32_t n, int q31) {
   uint32_t b = m_bits(x, n);
   int32_t sh = (int32_t)b - (q31 ? 28 : 12);
   m_pass(x, n, sh, b, q31, 1);
-  int32_t e = m_icfft(x, n / 2U, q31);
+  m_flip(x, n / 2U); /* IDFT(z) = DFT(z[-k]) / m */
+  int32_t e = m_cfft(x, n / 2U, q31);
+  e = e == M_ZERO ? 0 : e - (int32_t)m_log2(n / 2U);
   int allzero = 1;
   for (uint32_t i = 0U; i < n; i++) {
     allzero &= x[i] == 0;

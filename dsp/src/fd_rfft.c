@@ -51,7 +51,7 @@ FX_INLINE void split15(int16_t *x, uint32_t n, int32_t sh, uint32_t ps) {
 }
 
 /* p = X[k], r = X[m - k]: 2Z[k] = p + conj r + i conj(W) (p - conj r), and
- * 2Z[m - k] = conj(2E) + i conj(2O) */
+ * 2Z[m - k]; stored in each other's slot, the inverse's index flip */
 FX_INLINE void join15(int16_t *x, uint32_t n, int32_t sh, uint32_t ps) {
   const uint32_t m = n / 2U, k = (uint32_t)(15 + sh) - ps;
   const int32_t rnd = (1 << (k - 1U)) - 1;
@@ -73,10 +73,10 @@ FX_INLINE void join15(int16_t *x, uint32_t n, int32_t sh, uint32_t ps) {
     int32_t dr = pr - qr, di = pi + qi;
     int32_t or_ = rnd + ((c * dr) >> ps) - ((s * di) >> ps);
     int32_t oi = ((s * dr) >> ps) + ((c * di) >> ps);
-    lo[0] = out15(er - oi, k);
-    lo[1] = out15(ei + or_, k);
-    hi[0] = out15(er + oi, k);
-    hi[1] = out15(or_ - ei, k);
+    hi[0] = out15(er - oi, k);
+    hi[1] = out15(ei + or_, k);
+    lo[0] = out15(er + oi, k);
+    lo[1] = out15(or_ - ei, k);
     lo += 2;
     hi -= 2;
   }
@@ -128,7 +128,6 @@ int32_t fd_irfft_q15(fm_q15 *x, uint32_t n) {
   if (e == FD_FFT_ZERO) {
     return 0;
   }
-  fd_fft15_flip(x, m);
   return e - (31 - (int32_t)fx_clz(m)) + sh - 1;
 }
 
@@ -207,10 +206,10 @@ FX_INLINE void join31(int32_t *x, uint32_t n, int32_t sh, bool hi) {
         fx_smlal(fx_smlal(fx_smlal(rnd, c, pr), -c, qr), -s, pi), -s, qi);
     int64_t oi =
         fx_smlal(fx_smlal(fx_smlal(fx_smull(s, pr), -s, qr), c, pi), c, qi);
-    lo[0] = OUT31(er - oi);
-    lo[1] = OUT31(ei + or_);
-    hp[0] = OUT31(er + oi);
-    hp[1] = OUT31(or_ - ei);
+    hp[0] = OUT31(er - oi);
+    hp[1] = OUT31(ei + or_);
+    lo[0] = OUT31(er + oi);
+    lo[1] = OUT31(or_ - ei);
     lo += 2;
     hp -= 2;
   }
@@ -260,7 +259,6 @@ int32_t fd_irfft_q31(fm_q31 *x, uint32_t n) {
   if (e == FD_FFT_ZERO) {
     return 0;
   }
-  fd_fft31_flip(x, m);
   return e - (31 - (int32_t)fx_clz(m)) + sh - 1;
 }
 

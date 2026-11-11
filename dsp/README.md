@@ -18,8 +18,8 @@ against exact references; CMSIS-DSP's are in
   stated. The FFTs round ties down and never need to saturate (below).
 - Programmer errors (a bad shift, `n == 0` where a result is needed) trip
   `FX_ASSERT`.
-- On Cortex-M4 and M7 the DSP-extension instructions are used where they
-  pay; results are bit-identical to the M3 build.
+- The kernels are the same C on every Cortex-M, with the same results on
+  each; the M4 / M7 builds don't use the DSP-extension instructions.
 
 ## Element-wise (`fd_vec.h`)
 
@@ -185,11 +185,11 @@ block gives zeros and `e = 0`.
 |---|--:|--:|--:|--:|
 | `fd_cfft_q15`, 256 | 32433 | 32665 | 72.4 dB | 60.1 dB |
 | `fd_cfft_q15`, 1024 | 157075 | 159716 | 68.3 dB | 54.0 dB |
-| `fd_cfft_q31`, 256 | 63682 | 36223 | 167.8 dB | 152.6 dB |
-| `fd_cfft_q31`, 1024 | 311908 | 182148 | 164.4 dB | 147.5 dB |
-| `fd_rfft_q15`, 512 | 40107 | 109437 | 69.8 dB | 57.1 dB |
-| `fd_rfft_q31`, 512 | 85806 | | 166.7 dB | 150.8 dB |
-| `fd_icfft_q15`, 256 / `fd_irfft_q15`, 512 | 33849 / 41266 | | | |
+| `fd_cfft_q31`, 256 | 59677 | 36223 | 167.8 dB | 152.6 dB |
+| `fd_cfft_q31`, 1024 | 295942 | 182148 | 164.4 dB | 147.5 dB |
+| `fd_rfft_q15`, 512 | 40107 | 109341 | 69.8 dB | 57.1 dB |
+| `fd_rfft_q31`, 512 | 81801 | | 166.7 dB | 150.8 dB |
+| `fd_icfft_q15`, 256 / `fd_irfft_q15`, 512 | 33849 / 39724 | | | |
 | `fd_fft_db_q15`, 128 bins | 15160 | | 0.5003 LSB | |
 
 SNR is against the exact DFT; white noise at full scale, 40 blocks
@@ -198,7 +198,9 @@ CMSIS-DSP scales by a fixed 1/4 per stage, so a quiet signal loses its low
 bits: white noise at -40 dB keeps 70.4 dB here at 256 points (CMSIS-DSP 20.1),
 and q31 keeps 164.9 dB at 1024 (107.5). The q31 butterflies sum each output
 exactly in 64 bits; CMSIS-DSP keeps the truncated high word of each product,
-which is why it is faster there.
+which is why it is faster there. Rounding ties down in the stages without
+twiddles leaves a mean error of -1.1 LSB at DC at 256 points (-1.9 at 1024;
+CMSIS-DSP's truncation, -5 and -6 in its format).
 
 Layouts and scaling:
 

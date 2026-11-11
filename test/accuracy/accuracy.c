@@ -869,6 +869,70 @@ static void fft_input(uint64_t *st, int kind, double full, unsigned len,
   }
 }
 
+/* mean error per bin over many blocks of white noise, in LSB of each output
+ * format: the bias rounding leaves (2000 blocks; noise on a mean ~0.02) */
+static void fd_fft_bias_rows(void) {
+  enum { REPS = 2000 };
+  static const unsigned sizes[2] = {256U, 1024U};
+  static double re[1024], im[1024], m[4][2][1024];
+  static fd_cq15 a15[1024];
+  static fd_cq31 a31[1024];
+  static q15_t c15[2048];
+  static q31_t c31[2048];
+  for (unsigned si = 0U; si < 2U; si++) {
+    unsigned n = sizes[si];
+    const arm_cfft_instance_q15 *i15 =
+        n == 256U ? &arm_cfft_sR_q15_len256 : &arm_cfft_sR_q15_len1024;
+    const arm_cfft_instance_q31 *i31 =
+        n == 256U ? &arm_cfft_sR_q31_len256 : &arm_cfft_sR_q31_len1024;
+    memset(m, 0, sizeof m);
+    uint64_t st = 7U;
+    for (int rep = 0; rep < REPS; rep++) {
+      for (int q31 = 0; q31 <= 1; q31++) {
+        for (unsigned i = 0U; i < n; i++) {
+          uint32_t r0 = test_rng_u32(&st), r1 = test_rng_u32(&st);
+          if (q31) {
+            a31[i].re = c31[2U * i] = (q31_t)r0;
+            a31[i].im = c31[2U * i + 1U] = (q31_t)r1;
+          } else {
+            a15[i].re = c15[2U * i] = (q15_t)(r0 >> 16);
+            a15[i].im = c15[2U * i + 1U] = (q15_t)(r1 >> 16);
+          }
+          re[i] = q31 ? (double)(int32_t)r0 : (double)(int16_t)(r0 >> 16);
+          im[i] = q31 ? (double)(int32_t)r1 : (double)(int16_t)(r1 >> 16);
+        }
+        ref_fft(re, im, n, 0);
+        int32_t e = q31 ? fd_cfft_q31(a31, n) : fd_cfft_q15(a15, n);
+        if (q31) {
+          arm_cfft_q31(i31, c31, 0U, 1U);
+        } else {
+          arm_cfft_q15(i15, c15, 0U, 1U);
+        }
+        double u = ldexp(1.0, e);
+        for (unsigned k = 0U; k < n; k++) {
+          double fr = q31 ? a31[k].re : a15[k].re;
+          double fi = q31 ? a31[k].im : a15[k].im;
+          double cr = q31 ? c31[2U * k] : c15[2U * k];
+          double ci = q31 ? c31[2U * k + 1U] : c15[2U * k + 1U];
+          m[2 * q31][0][k] += fr - re[k] / u;
+          m[2 * q31][1][k] += fi - im[k] / u;
+          m[2 * q31 + 1][0][k] += cr - re[k] / n;
+          m[2 * q31 + 1][1][k] += ci - im[k] / n;
+        }
+      }
+    }
+    for (int j = 0; j < 4; j++) {
+      double other = 0.0;
+      for (unsigned k = 1U; k < n; k++) {
+        other = fmax(other, fmax(fabs(m[j][0][k]), fabs(m[j][1][k])) / REPS);
+      }
+      printf("| cfft %s | %s | %u | %+.2f | %.2f |\n", j < 2 ? "q15" : "q31",
+             (j & 1) != 0 ? "CMSIS-DSP" : "flexdsp", n, (m[j][0][0] / REPS),
+             other);
+    }
+  }
+}
+
 static void fd_fft_rows(void) {
   static const char *const kinds[4] = {"white", "tone", "two tones",
                                        "white, -40 dB"};
@@ -1046,5 +1110,13 @@ int main(void) {
          "|---|---|--:|---|--:|--:|\n",
          40);
   fd_fft_rows();
+  printf("\nMean error per bin over %d blocks of full-scale white noise, in "
+         "LSB of "
+         "each\noutput format: the bias of the rounding (flexdsp: ties down in "
+         "the stages\nwithout twiddles; CMSIS-DSP: truncation).\n\n"
+         "| transform | impl | n | DC, real part | other bins, largest |\n"
+         "|---|---|--:|--:|--:|\n",
+         2000);
+  fd_fft_bias_rows();
   return 0;
 }

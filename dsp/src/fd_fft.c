@@ -79,7 +79,7 @@ FX_INLINE uint32_t bits15(uint32_t acc) {
 }
 
 /* n >= 4 */
-void fd_fft15_rev(int16_t *x, uint32_t n) { (void)rev15(x, n); }
+uint32_t fd_fft15_rev(int16_t *x, uint32_t n) { return bits15(rev15(x, n)); }
 
 uint32_t fd_fft15_scan(const int16_t *x, uint32_t n) {
   uint32_t acc = 0U;
@@ -345,7 +345,9 @@ FX_INLINE uint32_t rev31(int32_t *x, uint32_t n) {
 }
 
 /* n >= 4 */
-void fd_fft31_rev(int32_t *x, uint32_t n) { (void)rev31(x, n); }
+uint32_t fd_fft31_rev(int32_t *x, uint32_t n) {
+  return fd_fft_bits(rev31(x, n));
+}
 
 void fd_fft31_flip(int32_t *x, uint32_t n) {
   for (uint32_t a = 1U, b = n - 1U; a < b; a++, b--) {
@@ -410,10 +412,41 @@ void fd_fft31_t2l(int32_t *x, uint32_t n, int32_t sh) {
     x += 4U * qs;                                                              \
   }
 
-void fd_fft31_t4r(int32_t *x, uint32_t n, uint32_t q, int32_t sh) {
-  const uint32_t s = (uint32_t)sh;
+/* the real outputs, then the imaginary ones: half the 64-bit sums live */
+FX_INLINE void t4r31(int32_t *x, uint32_t n, uint32_t q, uint32_t s) {
+  const uint32_t qs = 2U * q;
   const int64_t rnd = (1LL << (s - 1U)) - 1;
-  T4_BODY31(int64_t, OUT31R, rnd)
+  for (uint32_t g = n >> (lg2(q) + 2U); g != 0U; g--) {
+    int32_t *p0 = x, *p1 = x + qs, *p2 = x + 2U * qs, *p3 = x + 3U * qs;
+    int32_t x2r = p2[0], x3r = p3[0], x2i = p2[1], x3i = p3[1];
+    int64_t dr = (int64_t)x2r - x3r, di = (int64_t)x2i - x3i;
+    int64_t cr = (int64_t)x2r + x3r;
+    int64_t ar = (int64_t)p0[0] + p1[0] + rnd,
+            br = (int64_t)p0[0] - p1[0] + rnd;
+    p0[0] = OUT31R(ar + cr, s);
+    p2[0] = OUT31R(ar - cr, s);
+    p1[0] = OUT31R(br + di, s);
+    p3[0] = OUT31R(br - di, s);
+    int64_t ci = (int64_t)x2i + x3i;
+    int64_t ai = (int64_t)p0[1] + p1[1] + rnd,
+            bi = (int64_t)p0[1] - p1[1] + rnd;
+    p0[1] = OUT31R(ai + ci, s);
+    p2[1] = OUT31R(ai - ci, s);
+    p1[1] = OUT31R(bi - dr, s);
+    p3[1] = OUT31R(bi + dr, s);
+    x += 4U * qs;
+  }
+}
+
+/* sh is 1..3 (b 30, 31; stage bounds 4 and 5.25): constant shifts */
+void fd_fft31_t4r(int32_t *x, uint32_t n, uint32_t q, int32_t sh) {
+  if (sh == 1) {
+    t4r31(x, n, q, 1U);
+  } else if (sh == 2) {
+    t4r31(x, n, q, 2U);
+  } else {
+    t4r31(x, n, q, 3U);
+  }
 }
 
 /* sh <= 0 means b <= 29: the sums fit int32 */

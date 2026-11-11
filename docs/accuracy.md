@@ -186,3 +186,18 @@ in CMSIS-DSP). 40 blocks per row.
 | rfft q15 | CMSIS-DSP | 512 | white, -40 dB | 17.1 | 11.7 |
 | rfft q31 | flexdsp | 512 | white, -40 dB | 165.2 | 166.3 |
 | rfft q31 | CMSIS-DSP | 512 | white, -40 dB | 110.8 | 103.5 |
+
+Mean error per bin over 2000 blocks of full-scale white noise, in LSB of each
+output format: the bias of the rounding (flexdsp: ties down in the stages
+without twiddles; CMSIS-DSP: truncation).
+
+| transform | impl | n | DC, real part | other bins, largest |
+|---|---|--:|--:|--:|
+| cfft q15 | flexdsp | 256 | -1.10 | 0.58 |
+| cfft q15 | CMSIS-DSP | 256 | -4.99 | 3.51 |
+| cfft q31 | flexdsp | 256 | -1.07 | 0.55 |
+| cfft q31 | CMSIS-DSP | 256 | -10.51 | 10.44 |
+| cfft q15 | flexdsp | 1024 | -1.92 | 0.86 |
+| cfft q15 | CMSIS-DSP | 1024 | -6.00 | 4.51 |
+| cfft q31 | flexdsp | 1024 | -1.90 | 0.85 |
+| cfft q31 | CMSIS-DSP | 1024 | -12.00 | 12.02 |

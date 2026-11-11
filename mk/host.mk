@@ -35,8 +35,14 @@ define RUN_EXHAUSTIVE
 	done
 endef
 
+# the FFT again with its generated 4096-point table
 exhaustive:
 	$(call RUN_EXHAUSTIVE,$(filter-out $(EXHAUSTIVE_SLOW),$(EXHAUSTIVE_ALL)))
+	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -fopenmp -DFD_FFT_MAX=4096 $(LIB_INC) \
+		test/exhaustive/exhaustive_fd_fft.c $(LIB_SRCS) -lm \
+		-o $(BUILD)/exhaustive/exhaustive_fd_fft_4096
+	@echo "--- test/exhaustive/exhaustive_fd_fft.c, FD_FFT_MAX=4096"
+	./$(BUILD)/exhaustive/exhaustive_fd_fft_4096
 
 exhaustive-slow:
 	$(call RUN_EXHAUSTIVE,$(EXHAUSTIVE_SLOW))

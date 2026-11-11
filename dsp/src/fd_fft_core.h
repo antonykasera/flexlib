@@ -46,8 +46,9 @@ FX_INLINE int32_t fd_fft_tw15(uint32_t t) {
 /* n complex values: x is 2n int16 / int32, re then im */
 uint32_t fd_fft15_scan(const int16_t *x, uint32_t n);
 uint32_t fd_fft31_scan(const int32_t *x, uint32_t n);
-void fd_fft15_rev(int16_t *x, uint32_t n); /* n >= 4 */
-void fd_fft31_rev(int32_t *x, uint32_t n);
+/* bit reversal, n >= 4; returns the scan's b of the block */
+uint32_t fd_fft15_rev(int16_t *x, uint32_t n);
+uint32_t fd_fft31_rev(int32_t *x, uint32_t n);
 
 /* stages: radix-2 pairs, the twiddle-free radix-4 butterflies (j = 0) and the
  * twiddle ones of stage q; r (sh > 0) rounds, l shifts left by -sh */

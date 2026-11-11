@@ -3,6 +3,11 @@
 Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md).
 
+## Unreleased
+
+- flexdsp: faster q31 FFTs and real inverse FFTs ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
+- Bench: rows for every FFT kernel the board had not run (odd sizes, quiet input, q31 inverses).
+
 ## v0.4.0 (2026-11-11)
 
 flexdsp 0.2.0 and flexmath 0.2.3.
