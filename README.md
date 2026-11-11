@@ -1,5 +1,8 @@
 # flexlib
 
+[![CI](https://github.com/antonykasera/flexlib/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/antonykasera/flexlib/actions/workflows/ci.yml?query=branch%3Amaster)
+[![Release](https://img.shields.io/github/v/release/antonykasera/flexlib)](https://github.com/antonykasera/flexlib/releases/latest)
+
 Compute libraries for Cortex-M, measured on the chip they're for:
 
 - **[flexutils](utils/README.md)** (`fu_`): bit tricks, rings, formatting and
@@ -122,6 +125,7 @@ test/exhaustive/ every 32-bit input (make exhaustive)
 test/accuracy/   error statistics against CMSIS-DSP (make accuracy)
 test/asm/        asm-audit spec and probes
 bench/           the F103 bench firmware: core/, cases/, port/ (see its README)
+examples/        flexmeter: a USB bench instrument on flex
 tools/           asm_audit.py, bench_run.py, bench_windows.py; gen/ table generators
 docs/            results/ (bench results), accuracy.md
 mk/              the Makefile's rules, one file per area
