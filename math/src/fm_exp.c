@@ -7,6 +7,7 @@
  */
 
 #include "fm_exp.h"
+#include "fm_core.h"
 #include "fm_internal.h"
 
 /* log2(1 + u) = u (A1 - u (A2 - u (A3 - u A4))), A_i = 1 / (i ln 2) */
@@ -46,6 +47,8 @@ FX_INLINE int32_t scale_log(int64_t L, uint32_t c, uint32_t shift) {
   int64_t hi = (L >> 32) * (int64_t)c;
   return round_shift(hi + fx_umull_hi((uint32_t)L, c), 16U - shift);
 }
+
+int64_t fm_log2_core(uint32_t x) { return log2_core(x); }
 
 fm_q16 fm_log2_q16(fm_q16 x) {
   return x <= 0 ? INT32_MIN : round_shift(log2_core((uint32_t)x), 16U);

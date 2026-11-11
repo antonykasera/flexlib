@@ -9,6 +9,7 @@
 #ifndef FM_TABLES_H
 #define FM_TABLES_H
 
+#include "fm_core.h"
 #include "fx_arch.h"
 #include <stdint.h>
 
@@ -23,8 +24,6 @@
 extern const uint16_t fm_sqrt_seed[96];
 extern const uint16_t fm_rsqrt_seed[96];
 
-/* sin(k pi / 512) in Q31, k = 0..256 (2^31 at k = 256), plus a pad entry */
-extern const uint32_t fm_sin_tab[258];
 
 /* atan(k / 128) in Q34 turns, k = 0..128 (2^31 at k = 128), plus a pad entry */
 extern const uint32_t fm_atan_tab[130];

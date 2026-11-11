@@ -1,5 +1,9 @@
 # flexmath changelog
 
+## Unreleased
+
+- `fm_core.h`: the sine table and the unrounded log2 core, shared with flexdsp. Internal; no API change, no change in results.
+
 ## 0.2.2 (2026-11-11)
 
 - `fm_sum.h`: the exact sum-of-products helpers, shared with flexdsp. Internal; no API change, no change in results.
