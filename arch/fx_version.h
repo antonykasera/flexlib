@@ -11,7 +11,7 @@
 
 #define FLEXLIB_VERSION_MAJOR 0
 #define FLEXLIB_VERSION_MINOR 3
-#define FLEXLIB_VERSION_PATCH 0
+#define FLEXLIB_VERSION_PATCH 1
 
 /* 0.2.1 -> 201 */
 #define FLEXLIB_VERSION_NUM                                                    \

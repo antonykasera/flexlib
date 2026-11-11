@@ -1,6 +1,6 @@
 # flexdsp changelog
 
-## Unreleased
+## 0.1.1 (2026-11-11)
 
 - `fd_biquad_q15` / `_q31`: faster sections whose coefficients sum to 4 or more (shelves, peaks). Results unchanged.
 

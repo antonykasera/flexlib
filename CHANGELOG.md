@@ -3,9 +3,12 @@
 Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md).
 
-## Unreleased
+## v0.3.1 (2026-11-11)
+
+flexdsp 0.1.1.
 
 - flexdsp: faster biquad sections for audio EQ ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
+- Bench: flex 1.2.0.
 
 ## v0.3.0 (2026-11-11)
 
