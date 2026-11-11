@@ -1,6 +1,6 @@
 # flexmath changelog
 
-## Unreleased
+## 0.2.3 (2026-11-11)
 
 - `fm_core.h`: the sine table and the unrounded log2 core, shared with flexdsp. Internal; no API change, no change in results.
 
