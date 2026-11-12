@@ -3,7 +3,7 @@
  * @brief Host tests for fd_window.h against long double windows
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fd_window.h"

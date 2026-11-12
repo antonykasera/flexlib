@@ -3,7 +3,7 @@
  * @brief Flash read cost by block size and stride (bench board only)
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef CACHE_PROBE_H

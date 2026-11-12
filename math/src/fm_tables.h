@@ -3,7 +3,7 @@
  * @brief Lookup tables for flexmath (generated into fm_tables.c)
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FM_TABLES_H

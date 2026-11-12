@@ -3,7 +3,7 @@
  * @brief fd_vec q15 element-wise ops on all 2^32 pairs, q31 to q15 on all 2^32
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fd_vec.h"

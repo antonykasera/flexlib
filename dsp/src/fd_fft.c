@@ -3,7 +3,7 @@
  * @brief Complex FFTs: radix-4 decimation in time, block floating point
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fd_fft_core.h"

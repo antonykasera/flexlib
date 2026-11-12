@@ -167,4 +167,11 @@ CMSIS-DSP's.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). CMSIS-DSP (bench baseline only) is Apache-2.0.
+Apache License 2.0, see [LICENSE](LICENSE). If you ship flexlib in a product,
+include the attribution in [NOTICE](NOTICE) with the product's other
+third-party notices (section 4(d) of the license).
+
+Releases up to v0.4.0 were published under the MIT License. The copyright
+holder also grants every earlier release and commit under Apache-2.0.
+
+CMSIS-DSP (bench baseline only) is Apache-2.0.

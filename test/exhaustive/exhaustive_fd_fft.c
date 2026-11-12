@@ -3,7 +3,7 @@
  * @brief Every size and bin against the exact DFT, 10^6 small blocks
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fd_fft.h"

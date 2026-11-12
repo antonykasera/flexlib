@@ -3,7 +3,7 @@
  * @brief CRC tables (generated into fu_crc_tab.c)
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FU_CRC_TAB_H

@@ -3,7 +3,7 @@
  * @brief Bench cases for the fx_arch.h packed pairs (C path on the M3)
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "bench.h"

@@ -3,7 +3,7 @@
  * @brief log2 and exp2 cores, and the logs, exponentials and powers on them
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fm_exp.h"

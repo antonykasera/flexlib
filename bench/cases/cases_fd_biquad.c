@@ -3,7 +3,7 @@
  * @brief Bench cases for fd_biquad.h and fd_filt.h: 4 sections x 64 samples
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "bench.h"

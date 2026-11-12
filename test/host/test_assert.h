@@ -3,7 +3,7 @@
  * @brief Host-side unit-test harness (macros only)
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef TEST_ASSERT_H

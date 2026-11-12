@@ -3,7 +3,7 @@
  * @brief Host tests for fu_ring.h, against a reference FIFO
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fu_ring.h"

@@ -3,7 +3,7 @@
  * @brief Every FD_Window type at every length up to 4096, symmetric and periodic
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fd_window.h"

@@ -3,7 +3,7 @@
 # @brief Check hot kernels' disassembly for expected instructions and for calls to compiler helpers
 #
 # Copyright (c) 2026 Antony Kasera
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 import argparse
 import re

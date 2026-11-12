@@ -3,7 +3,7 @@
  * @brief Fixed point: Q15, Q31 and Q16.16 arithmetic and float conversion
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FM_FIXED_H

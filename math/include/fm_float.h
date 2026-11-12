@@ -3,7 +3,7 @@
  * @brief Float functions on integer internals, for cores without an FPU
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FM_FLOAT_H

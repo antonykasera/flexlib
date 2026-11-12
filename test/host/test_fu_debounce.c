@@ -3,7 +3,7 @@
  * @brief Host tests for fu_debounce.h, against per-input references
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fu_debounce.h"

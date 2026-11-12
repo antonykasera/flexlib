@@ -3,7 +3,7 @@
  * @brief fm_sin_q31 on every 32-bit angle against sinl
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fm_trig.h"

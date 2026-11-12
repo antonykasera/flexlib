@@ -3,7 +3,7 @@
  * @brief Out-of-line copies of fu_rand.h's inline generators for asm-audit
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fu_rand.h"

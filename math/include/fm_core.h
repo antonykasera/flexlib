@@ -3,7 +3,7 @@
  * @brief flexmath tables and cores shared with flexdsp (internal, not API)
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FM_CORE_H

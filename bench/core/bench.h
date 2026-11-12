@@ -3,7 +3,7 @@
  * @brief Benchmark cases
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef BENCH_H

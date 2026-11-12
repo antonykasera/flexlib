@@ -3,7 +3,7 @@
 # @brief Generate dsp/src/fd_fft_tab.h (`make tables`)
 #
 # Copyright (c) 2026 Antony Kasera
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 from decimal import Decimal, getcontext, ROUND_HALF_EVEN
 
@@ -22,7 +22,7 @@ HEADER = """/**
  * Included by fd_fft.c only, and only when FD_FFT_MAX > 1024.
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FD_FFT_TAB_H

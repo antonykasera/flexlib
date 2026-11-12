@@ -3,7 +3,7 @@
  * @brief Sine and cosine of binary angles in Q15 and Q31
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FM_TRIG_H

@@ -3,7 +3,7 @@
  * @brief 128-bit helpers for exact block statistics (internal)
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FD_WIDE_H

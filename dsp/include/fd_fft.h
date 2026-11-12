@@ -3,7 +3,7 @@
  * @brief Complex and real FFTs in q15 / q31, block floating point
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FD_FFT_H

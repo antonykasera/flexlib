@@ -3,7 +3,7 @@
  * @brief fm_atan2_q15 on every pair
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fm_atan.h"

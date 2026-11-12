@@ -3,7 +3,7 @@
  * @brief Text to numbers without libc: u32, i32, hex and Q16.16
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fu_parse.h"

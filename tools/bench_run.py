@@ -3,7 +3,7 @@
 # @brief Read the bench table from the board's USB CDC port into a results file
 #
 # Copyright (c) 2026 Antony Kasera
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 import argparse
 import datetime

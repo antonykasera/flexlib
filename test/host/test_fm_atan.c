@@ -3,7 +3,7 @@
  * @brief Host tests for fm_atan.h against a long double reference
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fm_atan.h"

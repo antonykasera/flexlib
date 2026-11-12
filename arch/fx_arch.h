@@ -3,7 +3,7 @@
  * @brief Single-instruction wrappers (Arm on target, plain C on host)
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FX_ARCH_H

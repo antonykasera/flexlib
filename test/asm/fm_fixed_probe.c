@@ -3,7 +3,7 @@
  * @brief Out-of-line copies of fm_fixed.h's inline functions for asm-audit
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fm_fixed.h"

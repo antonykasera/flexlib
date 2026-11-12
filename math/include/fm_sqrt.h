@@ -3,7 +3,7 @@
  * @brief Integer and fixed-point square roots, and 1/sqrt in Q16.16
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FM_SQRT_H

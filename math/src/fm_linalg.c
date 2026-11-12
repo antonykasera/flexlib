@@ -3,7 +3,7 @@
  * @brief Vectors and 3x3 / 4x4 matrices in q31 and float
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fm_linalg.h"

@@ -3,7 +3,7 @@
  * @brief Block arithmetic, statistics, conversions and complex vectors
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FD_VEC_H

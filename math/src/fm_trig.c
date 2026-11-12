@@ -3,7 +3,7 @@
  * @brief Sine and cosine of binary angles from a quarter-wave table
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fm_trig.h"

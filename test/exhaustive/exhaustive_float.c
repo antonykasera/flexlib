@@ -3,7 +3,7 @@
  * @brief fm_float.h on every one of the 2^32 floats
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "fm_float.h"

@@ -3,7 +3,7 @@
  * @brief Self-tests for the harness
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "test_stats.h"

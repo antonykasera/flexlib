@@ -3,7 +3,7 @@
  * @brief Small filters: DC blocker, one-pole smoother, moving average, medians
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FD_FILT_H

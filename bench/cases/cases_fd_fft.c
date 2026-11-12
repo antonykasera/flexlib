@@ -3,7 +3,7 @@
  * @brief Bench cases for fd_fft.h, the transforms' kernels and candidates
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "bench.h"

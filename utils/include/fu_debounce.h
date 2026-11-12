@@ -3,7 +3,7 @@
  * @brief Debouncing: one input, or up to 32 at once
  *
  * Copyright (c) 2026 Antony Kasera
- * SPDX-License-Identifier: MIT
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef FU_DEBOUNCE_H
