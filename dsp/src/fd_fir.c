@@ -7,104 +7,11 @@
  */
 
 #include "fd_fir.h"
-#include "fd_wide.h"
+#include "fd_fir_core.h"
 #include "fm_float.h"
 
-/* ---- output rounding ---- */
-
-/* |a| <= 2^31 - 2^15 (sum |h| < 2) */
-FX_INLINE fm_q15 out15(int32_t a) { return fm_sat_q15((a + 0x4000) >> 15); }
-
-FX_INLINE fm_q15 out15w(int64_t a) {
-  int64_t r = (a + 0x4000) >> 15;
-  return r > 32767 ? 32767 : (r < -32768 ? -32768 : (fm_q15)r);
-}
-
-/* |a| <= 2^63 - 2^31 (sum |h| < 2) */
-FX_INLINE fm_q31 out31(int64_t a) {
-  uint64_t u = (uint64_t)a + 0x40000000U;
-  int32_t hi = (int32_t)(u >> 32);
-  if (hi >= 0x40000000) {
-    return INT32_MAX;
-  }
-  if (hi < -0x40000000) {
-    return INT32_MIN;
-  }
-  return (fm_q31)(((uint32_t)hi << 1) | ((uint32_t)u >> 31));
-}
-
-/* round(s / 2^31), saturated: it fits when bits 62..95 are all equal */
-FX_INLINE fm_q31 out31w(Sum96 s) {
-  sum96_add(&s, 0x40000000);
-  uint32_t top = (uint32_t)(s.lo >> 62);
-  if (s.hi == 0 && top == 0U) {
-    return (fm_q31)(uint32_t)(s.lo >> 31);
-  }
-  if (s.hi == -1 && top == 3U) {
-    return (fm_q31)(uint32_t)(s.lo >> 31);
-  }
-  return s.hi < 0 ? INT32_MIN : INT32_MAX;
-}
-
-/* ---- kernels: output i of m uses the window b[i ws .. i ws + t - 1] (oldest
- * first), h[k hs] multiplies b[i ws + t - 1 - k], written to y[i ys] ---- */
-
-/* q15, sum |h| < 2: four outputs per pass, samples rotating in registers */
-#define MAC4(c, s0, s1, s2, s3)                                                \
-  do {                                                                         \
-    a0 += (c) * (s0);                                                          \
-    a1 += (c) * (s1);                                                          \
-    a2 += (c) * (s2);                                                          \
-    a3 += (c) * (s3);                                                          \
-  } while (0)
-
-FX_INLINE void k15(const fm_q15 *h, uint32_t hs, uint32_t t, const fm_q15 *b,
-                   fm_q15 *y, uint32_t ys, uint32_t m) {
-  const uint32_t top = (t - 1U) * hs;
-  for (; m >= 4U; m -= 4U) {
-    int32_t a0 = 0, a1 = 0, a2 = 0, a3 = 0;
-    int32_t x0 = b[0], x1 = b[1], x2 = b[2], x3;
-    const fm_q15 *bp = b + 3;
-    uint32_t i = top;
-    uint32_t k = t;
-    for (; k >= 4U; k -= 4U) {
-      x3 = *bp++;
-      MAC4(h[i], x0, x1, x2, x3);
-      x0 = *bp++;
-      MAC4(h[i - hs], x1, x2, x3, x0);
-      x1 = *bp++;
-      MAC4(h[i - 2U * hs], x2, x3, x0, x1);
-      x2 = *bp++;
-      MAC4(h[i - 3U * hs], x3, x0, x1, x2);
-      i -= 4U * hs;
-    }
-    for (; k != 0U; k--) {
-      x3 = *bp++;
-      MAC4(h[i], x0, x1, x2, x3);
-      i -= hs;
-      x0 = x1;
-      x1 = x2;
-      x2 = x3;
-    }
-    y[0] = out15(a0);
-    y[ys] = out15(a1);
-    y[2U * ys] = out15(a2);
-    y[3U * ys] = out15(a3);
-    y += 4U * ys;
-    b += 4;
-  }
-  for (; m != 0U; m--) {
-    int32_t a = 0;
-    uint32_t i = top;
-    for (uint32_t k = 0U; k < t; k++) {
-      a += h[i] * b[k];
-      i -= hs;
-    }
-    *y = out15(a);
-    y += ys;
-    b++;
-  }
-}
+/* ---- decimator kernels and the one-output wide ones (the rest in
+ * fd_fir_core.h) ---- */
 
 /* q15 decimator, sum |h| < 2: windows ws apart, four outputs per pass */
 static void k15d(const fm_q15 *h, uint32_t t, const fm_q15 *b, uint32_t ws,
@@ -136,47 +43,6 @@ static void k15d(const fm_q15 *h, uint32_t t, const fm_q15 *b, uint32_t ws,
   }
 }
 
-/* q15, any gain, contiguous windows: 64-bit sums, two outputs per pass */
-FX_INLINE void k15w2(const fm_q15 *h, uint32_t hs, uint32_t t, const fm_q15 *b,
-                     fm_q15 *y, uint32_t ys, uint32_t m) {
-  const uint32_t top = (t - 1U) * hs;
-  for (; m >= 2U; m -= 2U) {
-    int64_t a0 = 0, a1 = 0;
-    int32_t x0 = b[0], x1;
-    const fm_q15 *bp = b + 1;
-    uint32_t i = top;
-    uint32_t k = t;
-    for (; k >= 2U; k -= 2U) {
-      int32_t c = h[i];
-      x1 = *bp++;
-      a0 = fx_smlal(a0, c, x0);
-      a1 = fx_smlal(a1, c, x1);
-      c = h[i - hs];
-      x0 = *bp++;
-      a0 = fx_smlal(a0, c, x1);
-      a1 = fx_smlal(a1, c, x0);
-      i -= 2U * hs;
-    }
-    if (k != 0U) {
-      a0 = fx_smlal(a0, h[i], x0);
-      a1 = fx_smlal(a1, h[i], *bp);
-    }
-    y[0] = out15w(a0);
-    y[ys] = out15w(a1);
-    y += 2U * ys;
-    b += 2;
-  }
-  if (m != 0U) {
-    int64_t a = 0;
-    uint32_t i = top;
-    for (uint32_t k = 0U; k < t; k++) {
-      a += h[i] * b[k];
-      i -= hs;
-    }
-    *y = out15w(a);
-  }
-}
-
 /* q15, any gain: 64-bit sums */
 static void k15w(const fm_q15 *h, uint32_t hs, uint32_t t, const fm_q15 *b,
                  uint32_t ws, fm_q15 *y, uint32_t ys, uint32_t m) {
@@ -190,58 +56,6 @@ static void k15w(const fm_q15 *h, uint32_t hs, uint32_t t, const fm_q15 *b,
     *y = out15w(a);
     y += ys;
     b += ws;
-  }
-}
-
-/* q31, sum |h| < 2: three outputs per pass (four accumulators spill) */
-#define SMLAL3(c, s0, s1, s2)                                                  \
-  do {                                                                         \
-    a0 = fx_smlal(a0, (c), (s0));                                              \
-    a1 = fx_smlal(a1, (c), (s1));                                              \
-    a2 = fx_smlal(a2, (c), (s2));                                              \
-  } while (0)
-
-FX_INLINE void k31(const fm_q31 *h, uint32_t hs, uint32_t t, const fm_q31 *b,
-                   fm_q31 *y, uint32_t ys, uint32_t m) {
-  const uint32_t top = (t - 1U) * hs;
-  for (; m >= 3U; m -= 3U) {
-    int64_t a0 = 0, a1 = 0, a2 = 0;
-    int32_t x0 = b[0], x1 = b[1], x2;
-    const fm_q31 *bp = b + 2;
-    uint32_t i = top;
-    uint32_t k = t;
-    for (; k >= 3U; k -= 3U) {
-      x2 = *bp++;
-      SMLAL3(h[i], x0, x1, x2);
-      x0 = *bp++;
-      SMLAL3(h[i - hs], x1, x2, x0);
-      x1 = *bp++;
-      SMLAL3(h[i - 2U * hs], x2, x0, x1);
-      i -= 3U * hs;
-    }
-    for (; k != 0U; k--) {
-      x2 = *bp++;
-      SMLAL3(h[i], x0, x1, x2);
-      i -= hs;
-      x0 = x1;
-      x1 = x2;
-    }
-    y[0] = out31(a0);
-    y[ys] = out31(a1);
-    y[2U * ys] = out31(a2);
-    y += 3U * ys;
-    b += 3;
-  }
-  for (; m != 0U; m--) {
-    int64_t a = 0;
-    uint32_t i = top;
-    for (uint32_t k = 0U; k < t; k++) {
-      a = fx_smlal(a, h[i], b[k]);
-      i -= hs;
-    }
-    *y = out31(a);
-    y += ys;
-    b++;
   }
 }
 
@@ -386,9 +200,9 @@ void fd_fir_q15(FD_FirQ15 *f, const fm_q15 *x, fm_q15 *y, uint32_t n) {
     uint32_t m = take15(f, x, n);
     const fm_q15 *b = f->state + f->w - (t - 1U);
     if (f->wide != 0U) {
-      k15w2(f->h, 1U, t, b, y, 1U, m);
+      k15w2(f->h, 1U, false, t, b, y, 1U, m, 0U, 0U, 0U, NULL, 0);
     } else {
-      k15(f->h, 1U, t, b, y, 1U, m);
+      k15(f->h, 1U, false, t, b, y, 1U, m, 0U, 0U, 0U, NULL, 0);
     }
     f->w += m;
     x += m;
@@ -405,7 +219,7 @@ void fd_fir_q31(FD_FirQ31 *f, const fm_q31 *x, fm_q31 *y, uint32_t n) {
     if (f->wide != 0U) {
       k31w(f->h, 1U, t, b, 1U, y, 1U, m);
     } else {
-      k31(f->h, 1U, t, b, y, 1U, m);
+      k31(f->h, 1U, false, t, b, y, 1U, m, 0U, 0U, 0U, NULL, 0);
     }
     f->w += m;
     x += m;
@@ -544,9 +358,11 @@ void fd_fir_interp_q15(FD_FirInterpQ15 *p, const fm_q15 *x, fm_q15 *y,
           y[br + i * l] = 0;
         }
       } else if (f->wide != 0U) {
-        k15w2(f->h + br, l, tb, b + (t - tb), y + br, l, m);
+        k15w2(f->h + br, l, false, tb, b + (t - tb), y + br, l, m, 0U, 0U, 0U,
+              NULL, 0);
       } else {
-        k15(f->h + br, l, tb, b + (t - tb), y + br, l, m);
+        k15(f->h + br, l, false, tb, b + (t - tb), y + br, l, m, 0U, 0U, 0U,
+            NULL, 0);
       }
     }
     f->w += m;
@@ -572,7 +388,8 @@ void fd_fir_interp_q31(FD_FirInterpQ31 *p, const fm_q31 *x, fm_q31 *y,
       } else if (f->wide != 0U) {
         k31w(f->h + br, l, tb, b + (t - tb), 1U, y + br, l, m);
       } else {
-        k31(f->h + br, l, tb, b + (t - tb), y + br, l, m);
+        k31(f->h + br, l, false, tb, b + (t - tb), y + br, l, m, 0U, 0U, 0U,
+            NULL, 0);
       }
     }
     f->w += m;
