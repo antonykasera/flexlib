@@ -17,10 +17,11 @@ BENCH_CASES_dsp    = $(addprefix bench/cases/,cases_pairs.c cases_fd_vec.c \
                        cases_fd_fir.c)
 BENCH_CASES_dsp2   = $(addprefix bench/cases/,cases_fd_biquad.c cases_fd_tone.c)
 BENCH_CASES_dsp3   = bench/cases/cases_fd_fft.c
+BENCH_CASES_dsp4   = bench/cases/cases_fd_corr.c
 # everything that also builds on the host (golden, lint)
 BENCH_PORTABLE = bench/core/bench_core.c $(BENCH_CASES_utils) \
                  $(BENCH_CASES_math) $(BENCH_CASES_struct) $(BENCH_CASES_dsp) \
-                 $(BENCH_CASES_dsp2) $(BENCH_CASES_dsp3)
+                 $(BENCH_CASES_dsp2) $(BENCH_CASES_dsp3) $(BENCH_CASES_dsp4)
 
 GOLDEN_BUILD = $(BUILD)/golden
 
@@ -36,7 +37,7 @@ golden:
 		-o $(GOLDEN_BUILD)/golden_gen_dsp
 	./$(GOLDEN_BUILD)/golden_gen_dsp | cmp - bench/core/golden.c
 
-BENCH_SETS     = utils math struct dsp dsp2 dsp3
+BENCH_SETS     = utils math struct dsp dsp2 dsp3 dsp4
 BENCH_SET     ?=
 BENCH_OPT     ?= -O2
 BENCH_BUILD    = $(BUILD)/bench$(BENCH_OPT)-$(BENCH_SET)
@@ -55,14 +56,14 @@ BENCH_SRCS = $(BENCH_PORTDIR)/main.c $(BENCH_PORTDIR)/cache_probe.c \
 BENCH_DEFS = -DSTM32F103xB -DBENCH_OPT_NAME='"$(BENCH_OPT)"' \
              -DBENCH_SET_$(BENCH_SET) -DBENCH_SET_NAME='"$(BENCH_SET)"'
 
-ifneq ($(filter math struct dsp dsp2 dsp3,$(BENCH_SET)),)
+ifneq ($(filter math struct dsp dsp2 dsp3 dsp4,$(BENCH_SET)),)
 ifneq ($(wildcard $(CMSIS_DSP_DIR)/Include/arm_math.h),)
 BENCH_SRCS    += $(if $(filter math,$(BENCH_SET)),bench/cases/cases_cmsis.c)
 BENCH_DEFS    += -DBENCH_HAVE_CMSIS_DSP
 CMSIS_DSP_INC  = -isystem $(CMSIS_DSP_DIR)/Include -isystem $(CMSIS_DSP_DIR)/PrivateInclude
 CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/,$(CMSIS_SRCS_$(BENCH_SET)))
 # the dsp image's baselines unroll their loops, as CMSIS-DSP's own build does
-CMSIS_DSP_DEFS = $(if $(filter dsp dsp2 dsp3,$(BENCH_SET)),-DARM_MATH_LOOPUNROLL)
+CMSIS_DSP_DEFS = $(if $(filter dsp dsp2 dsp3 dsp4,$(BENCH_SET)),-DARM_MATH_LOOPUNROLL)
 endif
 endif
 
@@ -122,6 +123,13 @@ CMSIS_SRCS_dsp3   = $(addprefix TransformFunctions/,arm_cfft_q15.c arm_cfft_q31.
                       arm_rfft_init_q15.c) \
                     BasicMathFunctions/arm_shift_q15.c \
                     CommonTables/arm_common_tables.c CommonTables/arm_const_structs.c
+CMSIS_SRCS_dsp4   = $(addprefix FilteringFunctions/,arm_conv_q15.c arm_conv_fast_q15.c \
+                      arm_conv_q31.c arm_correlate_q15.c arm_correlate_q31.c \
+                      arm_lms_q15.c arm_lms_init_q15.c arm_lms_norm_q15.c \
+                      arm_lms_norm_init_q15.c arm_lms_q31.c arm_lms_init_q31.c \
+                      arm_levinson_durbin_q31.c) \
+                    FastMathFunctions/arm_divide_q15.c BasicMathFunctions/arm_abs_q15.c \
+                    CommonTables/arm_common_tables.c
 
 BENCH_BASE_CFLAGS = $(M3_FLAGS) $(STD) $(BENCH_OPT) -g3 \
                     -ffunction-sections -fdata-sections $(BENCH_DEFS) \

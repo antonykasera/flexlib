@@ -46,7 +46,7 @@ help:
 	@echo "make asm-audit       the M3 / M4 disassembly against test/asm/audit*.txt"
 	@echo "make size            flash / RAM per library object (M3, -O2)"
 	@echo "make golden          bench hashes on the host -> bench/core/golden.c"
-	@echo "make bench           the bench images (BENCH_SET=utils|math|struct|dsp|dsp2|dsp3)"
+	@echo "make bench           the bench images (BENCH_SET=utils|math|struct|dsp|dsp2|dsp3|dsp4)"
 	@echo "make bench-run       flash and read each image -> docs/results/f103.md"
 	@echo "make bench-windows   the instructions each bench case times"
 	@echo "make tables          regenerate the CRC and math tables"

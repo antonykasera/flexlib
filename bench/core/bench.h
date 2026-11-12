@@ -40,7 +40,7 @@ extern uint8_t bench_arg_b[BENCH_N * 8U];
  * (and the builds of every group) needs a 1024-point q31 block */
 #if defined(BENCH_SET_utils) || defined(BENCH_SET_math) ||                     \
     defined(BENCH_SET_struct) || defined(BENCH_SET_dsp) ||                     \
-    defined(BENCH_SET_dsp2)
+    defined(BENCH_SET_dsp2) || defined(BENCH_SET_dsp4)
 #define BENCH_SCRATCH_SIZE 3584U
 #else
 #define BENCH_SCRATCH_SIZE 8192U
@@ -97,7 +97,6 @@ typedef struct {
 
 void bench_inputs_init(void);
 
-
 /* Runs the empty case: the cycles a pair of CYCCNT reads adds to a sample. */
 uint32_t bench_overhead(uint32_t cyc[BENCH_N], bool cold);
 
@@ -139,7 +138,8 @@ static inline uint32_t bench_now(void) {
 #define BENCH_USE(y) __asm__ volatile("" : : "r"(y) : "memory")
 #endif
 
-/* Defines `static uint32_t name(uint32_t *cyc)`, timing `expr` (of x) once per input. */
+/* Defines `static uint32_t name(uint32_t *cyc)`, timing `expr` (of x) once per
+ * input. */
 #define BENCH_UNARY(name, Tx, conv, Tr, expr)                                  \
   BENCH_UNARY_DEF(name, Tx, conv, Tr, expr, (void)0, (void)0)
 

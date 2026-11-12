@@ -4,6 +4,8 @@
 
 - `fd_cfft_q31` / `fd_rfft_q31` and their inverses: faster stages without twiddles (5-6%). Results unchanged.
 - `fd_irfft_q15` / `_q31`: one pass fewer (3-4% faster). Results change in the last bit, within the same bound.
+- `fd_corr.h`: convolution (`fd_conv_q15` / `_q31`, and `fd_conv_part_*` for a range of outputs), correlation over any range of lags (`fd_corr_q15` / `_q31`), autocorrelation with a block exponent (`fd_autocorr_q15` / `_q31`), the peak of a block refined to a fraction of a sample (`fd_peak_q15` / `_q31`), Levinson-Durbin (`fd_levinson_q31`), and correlation through q15 FFTs (`fd_corr_fft_q15`). Every output of the direct functions is its exact sum rounded once.
+- `fd_lms.h`: LMS adaptive filters in q15 / q31, plain, normalised and sign-error, with 32-bit weights and exact output sums.
 
 ## 0.2.0 (2026-11-11)
 

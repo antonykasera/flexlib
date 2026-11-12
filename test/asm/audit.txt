@@ -326,3 +326,20 @@ fd_fft_db_q15      !udiv
 fd_fft_db_q31      !udiv
 fd_headroom_q15    no-calls  clz
 fd_headroom_q31    no-calls  clz
+
+# fd_corr: narrow q15 sums are MLA, wide ones SMLAL; no divides, no copies
+fd_conv_part_q15   mla smlal ssat !udiv !call=memcpy !call=memset
+fd_corr_q15        mla smlal ssat !udiv !call=memcpy !call=memset
+fd_conv_part_q31   smlal !udiv !call=memcpy !call=memset
+fd_corr_q31        smlal !udiv !call=memcpy !call=memset
+fd_autocorr_q15    mla smlal !udiv !call=memcpy !call=memset
+fd_autocorr_q31    smlal !udiv !call=memcpy
+fd_peak_q15        !udiv
+fd_peak_q31        !udiv
+fd_levinson_q31    smull !udiv
+
+# fd_lms: the weight update saturates with SSAT; NLMS divides once per sample
+fd_lms_q15         mla ssat !call=memcpy !call=memmove
+fd_lms_q31         smlal ssat !call=memcpy !call=memmove
+fd_lms_coefs_q15   no-calls  ssat
+fd_lms_coefs_q31   no-calls  smlal ssat

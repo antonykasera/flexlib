@@ -85,6 +85,22 @@ void test_fd_fft_edges(void);
 void test_fd_fft_rescale(void);
 void test_fd_fft_db(void);
 
+/* --- fd_corr (test_fd_corr.c) --- */
+void test_fd_corr_q15(void);
+void test_fd_corr_q31(void);
+void test_fd_corr_sum_rule(void);
+void test_fd_corr_long(void);
+void test_fd_corr_autocorr(void);
+void test_fd_corr_peak(void);
+void test_fd_corr_levinson(void);
+void test_fd_corr_fft(void);
+
+/* --- fd_lms (test_fd_lms.c) --- */
+void test_fd_lms_q15(void);
+void test_fd_lms_converge(void);
+void test_fd_lms_q31(void);
+void test_fd_lms_ties(void);
+
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
 void test_fx_rbit_rev(void);
@@ -241,6 +257,18 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_fft_edges);
   TEST_RUN(test_fd_fft_rescale);
   TEST_RUN(test_fd_fft_db);
+  TEST_RUN(test_fd_corr_q15);
+  TEST_RUN(test_fd_corr_q31);
+  TEST_RUN(test_fd_corr_sum_rule);
+  TEST_RUN(test_fd_corr_long);
+  TEST_RUN(test_fd_corr_autocorr);
+  TEST_RUN(test_fd_corr_peak);
+  TEST_RUN(test_fd_corr_levinson);
+  TEST_RUN(test_fd_corr_fft);
+  TEST_RUN(test_fd_lms_q15);
+  TEST_RUN(test_fd_lms_converge);
+  TEST_RUN(test_fd_lms_q31);
+  TEST_RUN(test_fd_lms_ties);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

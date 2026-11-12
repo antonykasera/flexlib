@@ -113,6 +113,30 @@ the bench.
 | biquad q31, Butterworth 4, fc 5e-4 | CMSIS-DSP | 10^6 samples of half-scale noise | 1.1e+05 | 1.02e+05 | -1e+05 |
 | biquad q31, Butterworth 4, fc 5e-4 | CMSIS-DSP fast | 10^6 samples of half-scale noise | 1.21e+05 | 2.55e+04 | +7.3e+02 |
 | biquad q31, Butterworth 4, fc 5e-4 | CMSIS-DSP 32x64 | 10^6 samples of half-scale noise | 1.64 | 1 | -1 |
+| conv q15, 64 x 64 | flexdsp | 4000 pairs: full scale, sum |b| < 2 | 0.5 | 0.25 | +4.3e-05 |
+| conv q15, 64 x 64 | CMSIS-DSP | 4000 pairs: full scale, sum |b| < 2 | 1 | 0.5 | -0.5 |
+| conv q15, 64 x 64 (fast) | CMSIS-DSP | 4000 pairs: full scale, sum |b| < 2 | 1 | 0.5 | -0.5 |
+| conv q31, 64 x 64 | flexdsp | 4000 pairs: full scale, sum |b| < 2 | 0.5 | 0.25 | +1.8e-05 |
+| conv q31, 64 x 64 | CMSIS-DSP | 4000 pairs: full scale, sum |b| < 2 | 1 | 0.5 | -0.5 |
+| correlate q15, 64 x 64 | flexdsp | 4000 pairs, all 127 lags | 0.5 | 0.25 | +0.00054 |
+| correlate q15, 64 x 64 | CMSIS-DSP | 4000 pairs, all 127 lags | 1 | 0.5 | -0.5 |
+| Levinson q31, order 10 | flexdsp | 2000 AR(2) blocks of 1024 (poles 0.3-0.7) | 7.65 | 1.12 | -0.012 |
+| Levinson q31, order 10 | CMSIS-DSP | 2000 AR(2) blocks of 1024 (poles 0.3-0.7) | 82.3 | 5.5 | -0.098 |
+
+LMS, 16 taps, system identification with noise 60 dB down, mu = 2^-10:
+weight error against the system, dB below its norm (a double LMS on the same
+data alongside).
+
+| samples | flexdsp q15 | CMSIS-DSP q15 | flexdsp q31 | CMSIS-DSP q31 | double |
+|--:|--:|--:|--:|--:|--:|
+| 2048 | 1.3 | 0.9 | 1.3 | 1.3 | 1.3 |
+| 8192 | 5.8 | 2.0 | 5.8 | 5.8 | 5.8 |
+| 32768 | 22.8 | -0.1 | 22.9 | 22.9 | 22.9 |
+| 59968 | 42.9 | -0.5 | 42.3 | 42.3 | 42.2 |
+
+Correlation through q15 FFTs (fd_corr_fft_q15), 256 x 256 in 512 points, 200
+pairs of full-scale noise, all 511 lags: SNR 46.3 dB, worst pair 44.7 dB
+(fd_corr and fd_conv are exact).
 
 ## flexdsp transforms
 

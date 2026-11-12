@@ -43,9 +43,10 @@ fails if `core/golden.c` is stale.
   measures it.
 - Samples above 2 x median + 4 are counted and listed by input index.
 - "Flash read cost" measures the board's flash per load, cold and warm.
-- Five images: flexutils, flexmath's scalar functions, its structures, and
-  flexdsp in two.
-  The largest needs about 92 KB of flash (`st-info --probe` shows yours).
+- Seven images: flexutils, flexmath's scalar functions, its structures, and
+  flexdsp in four (block functions; filters and tones; transforms; correlation
+  and adaptive filters).
+  The largest needs about 105 KB of flash (`st-info --probe` shows yours).
 
 ## Adding a case
 

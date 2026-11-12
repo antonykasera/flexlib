@@ -9,8 +9,10 @@
 #include "arm_const_structs.h"
 #include "arm_math.h"
 #include "fd_biquad.h"
+#include "fd_corr.h"
 #include "fd_fft.h"
 #include "fd_fir.h"
+#include "fd_lms.h"
 #include "fd_vec.h"
 #include "fm_atan.h"
 #include "fm_div.h"
@@ -23,6 +25,7 @@
 #include "fm_trig.h"
 #include "ref_dsp.h"
 #include "test_stats.h"
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -735,6 +738,254 @@ static void fd_fir_rows(void) {
   row(&cf31, "CMSIS-DSP", "10^6 random samples, Hamming lowpass");
 }
 
+/* 64 x 64 against the exact sums: a full scale, b with sum |b| < 2 (no
+ * output saturates); correlation over all 127 lags */
+static void fd_conv_rows(void) {
+  enum { N = 64, NB = 4000 };
+  ErrStats f15, c15, cf15, f31, c31, r15, rc15;
+  stats_init(&f15, "conv q15, 64 x 64", "lsb");
+  stats_init(&c15, "conv q15, 64 x 64", "lsb");
+  stats_init(&cf15, "conv q15, 64 x 64 (fast)", "lsb");
+  stats_init(&f31, "conv q31, 64 x 64", "lsb");
+  stats_init(&c31, "conv q31, 64 x 64", "lsb");
+  stats_init(&r15, "correlate q15, 64 x 64", "lsb");
+  stats_init(&rc15, "correlate q15, 64 x 64", "lsb");
+  uint64_t st = 61U;
+  for (int b = 0; b < NB; b++) {
+    q15_t a[N], h[N], y[2 * N], yc[2 * N], ycf[2 * N];
+    q31_t a31[N], h31[N], y31[2 * N], yc31[2 * N];
+    fill_q15(&st, a, N);
+    fill_q31(&st, a31, N);
+    for (int i = 0; i < N; i++) {
+      h[i] = (q15_t)((int32_t)(test_rng_u32(&st) >> 16) % 1000);
+      h31[i] = (q31_t)((int32_t)test_rng_u32(&st) / 70);
+    }
+    fd_conv_q15(a, N, h, N, 0U, y);
+    arm_conv_q15(a, N, h, N, yc);
+    arm_conv_fast_q15(a, N, h, N, ycf);
+    fd_conv_q31(a31, N, h31, N, 0U, y31);
+    arm_conv_q31(a31, N, h31, N, yc31);
+    for (int k = 0; k < 2 * N - 1; k++) {
+      i128 s = 0, S = 0;
+      for (int i = 0; i < N; i++) {
+        if (k - i >= 0 && k - i < N) {
+          s += (i128)a[i] * h[k - i];
+          S += (i128)a31[i] * h31[k - i];
+        }
+      }
+      double r = (double)s / 32768.0, R = (double)S / 2147483648.0;
+      stats_add(&f15, k, y[k] - r);
+      stats_add(&c15, k, yc[k] - r);
+      stats_add(&cf15, k, ycf[k] - r);
+      stats_add(&f31, k, y31[k] - R);
+      stats_add(&c31, k, yc31[k] - R);
+    }
+    /* CMSIS-DSP: lag -(N - 1) first, as fd_corr from lag0 = 1 - N */
+    fd_corr_q15(a, N, h, N, 1 - N, 2 * N - 1, 0U, y);
+    arm_correlate_q15(a, N, h, N, yc);
+    for (int l = 1 - N; l < N; l++) {
+      i128 s = 0;
+      for (int j = 0; j < N; j++) {
+        if (j + l >= 0 && j + l < N) {
+          s += (i128)a[j + l] * h[j];
+        }
+      }
+      double r = (double)s / 32768.0;
+      stats_add(&r15, l, y[l + N - 1] - r);
+      stats_add(&rc15, l, yc[l + N - 1] - r);
+    }
+  }
+  row(&f15, "flexdsp", "4000 pairs: full scale, sum |b| < 2");
+  row(&c15, "CMSIS-DSP", "4000 pairs: full scale, sum |b| < 2");
+  row(&cf15, "CMSIS-DSP", "4000 pairs: full scale, sum |b| < 2");
+  row(&f31, "flexdsp", "4000 pairs: full scale, sum |b| < 2");
+  row(&c31, "CMSIS-DSP", "4000 pairs: full scale, sum |b| < 2");
+  row(&r15, "flexdsp", "4000 pairs, all 127 lags");
+  row(&rc15, "CMSIS-DSP", "4000 pairs, all 127 lags");
+}
+
+/* order-10 predictors of AR data (coefficients under 1) against a double
+ * recursion on the same q31 autocorrelation */
+static void fd_levinson_rows(void) {
+  enum { P = 10, NS = 1024 };
+  ErrStats f, c;
+  stats_init(&f, "Levinson q31, order 10", "lsb");
+  stats_init(&c, "Levinson q31, order 10", "lsb");
+  uint64_t st = 71U;
+  for (int trial = 0; trial < 2000; trial++) {
+    static q15_t x[NS];
+    double s1 = 0.0, s2 = 0.0;
+    double rho = 0.3 + 0.4 * (double)(test_rng_u32(&st) % 1000U) / 1000.0;
+    double th = 3.14159 * (double)(test_rng_u32(&st) % 1000U) / 1000.0;
+    for (int i = 0; i < NS; i++) {
+      double v = (double)((int32_t)(test_rng_u32(&st) >> 20) - 2048) +
+                 2.0 * rho * cos(th) * s1 - rho * rho * s2;
+      s2 = s1;
+      s1 = v;
+      x[i] = (q15_t)clampd(v * 4.0, -32768.0, 32767.0);
+    }
+    q31_t r[P + 1], a[P], k[P], ca[P], cerr, err;
+    (void)fd_autocorr_q15(x, NS, r, P + 1);
+    double rd[P + 1], ad[P], tmp[P], e = 1.0;
+    for (int i = 0; i <= P; i++) {
+      rd[i] = (double)r[i] / 2147483648.0;
+    }
+    e = rd[0];
+    for (int i = 1; i <= P; i++) {
+      double acc = rd[i];
+      for (int j = 1; j < i; j++) {
+        acc -= ad[j - 1] * rd[i - j];
+      }
+      double ki = acc / e;
+      for (int j = 1; j < i; j++) {
+        tmp[j - 1] = ad[j - 1] - ki * ad[i - j - 1];
+      }
+      memcpy(ad, tmp, (size_t)(i - 1) * sizeof ad[0]);
+      ad[i - 1] = ki;
+      e *= 1.0 - ki * ki;
+    }
+    if (fd_levinson_q31(r, P, 0U, a, k, &err) != FD_OK) {
+      continue;
+    }
+    arm_levinson_durbin_q31(r, ca, &cerr, P);
+    for (int i = 0; i < P; i++) {
+      if (fabs(ad[i]) >= 0.999) {
+        break;
+      }
+      stats_add(&f, i, (double)a[i] - ad[i] * 2147483648.0);
+      stats_add(&c, i, (double)ca[i] - ad[i] * 2147483648.0);
+    }
+  }
+  row(&f, "flexdsp", "2000 AR(2) blocks of 1024 (poles 0.3-0.7)");
+  row(&c, "CMSIS-DSP", "2000 AR(2) blocks of 1024 (poles 0.3-0.7)");
+}
+
+/* identify a 16-tap system from noise, 60 dB below it in d: the weights' error
+ * against the system after each stretch, relative to its norm */
+static void fd_lms_rows(void) {
+  enum { T = 16, NS = 60000 };
+  static double h[T];
+  static q15_t x[NS], d[NS], y[64], e[64], st15[T + 64], cw15[T],
+      cs15[T + 64 - 1], cy[64], ce[64];
+  static q31_t x31[NS], d31[NS], y31[64], e31[64], st31[T + 64], cw31[T],
+      cs31[T + 64 - 1], cy31[64], ce31[64];
+  static int32_t w15[T], w31[T];
+  uint64_t st = 81U;
+  double hn = 0.0;
+  for (int k = 0; k < T; k++) {
+    h[k] = 0.5 * exp(-0.25 * k) * cos(0.9 * k);
+    hn += h[k] * h[k];
+  }
+  for (int i = 0; i < NS; i++) {
+    double v = (double)((int32_t)(test_rng_u32(&st) >> 16) - 32768) / 2.0;
+    x[i] = (q15_t)v;
+    x31[i] = (q31_t)(v * 65536.0);
+  }
+  double wd[T] = {0};
+  for (int i = 0; i < NS; i++) {
+    double s = 0.0;
+    for (int k = 0; k < T && k <= i; k++) {
+      s += h[k] * x[i - k];
+    }
+    s += 0.001 * ((double)((int32_t)(test_rng_u32(&st) >> 16) - 32768) / 2.0);
+    d[i] = (q15_t)clampd(s, -32768.0, 32767.0);
+    d31[i] = (q31_t)clampd(s * 65536.0, -2147483648.0, 2147483647.0);
+  }
+  FD_LmsQ15 f15;
+  FD_LmsQ31 f31;
+  arm_lms_instance_q15 c15;
+  arm_lms_instance_q31 c31;
+  const q15_t mu15 = 32; /* 2^-10 */
+  const q31_t mu31 = 1 << 21;
+  fd_lms_init_q15(&f15, w15, T, st15, T + 64, mu15, FD_LMS_PLAIN);
+  fd_lms_init_q31(&f31, w31, T, st31, T + 64, mu31, FD_LMS_PLAIN);
+  memset(cw15, 0, sizeof cw15);
+  memset(cw31, 0, sizeof cw31);
+  arm_lms_init_q15(&c15, T, cw15, cs15, mu15, 64, 0);
+  arm_lms_init_q31(&c31, T, cw31, cs31, mu31, 64, 0);
+  printf("\nLMS, 16 taps, system identification with noise 60 dB down, mu = "
+         "2^-10:\nweight error against the system, dB below its norm (a "
+         "double LMS on the same\ndata alongside).\n\n"
+         "| samples | flexdsp q15 | CMSIS-DSP q15 | flexdsp q31 | CMSIS-DSP "
+         "q31 | double |\n|--:|--:|--:|--:|--:|--:|\n");
+  for (int i = 0; i < NS; i += 64) {
+    fd_lms_q15(&f15, x + i, d + i, y, e, 64);
+    arm_lms_q15(&c15, x + i, d + i, cy, ce, 64);
+    fd_lms_q31(&f31, x31 + i, d31 + i, y31, e31, 64);
+    arm_lms_q31(&c31, x31 + i, d31 + i, cy31, ce31, 64);
+    for (int j = i; j < i + 64; j++) {
+      double s = 0.0;
+      for (int k = 0; k < T && k <= j; k++) {
+        s += wd[k] * x[j - k];
+      }
+      double err = d[j] - s, m = 1.0 / 1024.0 / 1073741824.0;
+      for (int k = 0; k < T && k <= j; k++) {
+        wd[k] += m * err * x[j - k];
+      }
+    }
+    int n = i + 64;
+    if (n == 2048 || n == 8192 || n == 32768 || n == 59968) {
+      fm_q15 hq[T];
+      fm_q31 hq31[T];
+      fd_lms_coefs_q15(&f15, hq);
+      fd_lms_coefs_q31(&f31, hq31);
+      double ef = 0, ec = 0, ef31 = 0, ec31 = 0, ed = 0;
+      for (int k = 0; k < T; k++) {
+        /* CMSIS keeps h[0] at the oldest end */
+        double c = (double)cw15[T - 1 - k] / 32768.0;
+        double c31v = (double)cw31[T - 1 - k] / 2147483648.0;
+        ef += pow(hq[k] / 32768.0 - h[k], 2);
+        ec += pow(c - h[k], 2);
+        ef31 += pow(hq31[k] / 2147483648.0 - h[k], 2);
+        ec31 += pow(c31v - h[k], 2);
+        ed += pow(wd[k] - h[k], 2);
+      }
+      printf("| %d | %.1f | %.1f | %.1f | %.1f | %.1f |\n", n,
+             10 * log10(hn / ef), 10 * log10(hn / ec), 10 * log10(hn / ef31),
+             10 * log10(hn / ec31), 10 * log10(hn / ed));
+    }
+  }
+}
+
+/* correlation through q15 FFTs against the exact sums: SNR over all lags */
+static void fd_corr_fft_rows(void) {
+  enum { N = 256, M = 512 };
+  static fm_q15 fa[M] __attribute__((aligned(4))),
+      fb[M] __attribute__((aligned(4)));
+  static q15_t a[N], b[N];
+  uint64_t st = 91U;
+  double sig = 0.0, err = 0.0, worst = 1e9;
+  for (int t = 0; t < 200; t++) {
+    fill_q15(&st, a, N);
+    fill_q15(&st, b, N);
+    memset(fa, 0, sizeof fa);
+    memset(fb, 0, sizeof fb);
+    memcpy(fa, a, sizeof a);
+    memcpy(fb, b, sizeof b);
+    int32_t ex = fd_corr_fft_q15(fa, fb, M);
+    double bs = 0.0, be = 0.0;
+    for (int l = 1 - N; l < N; l++) {
+      i128 s = 0;
+      for (int j = 0; j < N; j++) {
+        if (j + l >= 0 && j + l < N) {
+          s += (i128)a[j + l] * b[j];
+        }
+      }
+      double r = (double)s / 1073741824.0;
+      double g = ldexp((double)fa[l < 0 ? M + l : l], ex - 15);
+      bs += r * r;
+      be += (g - r) * (g - r);
+    }
+    sig += bs;
+    err += be;
+    worst = fmin(worst, 10 * log10(bs / be));
+  }
+  printf("\nCorrelation through q15 FFTs (fd_corr_fft_q15), 256 x 256 in 512 "
+         "points, 200\npairs of full-scale noise, all 511 lags: SNR %.1f dB, "
+         "worst pair %.1f dB\n(fd_corr and fd_conv are exact).\n",
+         10 * log10(sig / err), worst);
+}
+
 /* 4th-order Butterworth lowpass, 10^6 samples of uniform noise at half scale,
  * against the same quantised coefficients in double */
 static void fd_biquad_rows(float fc, const char *label, int q15_rows) {
@@ -1102,6 +1353,10 @@ int main(void) {
   fd_fir_rows();
   fd_biquad_rows(0.01f, "Butterworth 4, fc 0.01", 1);
   fd_biquad_rows(0.0005f, "Butterworth 4, fc 5e-4", 0); /* Q2.14 b round to 0 */
+  fd_conv_rows();
+  fd_levinson_rows();
+  fd_lms_rows();
+  fd_corr_fft_rows();
   printf("\n## flexdsp transforms\n\n"
          "Signal-to-noise against the exact DFT, and the largest bin over the "
          "largest\nerror, both in dB (the output formats differ: a block "

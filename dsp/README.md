@@ -230,3 +230,73 @@ fd_fft_db_q15((fd_cq15 *)(void *)x, e, db, 256U); /* db[0] mixes DC and n/2 */
 
 A full-scale sine reads 20 log10(n/2), less the window's coherent gain
 (`fd_window_gains_q15`), above 0 dB.
+
+## Convolution and correlation (`fd_corr.h`)
+
+`fd_conv_q15` / `_q31` give all `na + nb - 1` outputs, `fd_conv_part_*` a range
+of them, and `fd_corr_q15` / `_q31` any range of lags, negative ones included
+(all of them: `lag0 = 1 - nb`, `nlags = na + nb - 1`; CMSIS-DSP's
+`arm_correlate_q15` puts the same values in the same order). Every output is
+the exact sum rounded once and saturated; `shift` divides by a further power of
+two, and `shift = ceil(log2 min(na, nb))` rules out saturation. Runs of whole
+windows go through the FIR kernels, four outputs per pass (q31: three), and so
+do the ends, with the samples past either end read as zero. The sums are
+32-bit (q31: 64-bit) whenever max |a| sum |b| or max |b| sum |a| allows it,
+which a filter with sum |h| < 2 or 12-bit ADC data always does; otherwise
+64-bit (q31: 96-bit).
+
+| function | cycles | CMSIS-DSP | error | CMSIS-DSP error |
+|---|--:|--:|--:|--:|
+| `fd_conv_q15`, 64 x 64 | 20270 | 123619 (`fast` 42252) | 0.5 LSB | 1 LSB |
+| `fd_conv_q15`, 256 x 32 | 32765 | 516899 | 0.5 LSB | 1 LSB |
+| `fd_conv_q15`, 64 x 64, both full scale | 46388 | | 0.5 LSB | |
+| `fd_conv_q31`, 64 x 64 | 47073 | 49642 | 0.5 LSB | 1 LSB |
+| `fd_corr_q15`, 256 x 256, all lags | 614396 | 1738429 | 0.5 LSB | 1 LSB |
+| `fd_corr_q15`, 256 x 256, lags 0..31 | 70614 | | 0.5 LSB | |
+| the same on 12-bit data | 32637 | | 0.5 LSB | |
+| `fd_corr_q31`, 64 x 64, all lags | 46647 | 51009 | 0.5 LSB | |
+| `fd_corr_fft_q15`, 256 x 256 in 512 | 131431 | | 41 dB SNR | |
+| `fd_autocorr_q15`, 256, 16 lags | 38605 | | 0.5 LSB | |
+| the same on 12-bit data | 16850 | | exact | |
+| `fd_autocorr_q31`, 128, 16 lags | 44395 | | 0.5 LSB | |
+| `fd_peak_q15`, 128 | 1325 | | 0.5 LSB (Q16.16) | |
+| `fd_levinson_q31`, order 10 | 4909 | 3779 | 7.7 LSB | 82 LSB |
+
+- `fd_corr_fft_q15` correlates two zero-padded blocks through q15 FFTs, in
+  place: 4.7 times faster than the direct sum at 256 x 256, with the error
+  about 45 dB (41 at worst) below the output's power instead of exact. On
+  delays with noise down to 0 dB SNR and on chirps it finds the same peak lag
+  as the exact sum.
+- `fd_autocorr_q15` / `_q31` return `r[k] 2^e` with `r[0]` in [2^30, 2^31):
+  31 significant bits at any signal level, the input `fd_levinson_q31` wants.
+- `fd_peak_q15` / `_q31` return the index of the largest value moved to the
+  vertex of the parabola through it and its neighbours, in Q16.16.
+- `fd_levinson_q31` gives the predictor `x[n] ~ sum a[j - 1] x[n - j]`, `a` in
+  Q(31 - `ashift`), the reflection coefficients and the remaining error power;
+  each step's sums are exact and rounded once. Its error is against a `double`
+  recursion on the same autocorrelation (AR(2) data, poles 0.3-0.7); CMSIS-DSP
+  rounds every product and divides through a q15 reciprocal.
+
+## Adaptive filters (`fd_lms.h`)
+
+LMS in q15 and q31, plain (`w += mu e x`), normalised (`mu e x / x'x`) and
+sign-error (`mu sign(e) x`), 32 taps, blocks of 64. The weights are Q30 in 32
+bits for both formats, so small updates still move them, and the update for
+one sample runs in the same pass over the taps as the next sample's output.
+Outputs are exact sums rounded once and saturated; the normalised step is an
+exact division, once per sample.
+
+| function | cycles | CMSIS-DSP |
+|---|--:|--:|
+| `fd_lms_q15` | 35585 | 42696 |
+| `fd_lms_q15` normalised | 40057 | 48624 |
+| `fd_lms_q15` sign-error | 35550 | |
+| `fd_lms_q31` | 64066 | 71613 |
+| `fd_lms_q31` normalised | 80848 | |
+
+Identifying a 16-tap system with noise 60 dB down at mu = 2^-10, the weights
+end within the error of a `double` LMS on the same data (42 dB below the
+system's norm after 60000 samples); CMSIS-DSP's q15 LMS truncates its
+updates, drifts, and ends 0.5 dB *above* the norm
+([docs/accuracy.md](../docs/accuracy.md)). `fd_lms_coefs_q15` / `_q31` read
+the taps back.

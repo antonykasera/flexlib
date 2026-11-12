@@ -8,6 +8,8 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 - License: Apache-2.0, with a NOTICE file for products that ship flexlib. Earlier releases (MIT) are granted under Apache-2.0 too.
 - flexdsp: faster q31 FFTs and real inverse FFTs ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
 - Bench: rows for every FFT kernel the board had not run (odd sizes, quiet input, q31 inverses).
+- flexdsp: convolution, correlation, autocorrelation, Levinson-Durbin and LMS adaptive filters ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
+- Bench: a seventh image, `dsp4`, for them.
 
 ## v0.4.0 (2026-11-11)
 
