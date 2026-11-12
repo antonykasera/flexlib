@@ -40,7 +40,8 @@ extern uint8_t bench_arg_b[BENCH_N * 8U];
  * (and the builds of every group) needs a 1024-point q31 block */
 #if defined(BENCH_SET_utils) || defined(BENCH_SET_math) ||                     \
     defined(BENCH_SET_struct) || defined(BENCH_SET_dsp) ||                     \
-    defined(BENCH_SET_dsp2) || defined(BENCH_SET_dsp4)
+    defined(BENCH_SET_dsp2) || defined(BENCH_SET_dsp4) ||                      \
+    defined(BENCH_SET_dsp5)
 #define BENCH_SCRATCH_SIZE 3584U
 #else
 #define BENCH_SCRATCH_SIZE 8192U

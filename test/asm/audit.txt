@@ -343,3 +343,15 @@ fd_lms_q15         mla ssat !call=memcpy !call=memmove
 fd_lms_q31         smlal ssat !call=memcpy !call=memmove
 fd_lms_coefs_q15   no-calls  ssat
 fd_lms_coefs_q31   no-calls  smlal ssat
+
+# fd_resample: the branch kernels inline (the 96-bit one out of line, as in fd_fir)
+fd_resample_q15    mla smlal !call=memcpy !call=memmove
+fd_resample_q31    smlal !call=memcpy !call=memmove
+fd_halfband_decim_q15   mla smlal !udiv !call=memcpy !call=memmove
+fd_halfband_decim_q31   smlal !udiv !call=memcpy !call=memmove
+fd_halfband_interp_q15  mla smlal !udiv !call=memcpy !call=memmove
+fd_halfband_interp_q31  smlal !udiv !call=memcpy !call=memmove
+
+# fd_cic: adds only, no multiplies or divides in the decimator
+fd_cic_decim_q15   !mul !mla !udiv !call=memcpy
+fd_cic_decim_q31   !mul !mla !udiv !call=memcpy

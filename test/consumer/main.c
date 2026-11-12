@@ -9,6 +9,7 @@
 #include "fd_corr.h"
 #include "fd_fft.h"
 #include "fd_lms.h"
+#include "fd_resample.h"
 #include "fd_vec.h"
 #include "fm_float.h"
 #include "fu_crc.h"
@@ -24,9 +25,10 @@ volatile uint32_t crc;
 volatile fm_q15 rms;
 static fm_q15 spec[8] __attribute__((aligned(4)));
 volatile int32_t bin1; /* Re X[1] of an impulse: its height */
-volatile fm_q15 conv1, lms_y;
+volatile fm_q15 conv1, lms_y, rs_y;
 
-/* {1/2, -1/2} * {1/2} and one LMS sample from zero weights */
+/* {1/2, -1/2} * {1/2}, one LMS sample from zero weights, and the first
+ * output of an interpolation by 2 through {1/2, 1/2} */
 static void filters(void) {
   static int32_t w[2];
   static fm_q15 st[4], cv[2];
@@ -38,6 +40,13 @@ static void filters(void) {
   fd_lms_init_q15(&f, w, 2U, st, 4U, 16384, FD_LMS_PLAIN);
   fd_lms_q15(&f, &xs, &ds, &out, NULL, 1U);
   lms_y = out;
+  static const fm_q15 half[2] = {16384, 16384};
+  static fm_q15 rst[FD_RESAMPLE_STATE_LEN(2U, 2U, 1U)];
+  FD_ResampleQ15 r;
+  fm_q15 ry[2];
+  fd_resample_init_q15(&r, half, 2U, 2U, 1U, rst, sizeof rst / sizeof rst[0]);
+  (void)fd_resample_q15(&r, sq, ry, 1U);
+  rs_y = ry[0];
 }
 
 static void transform(void) {
@@ -70,11 +79,11 @@ int main(void) {
   transform();
   filters();
   printf("flexlib %s: sin(0.5) %.7f, crc32 %08x, rms %d, fft %d, conv %d, "
-         "lms %d\n",
+         "lms %d, resample %d\n",
          FLEXLIB_VERSION, (double)y, (unsigned)crc, rms, (int)bin1, conv1,
-         lms_y);
+         lms_y, rs_y);
   return y == 0x1.eaee88p-2f && crc == 0xCBF43926U && rms == 16384 &&
-                 bin1 == 16384 && conv1 == -8192 && lms_y == 0
+                 bin1 == 16384 && conv1 == -8192 && lms_y == 0 && rs_y == 8192
              ? 0
              : 1;
 }

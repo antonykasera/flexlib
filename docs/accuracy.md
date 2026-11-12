@@ -133,6 +133,12 @@ data alongside).
 | 8192 | 5.8 | 2.0 | 5.8 | 5.8 | 5.8 |
 | 32768 | 22.8 | -0.1 | 22.9 | 22.9 | 22.9 |
 | 59968 | 42.9 | -0.5 | 42.3 | 42.3 | 42.2 |
+| resample q15 3/2, 24 taps | flexdsp | 10^6 half-scale inputs, Hamming lowpass | 0.5 | 0.25 | -0.00036 |
+| resample q15 3/2, 24 taps | CMSIS-DSP | 10^6 half-scale inputs, interpolate by 3, keep 1 in 2 | 1 | 0.5 | -0.5 |
+| resample q31 3/2, 24 taps | flexdsp | 10^6 half-scale inputs, Hamming lowpass | 0.5 | 0.25 | +4.6e-05 |
+| resample q31 3/2, 24 taps | CMSIS-DSP | 10^6 half-scale inputs, interpolate by 3, keep 1 in 2 | 1 | 0.5 | -0.5 |
+| half-band decimate q15, 31 taps | flexdsp | 10^6 half-scale inputs, Blackman | 0.5 | 0.25 | -0.00038 |
+| half-band interpolate q15, 31 taps | flexdsp | 10^6 half-scale inputs, Blackman (odd outputs exact) | 0.5 | 0.25 | +0.0004 |
 
 Correlation through q15 FFTs (fd_corr_fft_q15), 256 x 256 in 512 points, 200
 pairs of full-scale noise, all 511 lags: SNR 46.3 dB, worst pair 44.7 dB

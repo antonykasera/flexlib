@@ -6,6 +6,7 @@
 - `fd_irfft_q15` / `_q31`: one pass fewer (3-4% faster). Results change in the last bit, within the same bound.
 - `fd_corr.h`: convolution (`fd_conv_q15` / `_q31`, and `fd_conv_part_*` for a range of outputs), correlation over any range of lags (`fd_corr_q15` / `_q31`), autocorrelation with a block exponent (`fd_autocorr_q15` / `_q31`), the peak of a block refined to a fraction of a sample (`fd_peak_q15` / `_q31`), Levinson-Durbin (`fd_levinson_q31`), and correlation through q15 FFTs (`fd_corr_fft_q15`). Every output of the direct functions is its exact sum rounded once.
 - `fd_lms.h`: LMS adaptive filters in q15 / q31, plain, normalised and sign-error, with 32-bit weights and exact output sums.
+- `fd_resample.h`: rational resampling by l / m over polyphase branches (`fd_resample_q15` / `_q31`, only the kept outputs computed, the same bits as interpolating by l and keeping every m-th), half-band decimators and interpolators by 2 (`fd_halfband_decim_*`, `fd_halfband_interp_*`, the zero taps skipped and the centre exact), and a CIC decimator (`fd_cic_decim_q15` / `_q31`, orders 1-6, exact in wrapping 32- or 64-bit registers, q31 out), with design helpers for each (`fd_resample_design`, `fd_halfband_design`, `fd_cic_comp_design`).
 
 ## 0.2.0 (2026-11-11)
 

@@ -18,7 +18,7 @@ port/f103/   main.c (clock, USB CDC report), cache_probe.c, linker.ld
 git submodule update --init          # third_party/flex and third_party/cmsis-dsp
 make bench-run                       # flash and read each image, write the results
 make bench-windows                   # the instructions each case times
-make bench BENCH_SET=math            # one image: utils | math | struct | dsp | dsp2
+make bench BENCH_SET=math            # one image: utils | math | struct | dsp .. dsp5
 ```
 
 `make bench-run` flashes over ST-Link, reads the report from the board's USB
@@ -43,9 +43,9 @@ fails if `core/golden.c` is stale.
   measures it.
 - Samples above 2 x median + 4 are counted and listed by input index.
 - "Flash read cost" measures the board's flash per load, cold and warm.
-- Seven images: flexutils, flexmath's scalar functions, its structures, and
-  flexdsp in four (block functions; filters and tones; transforms; correlation
-  and adaptive filters).
+- Eight images: flexutils, flexmath's scalar functions, its structures, and
+  flexdsp in five (block functions; filters and tones; transforms; correlation
+  and adaptive filters; sample-rate conversion).
   The largest needs about 105 KB of flash (`st-info --probe` shows yours).
 
 ## Adding a case

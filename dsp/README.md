@@ -304,3 +304,53 @@ system's norm after 60000 samples); CMSIS-DSP's q15 LMS truncates its
 updates, drifts, and ends 0.5 dB *above* the norm
 ([docs/accuracy.md](../docs/accuracy.md)). `fd_lms_coefs_q15` / `_q31` read
 the taps back.
+
+## Sample-rate conversion (`fd_resample.h`)
+
+`fd_resample_q15` / `_q31` change the rate by l / m with an FIR prototype at l
+times the input rate (gain l, as for `fd_fir_interp`), split into l branches.
+Only the kept outputs are computed: each is its branch's exact sum rounded
+once, the same bits as interpolating by l and keeping every m-th output.
+Outputs l apart share a branch, so when a block holds at least four per branch
+they go through the decimator kernel four at a time; otherwise one by one
+(48 kHz from 44.1 kHz, 160 / 147). Any block length; the function returns how
+many outputs it wrote. `fd_resample_design` builds the prototype as a
+windowed-sinc lowpass at a fraction of the lower Nyquist.
+
+`fd_halfband_decim_*` / `fd_halfband_interp_*` change the rate by 2 with a
+half-band lowpass (4k - 1 taps, the centre 1/2, the other even offsets zero):
+only the 2k nonzero taps are stored and multiplied, and the centre is an exact
+add (the interpolator's odd outputs are delayed inputs). Same rounding, same
+bits as the full-length filter through `fd_fir_decim`. `fd_halfband_design`
+makes one with exactly zero taps where it should.
+
+`fd_cic_decim_q15` / `_q31` average and decimate by `ratio` with `order` (1 to
+6) integrators and combs, adds and subtracts only. The registers are sized
+from the input width you give (`in_bits`): 32 bits when the result fits, which
+12-bit ADC data does up to order 3 by 101 or order 2 by 1024, else 64. The sum
+is exact and comes out as q31 with the bits the averaging adds kept, rounded
+once when it is wider than 32 bits; `fd_cic_gain` gives the remaining gain,
+ratio^order over a power of two, and `fd_cic_comp_design` the FIR that
+flattens the passband after it. Each decimator is about 4 KB of code (a loop
+per order and width).
+
+| function | cycles | CMSIS-DSP | error | CMSIS-DSP error |
+|---|--:|--:|--:|--:|
+| `fd_resample_q15` 3 / 2, 24 taps, 64 in | 6577 | 18188 | 0.5 LSB | 1 LSB |
+| `fd_resample_q31` 3 / 2, 24 taps, 64 in | 12347 | 19674 | 0.5 LSB | 1 LSB |
+| `fd_resample_q15` 160 / 147, 1280 taps, 64 in | 7923 | | 0.5 LSB | |
+| `fd_halfband_decim_q15`, 31 taps, 64 in | 2988 | | 0.5 LSB | |
+| `fd_halfband_decim_q31`, 31 taps, 64 in | 6075 | | 0.5 LSB | |
+| `fd_halfband_interp_q15`, 31 taps, 64 in | 5293 | | 0.5 LSB | |
+| `fd_halfband_interp_q31`, 31 taps, 64 in | 11738 | | 0.5 LSB | |
+| `fd_cic_decim_q15` order 3 by 64, 12-bit, 256 in | 2012 | | exact | |
+| the same on 16-bit input (64-bit registers) | 2932 | | 0.5 LSB | |
+| `fd_cic_decim_q15` order 5 by 16, 12-bit, 256 in | 4688 | | exact | |
+
+- CMSIS-DSP has no rational resampler; its rows interpolate by 3 with
+  `arm_fir_interpolate_*` and keep every second output, computing three
+  outputs for every two kept. Its q31 interpolator wraps past full scale.
+- The half-band filters take half the time of `fd_fir_decim` / `fd_fir_interp`
+  by 2 on the same 31 taps (6386 and 10384).
+- 160 / 147 is 124 cycles per output with 8 taps per branch: 8% of the F103
+  for 48 kHz out.

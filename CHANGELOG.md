@@ -10,6 +10,8 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 - Bench: rows for every FFT kernel the board had not run (odd sizes, quiet input, q31 inverses).
 - flexdsp: convolution, correlation, autocorrelation, Levinson-Durbin and LMS adaptive filters ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
 - Bench: a seventh image, `dsp4`, for them.
+- flexdsp: sample-rate conversion: rational l / m, half-band by 2, CIC decimation ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
+- Bench: an eighth image, `dsp5`, for it.
 
 ## v0.4.0 (2026-11-11)
 

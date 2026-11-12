@@ -13,6 +13,7 @@
 #include "fd_fft.h"
 #include "fd_fir.h"
 #include "fd_lms.h"
+#include "fd_resample.h"
 #include "fd_vec.h"
 #include "fm_atan.h"
 #include "fm_div.h"
@@ -986,6 +987,119 @@ static void fd_corr_fft_rows(void) {
          10 * log10(sig / err), worst);
 }
 
+/* 3 / 2, 24 taps, 10^6 half-scale inputs against exact sums; CMSIS-DSP
+ * interpolates by 3 and keeps every second (its q31 one wraps at full scale) */
+static void fd_resample_rows(void) {
+  enum { T = 24, N = 64, NB = 15625, L = 3, M = 2 };
+  ErrStats f15, c15, f31, c31, h15, hi15;
+  stats_init(&f15, "resample q15 3/2, 24 taps", "lsb");
+  stats_init(&c15, "resample q15 3/2, 24 taps", "lsb");
+  stats_init(&f31, "resample q31 3/2, 24 taps", "lsb");
+  stats_init(&c31, "resample q31 3/2, 24 taps", "lsb");
+  stats_init(&h15, "half-band decimate q15, 31 taps", "lsb");
+  stats_init(&hi15, "half-band interpolate q15, 31 taps", "lsb");
+  float hf[T];
+  q15_t h15q[T], r15[T];
+  q31_t h31q[T], r31[T];
+  (void)fd_resample_design(hf, T, L, M, 0.9f, FD_WIN_HAMMING);
+  (void)fd_fir_quantize_q15(hf, h15q, T);
+  (void)fd_fir_quantize_q31(hf, h31q, T);
+  for (int k = 0; k < T; k++) { /* CMSIS stores them time-reversed */
+    r15[k] = h15q[T - 1 - k];
+    r31[k] = h31q[T - 1 - k];
+  }
+  static q15_t s15[T / L - 1 + N], cs15[T / L - 1 + N];
+  static q31_t s31[T / L - 1 + N], cs31[T / L - 1 + N];
+  FD_ResampleQ15 a15;
+  FD_ResampleQ31 a31;
+  arm_fir_interpolate_instance_q15 i15;
+  arm_fir_interpolate_instance_q31 i31;
+  fd_resample_init_q15(&a15, h15q, T, L, M, s15, T / L - 1 + N);
+  fd_resample_init_q31(&a31, h31q, T, L, M, s31, T / L - 1 + N);
+  (void)arm_fir_interpolate_init_q15(&i15, L, T, r15, cs15, N);
+  (void)arm_fir_interpolate_init_q31(&i31, L, T, r31, cs31, N);
+  float hbf[16];
+  q15_t hb[16];
+  (void)fd_halfband_design(hbf, 8U, FD_WIN_BLACKMAN);
+  (void)fd_fir_quantize_q15(hbf, hb, 16U);
+  static q15_t hs[FD_HALFBAND_DECIM_STATE_LEN(8U, N)],
+      his[FD_HALFBAND_INTERP_STATE_LEN(8U, N)];
+  FD_HalfbandQ15 hd, hp;
+  fd_halfband_decim_init_q15(&hd, hb, 8U, hs,
+                             FD_HALFBAND_DECIM_STATE_LEN(8U, N));
+  fd_halfband_interp_init_q15(&hp, hb, 8U, his,
+                              FD_HALFBAND_INTERP_STATE_LEN(8U, N));
+  static q15_t x15[NB * N];
+  static q31_t x31[NB * N];
+  uint64_t st = 33U;
+  fill_q15(&st, x15, NB * N);
+  fill_q31(&st, x31, NB * N);
+  for (int i = 0; i < NB * N; i++) { /* half scale: no output saturates */
+    x15[i] = (q15_t)(x15[i] / 2);
+    x31[i] = x31[i] / 2;
+  }
+  uint64_t j15 = 0U, j31 = 0U, jh = 0U; /* the next output's index */
+  for (int b = 0; b < NB; b++) {
+    q15_t y15[2 * N], yc15[L * N], yh[N], yi[2 * N];
+    q31_t y31[2 * N], yc31[L * N];
+    const q15_t *xb15 = x15 + b * N;
+    const q31_t *xb31 = x31 + b * N;
+    uint32_t n15 = fd_resample_q15(&a15, xb15, y15, N);
+    uint32_t n31 = fd_resample_q31(&a31, xb31, y31, N);
+    arm_fir_interpolate_q15(&i15, xb15, yc15, N);
+    arm_fir_interpolate_q31(&i31, xb31, yc31, N);
+    uint32_t nh = fd_halfband_decim_q15(&hd, xb15, yh, N);
+    fd_halfband_interp_q15(&hp, xb15, yi, N);
+    for (uint32_t k = 0U; k < n15; k++, j15++) {
+      uint64_t p = j15 * M, i = p / L, br = p % L;
+      i128 s = 0;
+      for (uint64_t t = 0U; br + t * L < T && t <= i; t++) {
+        s += (i128)h15q[br + t * L] * x15[i - t];
+      }
+      double r = clampd((double)s / 32768.0, -32768.0, 32767.0);
+      stats_add(&f15, (int)k, y15[k] - r);
+      /* CMSIS's output for the same index: p - L b N within this block */
+      stats_add(&c15, (int)k, yc15[p - (uint64_t)L * (uint64_t)b * N] - r);
+    }
+    for (uint32_t k = 0U; k < n31; k++, j31++) {
+      uint64_t p = j31 * M, i = p / L, br = p % L;
+      i128 S = 0;
+      for (uint64_t t = 0U; br + t * L < T && t <= i; t++) {
+        S += (i128)h31q[br + t * L] * x31[i - t];
+      }
+      double R = clampd((double)S / 2147483648.0, -2147483648.0, 2147483647.0);
+      stats_add(&f31, (int)k, y31[k] - R);
+      stats_add(&c31, (int)k, yc31[p - (uint64_t)L * (uint64_t)b * N] - R);
+    }
+    for (uint32_t k = 0U; k < nh; k++, jh++) {
+      uint64_t t = 2U * jh + 1U; /* the newest input */
+      i128 s = t >= 15U ? (i128)x15[t - 15U] * 16384 : 0;
+      for (uint64_t q = 0U; q < 16U && 2U * q <= t; q++) {
+        s += (i128)hb[q] * x15[t - 2U * q];
+      }
+      stats_add(&h15, (int)k,
+                yh[k] - clampd((double)s / 32768.0, -32768.0, 32767.0));
+    }
+    for (int k = 0; k < N; k++) {
+      uint64_t t = (uint64_t)(b * N + k);
+      i128 s = 0;
+      for (uint64_t q = 0U; q < 16U && q <= t; q++) {
+        s += (i128)hb[q] * x15[t - q];
+      }
+      stats_add(&hi15, k,
+                yi[2 * k] - clampd((double)s / 16384.0, -32768.0, 32767.0));
+    }
+  }
+  row(&f15, "flexdsp", "10^6 half-scale inputs, Hamming lowpass");
+  row(&c15, "CMSIS-DSP",
+      "10^6 half-scale inputs, interpolate by 3, keep 1 in 2");
+  row(&f31, "flexdsp", "10^6 half-scale inputs, Hamming lowpass");
+  row(&c31, "CMSIS-DSP",
+      "10^6 half-scale inputs, interpolate by 3, keep 1 in 2");
+  row(&h15, "flexdsp", "10^6 half-scale inputs, Blackman");
+  row(&hi15, "flexdsp", "10^6 half-scale inputs, Blackman (odd outputs exact)");
+}
+
 /* 4th-order Butterworth lowpass, 10^6 samples of uniform noise at half scale,
  * against the same quantised coefficients in double */
 static void fd_biquad_rows(float fc, const char *label, int q15_rows) {
@@ -1356,6 +1470,7 @@ int main(void) {
   fd_conv_rows();
   fd_levinson_rows();
   fd_lms_rows();
+  fd_resample_rows();
   fd_corr_fft_rows();
   printf("\n## flexdsp transforms\n\n"
          "Signal-to-noise against the exact DFT, and the largest bin over the "

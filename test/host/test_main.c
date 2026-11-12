@@ -101,6 +101,18 @@ void test_fd_lms_converge(void);
 void test_fd_lms_q31(void);
 void test_fd_lms_ties(void);
 
+/* --- fd_resample (test_fd_resample.c) --- */
+void test_fd_resample_oracle(void);
+void test_fd_resample_large(void);
+void test_fd_resample_reset(void);
+void test_fd_resample_design(void);
+void test_fd_resample_halfband_decim(void);
+void test_fd_resample_halfband_interp(void);
+void test_fd_resample_halfband_design(void);
+void test_fd_resample_cic(void);
+void test_fd_resample_cic_edges(void);
+void test_fd_resample_cic_comp(void);
+
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
 void test_fx_rbit_rev(void);
@@ -269,6 +281,16 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_lms_converge);
   TEST_RUN(test_fd_lms_q31);
   TEST_RUN(test_fd_lms_ties);
+  TEST_RUN(test_fd_resample_oracle);
+  TEST_RUN(test_fd_resample_large);
+  TEST_RUN(test_fd_resample_reset);
+  TEST_RUN(test_fd_resample_design);
+  TEST_RUN(test_fd_resample_halfband_decim);
+  TEST_RUN(test_fd_resample_halfband_interp);
+  TEST_RUN(test_fd_resample_halfband_design);
+  TEST_RUN(test_fd_resample_cic);
+  TEST_RUN(test_fd_resample_cic_edges);
+  TEST_RUN(test_fd_resample_cic_comp);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);
