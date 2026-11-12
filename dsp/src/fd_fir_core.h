@@ -1,6 +1,7 @@
 /**
  * @file fd_fir_core.h
- * @brief FIR kernels and output rounding shared by the filters and fd_corr
+ * @brief FIR kernels, output rounding and state shared by the filters,
+ * fd_corr and fd_resample
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0
@@ -9,8 +10,10 @@
 #ifndef FD_FIR_CORE_H
 #define FD_FIR_CORE_H
 
+#include "fd_fir.h"
 #include "fd_wide.h"
 #include "fm_fixed.h"
+#include "fm_float.h"
 #include "fx_arch.h"
 #include <stdbool.h>
 #include <stddef.h>
@@ -82,12 +85,8 @@ FX_INLINE int32_t outr(int64_t a, int32_t rs) {
   return (int32_t)(((a >> (uint32_t)(rs - 1)) + 1) >> 1);
 }
 
-/* ---- kernels: output i of m uses the window b[i .. i + t - 1] (oldest
- * first), h[k hs] multiplies b[i + t - 1 - k] (up: b[i + k]), written to
- * y[i ys]; sh scales the outputs. With yr they go there instead, unsaturated,
- * as outr(sum, rs). For one group (m = its size) the window may
- * start nl samples before b and end nt after the data: those read as zero ----
- */
+/* ---- kernels: output i of m sums h[k hs] b[i + t - 1 - k] (up: b[i + k])
+ * into y[i ys], or outr(sum, rs) into yr; nl / nt edge samples are 0 ---- */
 
 #define FIR_H(n) h[up ? i + (n) * hs : i - (n) * hs]
 #define FIR_STEP(n) (i = up ? i + (n) * hs : i - (n) * hs)
@@ -313,5 +312,164 @@ FX_INLINE void k31(const fm_q31 *h, uint32_t hs, bool up, uint32_t t,
   }
 }
 #undef G
+
+/* ---- decimators: output i of m over b[i ws ..], taps h[k hs], into y[i ys];
+ * plain static like the state helpers, inlined where it pays ---- */
+
+#define FIR_LOCAL static __attribute__((unused))
+
+/* q15, sum |h| < 2: four outputs per pass */
+FIR_LOCAL void k15d(const fm_q15 *h, uint32_t hs, uint32_t t, const fm_q15 *b,
+                    uint32_t ws, fm_q15 *y, uint32_t ys, uint32_t m) {
+  for (; m >= 4U; m -= 4U) {
+    int32_t a0 = 0, a1 = 0, a2 = 0, a3 = 0;
+    const fm_q15 *p0 = b, *p1 = b + ws, *p2 = b + 2U * ws, *p3 = b + 3U * ws;
+    for (uint32_t k = t; k != 0U; k--) {
+      int32_t c = h[(k - 1U) * hs];
+      a0 += c * *p0++;
+      a1 += c * *p1++;
+      a2 += c * *p2++;
+      a3 += c * *p3++;
+    }
+    y[0] = out15(a0);
+    y[ys] = out15(a1);
+    y[2U * ys] = out15(a2);
+    y[3U * ys] = out15(a3);
+    y += 4U * ys;
+    b += 4U * ws;
+  }
+  for (; m != 0U; m--) {
+    int32_t a = 0;
+    for (uint32_t k = 0U; k < t; k++) {
+      a += h[(t - 1U - k) * hs] * b[k];
+    }
+    *y = out15(a);
+    y += ys;
+    b += ws;
+  }
+}
+
+/* q15, any gain: 64-bit sums */
+FIR_LOCAL void k15w(const fm_q15 *h, uint32_t hs, uint32_t t, const fm_q15 *b,
+                    uint32_t ws, fm_q15 *y, uint32_t ys, uint32_t m) {
+  for (; m != 0U; m--) {
+    int64_t a = 0;
+    uint32_t i = (t - 1U) * hs;
+    for (uint32_t k = 0U; k < t; k++) {
+      a += h[i] * b[k];
+      i -= hs;
+    }
+    *y = out15w(a);
+    y += ys;
+    b += ws;
+  }
+}
+
+/* q31, sum |h| < 2: two outputs per pass */
+FIR_LOCAL void k31d(const fm_q31 *h, uint32_t hs, uint32_t t, const fm_q31 *b,
+                    uint32_t ws, fm_q31 *y, uint32_t ys, uint32_t m) {
+  for (; m >= 2U; m -= 2U) {
+    int64_t a0 = 0, a1 = 0;
+    const fm_q31 *p0 = b, *p1 = b + ws;
+    for (uint32_t k = t; k != 0U; k--) {
+      int32_t c = h[(k - 1U) * hs];
+      a0 = fx_smlal(a0, c, *p0++);
+      a1 = fx_smlal(a1, c, *p1++);
+    }
+    y[0] = out31(a0);
+    y[ys] = out31(a1);
+    y += 2U * ys;
+    b += 2U * ws;
+  }
+  if (m != 0U) {
+    int64_t a = 0;
+    for (uint32_t k = 0U; k < t; k++) {
+      a = fx_smlal(a, h[(t - 1U - k) * hs], b[k]);
+    }
+    *y = out31(a);
+  }
+}
+
+/* q31, any gain: 96-bit sums */
+FIR_LOCAL void k31w(const fm_q31 *h, uint32_t hs, uint32_t t, const fm_q31 *b,
+                    uint32_t ws, fm_q31 *y, uint32_t ys, uint32_t m) {
+  for (; m != 0U; m--) {
+    Sum96 s = {0U, 0};
+    uint32_t i = (t - 1U) * hs;
+    for (uint32_t k = 0U; k < t; k++) {
+      sum96_add(&s, fx_smull(h[i], b[k]));
+      i -= hs;
+    }
+    *y = out31w(s);
+    y += ys;
+    b += ws;
+  }
+}
+
+/* ---- state: the history, then room for new samples ---- */
+
+/* forward copies, so they may move the history down over itself */
+FIR_LOCAL void move15(fm_q15 *d, const fm_q15 *s, uint32_t n) {
+  FX_OPAQUE(d);
+  for (uint32_t i = 0U; i < n; i++) {
+    d[i] = s[i];
+  }
+}
+
+FIR_LOCAL void move31(fm_q31 *d, const fm_q31 *s, uint32_t n) {
+  FX_OPAQUE(d);
+  for (uint32_t i = 0U; i < n; i++) {
+    d[i] = s[i];
+  }
+}
+
+/* room for up to n new samples, stored; returns how many */
+FIR_LOCAL uint32_t take15(FD_FirQ15 *f, const fm_q15 *x, uint32_t n) {
+  if (f->w == f->len) {
+    move15(f->state, f->state + f->w - (f->ntaps - 1U), f->ntaps - 1U);
+    f->w = f->ntaps - 1U;
+  }
+  uint32_t m = f->len - f->w < n ? f->len - f->w : n;
+  move15(f->state + f->w, x, m);
+  return m;
+}
+
+FIR_LOCAL uint32_t take31(FD_FirQ31 *f, const fm_q31 *x, uint32_t n) {
+  if (f->w == f->len) {
+    move31(f->state, f->state + f->w - (f->ntaps - 1U), f->ntaps - 1U);
+    f->w = f->ntaps - 1U;
+  }
+  uint32_t m = f->len - f->w < n ? f->len - f->w : n;
+  move31(f->state + f->w, x, m);
+  return m;
+}
+
+/* ---- design ---- */
+
+#define PI_F 3.14159265358979f
+
+/* sample k of an n-point window (float, for the design helpers) */
+FIR_LOCAL float win_value(FD_Window win, uint32_t k, uint32_t n) {
+  static const float a[][5] = {
+      {1.0f, 0.0f, 0.0f, 0.0f, 0.0f},                     /* rectangular */
+      {0.5f, 0.5f, 0.0f, 0.0f, 0.0f},                     /* Hann */
+      {0.54f, 0.46f, 0.0f, 0.0f, 0.0f},                   /* Hamming */
+      {0.42f, 0.5f, 0.08f, 0.0f, 0.0f},                   /* Blackman */
+      {0.35875f, 0.48829f, 0.14128f, 0.01168f, 0.0f},     /* Blackman-Harris */
+      {0.355768f, 0.487396f, 0.144232f, 0.012604f, 0.0f}, /* Nuttall */
+      {0.21557895f, 0.41663158f, 0.277263158f, 0.083578947f, 0.006947368f},
+  };
+  if (n == 1U) {
+    return 1.0f;
+  }
+  if (win == FD_WIN_BARTLETT) {
+    float r = (2.0f * (float)k - (float)(n - 1U)) / (float)(n - 1U);
+    return 1.0f - (r < 0.0f ? -r : r);
+  }
+  float t = 2.0f * PI_F * (float)k / (float)(n - 1U);
+  const float *c = a[win];
+  return c[0] - c[1] * fm_cosf(t) + c[2] * fm_cosf(2.0f * t) -
+         c[3] * fm_cosf(3.0f * t) + c[4] * fm_cosf(4.0f * t);
+}
 
 #endif /* FD_FIR_CORE_H */

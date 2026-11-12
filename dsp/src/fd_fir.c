@@ -10,97 +10,7 @@
 #include "fd_fir_core.h"
 #include "fm_float.h"
 
-/* ---- decimator kernels and the one-output wide ones (the rest in
- * fd_fir_core.h) ---- */
-
-/* q15 decimator, sum |h| < 2: windows ws apart, four outputs per pass */
-static void k15d(const fm_q15 *h, uint32_t t, const fm_q15 *b, uint32_t ws,
-                 fm_q15 *y, uint32_t m) {
-  for (; m >= 4U; m -= 4U) {
-    int32_t a0 = 0, a1 = 0, a2 = 0, a3 = 0;
-    const fm_q15 *p0 = b, *p1 = b + ws, *p2 = b + 2U * ws, *p3 = b + 3U * ws;
-    for (uint32_t k = t; k != 0U; k--) {
-      int32_t c = h[k - 1U];
-      a0 += c * *p0++;
-      a1 += c * *p1++;
-      a2 += c * *p2++;
-      a3 += c * *p3++;
-    }
-    y[0] = out15(a0);
-    y[1] = out15(a1);
-    y[2] = out15(a2);
-    y[3] = out15(a3);
-    y += 4;
-    b += 4U * ws;
-  }
-  for (; m != 0U; m--) {
-    int32_t a = 0;
-    for (uint32_t k = 0U; k < t; k++) {
-      a += h[t - 1U - k] * b[k];
-    }
-    *y++ = out15(a);
-    b += ws;
-  }
-}
-
-/* q15, any gain: 64-bit sums */
-static void k15w(const fm_q15 *h, uint32_t hs, uint32_t t, const fm_q15 *b,
-                 uint32_t ws, fm_q15 *y, uint32_t ys, uint32_t m) {
-  for (; m != 0U; m--) {
-    int64_t a = 0;
-    uint32_t i = (t - 1U) * hs;
-    for (uint32_t k = 0U; k < t; k++) {
-      a += h[i] * b[k];
-      i -= hs;
-    }
-    *y = out15w(a);
-    y += ys;
-    b += ws;
-  }
-}
-
-/* q31 decimator, sum |h| < 2: two outputs per pass */
-static void k31d(const fm_q31 *h, uint32_t t, const fm_q31 *b, uint32_t ws,
-                 fm_q31 *y, uint32_t m) {
-  for (; m >= 2U; m -= 2U) {
-    int64_t a0 = 0, a1 = 0;
-    const fm_q31 *p0 = b, *p1 = b + ws;
-    for (uint32_t k = t; k != 0U; k--) {
-      int32_t c = h[k - 1U];
-      a0 = fx_smlal(a0, c, *p0++);
-      a1 = fx_smlal(a1, c, *p1++);
-    }
-    y[0] = out31(a0);
-    y[1] = out31(a1);
-    y += 2;
-    b += 2U * ws;
-  }
-  if (m != 0U) {
-    int64_t a = 0;
-    for (uint32_t k = 0U; k < t; k++) {
-      a = fx_smlal(a, h[t - 1U - k], b[k]);
-    }
-    *y = out31(a);
-  }
-}
-
-/* q31, any gain: 96-bit sums */
-static void k31w(const fm_q31 *h, uint32_t hs, uint32_t t, const fm_q31 *b,
-                 uint32_t ws, fm_q31 *y, uint32_t ys, uint32_t m) {
-  for (; m != 0U; m--) {
-    Sum96 s = {0U, 0};
-    uint32_t i = (t - 1U) * hs;
-    for (uint32_t k = 0U; k < t; k++) {
-      sum96_add(&s, fx_smull(h[i], b[k]));
-      i -= hs;
-    }
-    *y = out31w(s);
-    y += ys;
-    b += ws;
-  }
-}
-
-/* ---- state: the history, then room for new samples ---- */
+/* ---- the coefficients' gain ---- */
 
 static uint64_t abs_sum15(const fm_q15 *h, uint32_t hs, uint32_t n) {
   uint64_t s = 0U;
@@ -118,42 +28,6 @@ static uint64_t abs_sum31(const fm_q31 *h, uint32_t hs, uint32_t n) {
     s += v < 0 ? 0U - (uint32_t)v : (uint32_t)v;
   }
   return s;
-}
-
-/* forward copies, so they may move the history down over itself */
-static void move15(fm_q15 *d, const fm_q15 *s, uint32_t n) {
-  FX_OPAQUE(d);
-  for (uint32_t i = 0U; i < n; i++) {
-    d[i] = s[i];
-  }
-}
-
-static void move31(fm_q31 *d, const fm_q31 *s, uint32_t n) {
-  FX_OPAQUE(d);
-  for (uint32_t i = 0U; i < n; i++) {
-    d[i] = s[i];
-  }
-}
-
-/* room for up to n new samples, stored; returns how many */
-static uint32_t take15(FD_FirQ15 *f, const fm_q15 *x, uint32_t n) {
-  if (f->w == f->len) {
-    move15(f->state, f->state + f->w - (f->ntaps - 1U), f->ntaps - 1U);
-    f->w = f->ntaps - 1U;
-  }
-  uint32_t m = f->len - f->w < n ? f->len - f->w : n;
-  move15(f->state + f->w, x, m);
-  return m;
-}
-
-static uint32_t take31(FD_FirQ31 *f, const fm_q31 *x, uint32_t n) {
-  if (f->w == f->len) {
-    move31(f->state, f->state + f->w - (f->ntaps - 1U), f->ntaps - 1U);
-    f->w = f->ntaps - 1U;
-  }
-  uint32_t m = f->len - f->w < n ? f->len - f->w : n;
-  move31(f->state + f->w, x, m);
-  return m;
 }
 
 /* ---- FIR ---- */
@@ -272,7 +146,7 @@ uint32_t fd_fir_decim_q15(FD_FirDecimQ15 *d, const fm_q15 *x, fm_q15 *y,
       if (f->wide != 0U) {
         k15w(f->h, 1U, t, b, step, y, 1U, cnt);
       } else {
-        k15d(f->h, t, b, step, y, cnt);
+        k15d(f->h, 1U, t, b, step, y, 1U, cnt);
       }
       y += cnt;
       out += cnt;
@@ -299,7 +173,7 @@ uint32_t fd_fir_decim_q31(FD_FirDecimQ31 *d, const fm_q31 *x, fm_q31 *y,
       if (f->wide != 0U) {
         k31w(f->h, 1U, t, b, step, y, 1U, cnt);
       } else {
-        k31d(f->h, t, b, step, y, cnt);
+        k31d(f->h, 1U, t, b, step, y, 1U, cnt);
       }
       y += cnt;
       out += cnt;
@@ -401,37 +275,12 @@ void fd_fir_interp_q31(FD_FirInterpQ31 *p, const fm_q31 *x, fm_q31 *y,
 
 /* ---- design ---- */
 
-#define PI_F 3.14159265358979f
-
 /* sin(2 pi f m) / (pi m), the ideal lowpass at f */
 static float sinc_lp(float f, float m) {
   if (m == 0.0f) {
     return 2.0f * f;
   }
   return fm_sinf(2.0f * PI_F * f * m) / (PI_F * m);
-}
-
-static float window(FD_Window win, uint32_t k, uint32_t n) {
-  static const float a[][5] = {
-      {1.0f, 0.0f, 0.0f, 0.0f, 0.0f},                     /* rectangular */
-      {0.5f, 0.5f, 0.0f, 0.0f, 0.0f},                     /* Hann */
-      {0.54f, 0.46f, 0.0f, 0.0f, 0.0f},                   /* Hamming */
-      {0.42f, 0.5f, 0.08f, 0.0f, 0.0f},                   /* Blackman */
-      {0.35875f, 0.48829f, 0.14128f, 0.01168f, 0.0f},     /* Blackman-Harris */
-      {0.355768f, 0.487396f, 0.144232f, 0.012604f, 0.0f}, /* Nuttall */
-      {0.21557895f, 0.41663158f, 0.277263158f, 0.083578947f, 0.006947368f},
-  };
-  if (n == 1U) {
-    return 1.0f;
-  }
-  if (win == FD_WIN_BARTLETT) {
-    float r = (2.0f * (float)k - (float)(n - 1U)) / (float)(n - 1U);
-    return 1.0f - (r < 0.0f ? -r : r);
-  }
-  float t = 2.0f * PI_F * (float)k / (float)(n - 1U);
-  const float *c = a[win];
-  return c[0] - c[1] * fm_cosf(t) + c[2] * fm_cosf(2.0f * t) -
-         c[3] * fm_cosf(3.0f * t) + c[4] * fm_cosf(4.0f * t);
 }
 
 FD_Status fd_fir_design(float *h, uint32_t ntaps, FD_Band band, float f1,
@@ -462,7 +311,7 @@ FD_Status fd_fir_design(float *h, uint32_t ntaps, FD_Band band, float f1,
     } else if (band == FD_BANDSTOP) {
       v = (m == 0.0f ? 1.0f : 0.0f) - (sinc_lp(f2, m) - v);
     }
-    h[k] = v * window(win, k, ntaps);
+    h[k] = v * win_value(win, k, ntaps);
     g += h[k] * fm_cosf(2.0f * PI_F * f0 * m);
   }
   if (!(g > 1e-6f || g < -1e-6f)) {
