@@ -1,0 +1,195 @@
+/* flexlib site: palette, type and tables over pydata-sphinx-theme */
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("fonts/ibm-plex-sans-latin-wght-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: italic;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("fonts/ibm-plex-sans-latin-wght-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
+}
+
+html {
+  --pst-font-family-base: "IBM Plex Sans", system-ui, sans-serif;
+  --pst-font-family-heading: var(--pst-font-family-base);
+  --pst-font-family-monospace: "IBM Plex Mono", ui-monospace, monospace;
+  --pst-font-size-base: 1rem;
+  --pst-font-weight-heading: 600;
+  --fl-prose: 72ch;
+}
+
+html[data-theme="light"] {
+  --fl-bg: #ffffff;
+  --fl-surface: #f6f7f9;
+  --fl-border: #e3e6ea;
+  --fl-text: #1f2328;
+  --fl-muted: #59636e;
+  --fl-accent: #1f6f8b;
+  /* signatures use the code blocks' colours (Pygments default / github-dark) */
+  --fl-c-type: #b00040;
+  --fl-c-kw: #008000;
+  --fl-c-fn: #0000ff;
+  --fl-c-macro: #9c6500;
+  --fl-c-str: #ba2121;
+  --fl-c-num: #666666;
+}
+html[data-theme="dark"] {
+  --fl-bg: #14181d;
+  --fl-surface: #1c2128;
+  --fl-border: #2d333b;
+  --fl-text: #d7dce2;
+  --fl-muted: #9aa4af;
+  --fl-accent: #5fb3cf;
+  --fl-c-type: #ff7b72;
+  --fl-c-kw: #ff7b72;
+  --fl-c-fn: #d2a8ff;
+  --fl-c-macro: #79c0ff;
+  --fl-c-str: #a5d6ff;
+  --fl-c-num: #a5d6ff;
+}
+html[data-theme] {
+  --pst-color-background: var(--fl-bg);
+  --pst-color-on-background: var(--fl-bg);
+  --pst-color-surface: var(--fl-surface);
+  --pst-color-on-surface: var(--fl-surface);
+  --pst-color-border: var(--fl-border);
+  --pst-color-border-muted: var(--fl-border);
+  --pst-color-text-base: var(--fl-text);
+  --pst-color-text-muted: var(--fl-muted);
+  --pst-color-heading: var(--fl-text);
+  --pst-color-primary: var(--fl-accent);
+  --pst-color-secondary: var(--fl-accent);
+  --pst-color-accent: var(--fl-accent);
+  --pst-color-link: var(--fl-accent);
+  --pst-color-link-hover: var(--fl-accent);
+  --pst-color-inline-code: var(--fl-text);
+  --pst-color-inline-code-links: var(--fl-accent);
+  --pst-color-target: var(--fl-surface);
+  --pst-color-table-row-hover-bg: var(--fl-surface);
+  --pst-color-table-heading-bg: var(--fl-surface);
+  --pst-color-table-row-zebra-low-bg: var(--fl-bg);
+  --pst-color-table-row-zebra-high-bg: var(--fl-bg);
+}
+
+body { line-height: 1.6; }
+
+.bd-article p, .bd-article li, .bd-article dd { max-width: var(--fl-prose); }
+
+h1, h2, h3, h4 { font-weight: 600; letter-spacing: normal; text-transform: none; }
+.bd-article h1 { font-size: 2rem; margin-top: 0; }
+.bd-article h2 { font-size: 1.4rem; margin-top: 2.25rem; }
+.bd-article h3 { font-size: 1.1rem; }
+
+/* header name on the title line */
+.fl-header-name {
+  float: right;
+  margin: 0.55rem 0 0 1rem;
+  font-family: var(--pst-font-family-monospace);
+  font-size: 0.95rem;
+  color: var(--fl-muted);
+}
+
+/* tables: hairlines, no vertical rules, tabular figures */
+.bd-article table {
+  font-variant-numeric: tabular-nums;
+  border-collapse: collapse;
+  border: none;
+}
+.bd-article table th, .bd-article table td {
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 1px solid var(--fl-border);
+  vertical-align: top;
+}
+.bd-article table thead tr { border-bottom: 1px solid var(--fl-border); }
+.bd-article table thead th { font-weight: 600; }
+.bd-article table td.text-right {
+  font-family: var(--pst-font-family-monospace);
+  font-size: 0.875rem;
+}
+.bd-article .pst-scrollable-table-container + p { color: var(--fl-muted); font-size: 0.875rem; }
+
+/* code */
+.bd-article pre, div.highlight {
+  background: var(--fl-surface);
+  border: none;
+  box-shadow: none;
+  font-size: 14px;
+}
+code.literal { background: none; border: none; padding: 0; }
+
+/* definition lists as the contract */
+.bd-article dl:not([class*="c "]):not(.c) dt { font-weight: 600; }
+.bd-article dl:not([class*="c "]):not(.c) dd { margin: 0 0 0.6rem 1.5rem; }
+
+/* API entries: signature on a surface block */
+.bd-article dl.c > dt {
+  background: var(--fl-surface);
+  border: none;
+  padding: 0.5rem 0.75rem;
+  font-family: var(--pst-font-family-monospace);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+.bd-article dl.c { margin-bottom: 1.5rem; }
+.bd-article dl.c > dt .kt,
+.bd-article dl.c > dt > .n:has(+ .w) { color: var(--fl-c-type); }
+.bd-article dl.c > dt .k { color: var(--fl-c-kw); font-weight: 600; }
+.bd-article dl.c > dt .sig-name .n { color: var(--fl-c-fn); font-weight: 600; }
+.bd-article dl.c > dt .p, .bd-article dl.c > dt .sig-paren { color: var(--fl-muted); }
+.bd-article dl.c.macro > dt .sig-name .n { color: var(--fl-c-macro); }
+.bd-article dl.c > dt .fl-pp { color: var(--fl-muted); font-weight: 400; }
+.bd-article dl.c > dt .fl-val { color: var(--fl-c-num); }
+
+/* inline code, classed by the flexlib_site extension */
+.bd-article code.literal.fl-fn { color: var(--fl-c-fn); }
+.bd-article code.literal.fl-macro { color: var(--fl-c-macro); }
+.bd-article code.literal.fl-type { color: var(--fl-c-type); }
+.bd-article code.literal.fl-kw { color: var(--fl-c-kw); }
+.bd-article code.literal.fl-str { color: var(--fl-c-str); }
+.bd-article code.literal.fl-num { color: var(--fl-c-num); }
+.bd-article a.reference:has(> code.literal) { text-decoration-color: var(--fl-border); }
+.bd-article a.reference code.literal { font-weight: 400; }
+
+/* API notes: the brief, then the details smaller and muted */
+.bd-article dl.c > dd {
+  margin: 0 0 0 0.75rem;
+  padding: 0.5rem 0 0.1rem 1rem;
+  border-left: 2px solid var(--fl-border);
+}
+.bd-article dl.c > dd > p { margin: 0 0 0.4rem; }
+.bd-article dl.c > dd > p + p { color: var(--fl-muted); font-size: 0.9rem; }
+.bd-article dl.c > dd code { font-size: 0.85em; color: var(--fl-text); }
+
+/* cards: flat, the whole card is the link */
+.sd-card { border-color: var(--fl-border); box-shadow: none !important; background: var(--fl-bg); }
+.sd-card:hover { border-color: var(--fl-accent); }
+.sd-card .sd-card-footer { border: none; color: var(--fl-muted); font-family: var(--pst-font-family-monospace); font-size: 0.875rem; }
+.sd-card .sd-card-header { border: none; }
+
+.fl-footer { color: var(--fl-muted); font-size: 0.875rem; margin: 0; }
+.bd-links__title { display: none; }
+
+@media (max-width: 720px) {
+  .fl-header-name { float: none; margin: 0 0 0.25rem; }
+}

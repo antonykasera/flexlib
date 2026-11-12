@@ -9,3 +9,4 @@ docs-check:
 	@echo "API docs: build/doxygen/html/index.html ($(words $(DOCS_HEADERS)) headers)"
 
 .PHONY: docs-check
+include mk/site.mk
