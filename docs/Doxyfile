@@ -1,4 +1,4 @@
-# Doxygen settings that differ from tdefaults; see mk/docs.mk
+# Doxygen settings that differ from the defaults; see mk/docs.mk
 
 PROJECT_NAME           = flexlib
 PROJECT_NUMBER         = $(FLEXLIB_VERSION)
@@ -26,7 +26,7 @@ ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 INCLUDE_PATH           = arch utils/include math/include dsp/include
-PREDEFINED             = FX_INLINE="static inline"
+PREDEFINED             = FX_INLINE=
 
 # HTML to read locally; XML for Sphinx (Breathe)
 GENERATE_HTML          = YES
