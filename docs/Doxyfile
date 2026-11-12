@@ -1,0 +1,37 @@
+# Doxygen settings that differ from tdefaults; see mk/docs.mk
+
+PROJECT_NAME           = flexlib
+PROJECT_NUMBER         = $(FLEXLIB_VERSION)
+PROJECT_BRIEF          = "Measured-fastest compute libraries for Cortex-M"
+OUTPUT_DIRECTORY       = build/doxygen
+INPUT                  = $(DOCS_INPUT)
+FILE_PATTERNS          = *.h
+STRIP_FROM_PATH        = .
+STRIP_FROM_INC_PATH    = arch utils/include math/include dsp/include
+FULL_PATH_NAMES        = YES
+OPTIMIZE_OUTPUT_FOR_C  = YES
+MARKDOWN_SUPPORT       = YES
+JAVADOC_AUTOBRIEF      = YES
+SORT_MEMBER_DOCS       = NO
+
+# every public declaration documented; a @param block, when present, complete
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_IF_INCOMPLETE_DOC = YES
+WARN_NO_PARAMDOC       = NO
+WARN_AS_ERROR          = FAIL_ON_WARNINGS
+
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+INCLUDE_PATH           = arch utils/include math/include dsp/include
+PREDEFINED             = FX_INLINE="static inline"
+
+# HTML to read locally; XML for Sphinx (Breathe)
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+USE_MATHJAX            = YES
+HTML_DYNAMIC_SECTIONS  = YES
+HAVE_DOT               = NO

@@ -32,6 +32,7 @@ include mk/host.mk
 include mk/accuracy.mk
 include mk/cross.mk
 include mk/lint.mk
+include mk/docs.mk
 include mk/bench.mk
 include mk/tables.mk
 include mk/release.mk
@@ -44,6 +45,7 @@ help:
 	@echo "make cross           -Werror builds for Cortex-M3, M4, M7"
 	@echo "make lint            -Wpedantic everywhere, each header on its own"
 	@echo "make asm-audit       the M3 / M4 disassembly against test/asm/audit*.txt"
+	@echo "make docs-check      Doxygen over the documented headers, warnings as errors"
 	@echo "make size            flash / RAM per library object (M3, -O2)"
 	@echo "make golden          bench hashes on the host -> bench/core/golden.c"
 	@echo "make bench           the bench images (BENCH_SET=utils|math|struct|dsp|dsp2|dsp3|dsp4|dsp5)"
