@@ -112,7 +112,8 @@ typedef struct {
   uint64_t integ[FD_CIC_MAX_ORDER], comb[FD_CIC_MAX_ORDER];
 } FD_Cic;
 
-/* order 1 .. 6, ratio >= 1, x within in_bits (1 .. 32); else FD_ERR_RANGE */
+/* order 1 .. 6, ratio >= 1, in_bits 1 .. 32 (asserted), x within in_bits;
+ * FD_ERR_RANGE when in_bits plus the growth exceeds 64 */
 FD_Status fd_cic_init(FD_Cic *c, uint32_t order, uint32_t ratio,
                       uint32_t in_bits);
 void fd_cic_reset(FD_Cic *c);
