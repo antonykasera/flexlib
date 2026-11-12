@@ -1,6 +1,6 @@
 # API documentation: Doxygen over the headers whose comments are complete
 
-DOCS_HEADERS := utils/include/fu_crc.h
+DOCS_HEADERS := $(wildcard utils/include/*.h)
 
 docs-check:
 	@rm -rf build/doxygen

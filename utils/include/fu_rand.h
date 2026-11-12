@@ -12,16 +12,19 @@
 #include "fx_arch.h"
 #include <stdint.h>
 
-/* Marsaglia 13/17/5: period 2^32 - 1, weak low bits */
+/** xorshift32 (Marsaglia 13/17/5): period 2^32 - 1, weak low bits;
+ * opaque. */
 typedef struct {
+  /** @privatesection */
   uint32_t s;
 } FU_Xorshift32;
 
-/* seed 0 becomes 2463534242 */
+/** Seed; 0 becomes 2463534242, since the state cannot be 0. */
 FX_INLINE void fu_xorshift32_seed(FU_Xorshift32 *r, uint32_t seed) {
   r->s = seed != 0U ? seed : 2463534242U;
 }
 
+/** Next value. */
 FX_INLINE uint32_t fu_xorshift32(FU_Xorshift32 *r) {
   uint32_t s = r->s;
   s ^= s << 13;
@@ -31,14 +34,16 @@ FX_INLINE uint32_t fu_xorshift32(FU_Xorshift32 *r) {
   return s;
 }
 
-/* xoshiro128** 1.1: period 2^128 - 1 */
+/** xoshiro128** 1.1: period 2^128 - 1; opaque. */
 typedef struct {
+  /** @privatesection */
   uint32_t s[4];
 } FU_Xoshiro128;
 
-/* state from splitmix64(seed) */
+/** Seed through splitmix64; any seed, 0 included. */
 void fu_xoshiro128_seed(FU_Xoshiro128 *r, uint64_t seed);
 
+/** Next value. */
 FX_INLINE uint32_t fu_xoshiro128ss(FU_Xoshiro128 *r) {
   uint32_t *s = r->s;
   uint32_t out = fx_rotl32(s[1] * 5U, 7U) * 9U;
@@ -52,14 +57,21 @@ FX_INLINE uint32_t fu_xoshiro128ss(FU_Xoshiro128 *r) {
   return out;
 }
 
-/* advance 2^64 steps (non-overlapping streams) */
+/** Advance 2^64 steps. Streams made by jumping copies of one seeded
+ * generator do not overlap. */
 void fu_xoshiro128_jump(FU_Xoshiro128 *r);
 
-/* rare path of the _below functions */
+/** @cond */
 uint32_t fu_xorshift32_below_slow(FU_Xorshift32 *r, uint32_t n, uint64_t m);
 uint32_t fu_xoshiro128_below_slow(FU_Xoshiro128 *r, uint32_t n, uint64_t m);
+/** @endcond */
 
-/* unbiased uniform in [0, n), n > 0 (Lemire) */
+/**
+ * Uniform in [0, n), with no bias (Lemire's method).
+ *
+ * @param r generator
+ * @param n bound, not 0
+ */
 FX_INLINE uint32_t fu_xorshift32_below(FU_Xorshift32 *r, uint32_t n) {
   FX_ASSERT(n != 0U);
   uint64_t m = (uint64_t)fu_xorshift32(r) * n;
@@ -69,6 +81,7 @@ FX_INLINE uint32_t fu_xorshift32_below(FU_Xorshift32 *r, uint32_t n) {
   return (uint32_t)(m >> 32);
 }
 
+/** xoshiro128** form of fu_xorshift32_below(). */
 FX_INLINE uint32_t fu_xoshiro128_below(FU_Xoshiro128 *r, uint32_t n) {
   FX_ASSERT(n != 0U);
   uint64_t m = (uint64_t)fu_xoshiro128ss(r) * n;
