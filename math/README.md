@@ -1,5 +1,9 @@
 # flexmath
 
+[![CI](https://github.com/antonykasera/flexlib/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/antonykasera/flexlib/actions/workflows/ci.yml?query=branch%3Amaster)
+[![Release](https://img.shields.io/github/v/tag/antonykasera/flexlib?filter=flexmath-v%2A&sort=semver&label=release)](CHANGELOG.md)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
+
 Math for Cortex-M parts without an FPU: fixed point (Q15, Q31, Q16.16), float
 functions on integer internals, and vectors, matrices, quaternions and PID.
 Plain C11, no allocation.

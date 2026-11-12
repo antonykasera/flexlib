@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/antonykasera/flexlib/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/antonykasera/flexlib/actions/workflows/ci.yml?query=branch%3Amaster)
 [![Release](https://img.shields.io/github/v/release/antonykasera/flexlib)](https://github.com/antonykasera/flexlib/releases/latest)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 Compute libraries for Cortex-M, measured on the chip they're for:
 

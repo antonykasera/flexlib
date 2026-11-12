@@ -1,5 +1,9 @@
 # flexutils
 
+[![CI](https://github.com/antonykasera/flexlib/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/antonykasera/flexlib/actions/workflows/ci.yml?query=branch%3Amaster)
+[![Release](https://img.shields.io/github/v/tag/antonykasera/flexlib?filter=flexutils-v%2A&sort=semver&label=release)](CHANGELOG.md)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
+
 Everyday Cortex-M code, fast and checked on every input it can take: bit
 tricks, formatting and parsing without printf, CRCs, a lock-free ring, COBS,
 debouncing and PRNGs. Plain C11, no allocation.
