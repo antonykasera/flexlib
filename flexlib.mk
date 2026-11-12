@@ -1,7 +1,7 @@
 # flexlib.mk
 #
 #     FLEXLIB_LIBS := utils math dsp  # optional: the default is all of them
-#     FLEXLIB_REQUIRE := 0.4.0        # optional: stop if lib/flexlib is older
+#     FLEXLIB_REQUIRE := 0.5.0        # optional: stop if lib/flexlib is older
 #     include lib/flexlib/flexlib.mk
 #
 #     CFLAGS += $(FLEXLIB_CFLAGS)

@@ -22,13 +22,13 @@ CMSIS-DSP. The bench firmware runs on
 ## Using it
 
 Put flexlib in `lib/flexlib`: as a submodule pinned to a release, or from the
-release archive (the libraries only, about 100 KB):
+release archive (the libraries only, about 150 KB):
 
 ```sh
 git submodule add https://github.com/antonykasera/flexlib.git lib/flexlib
-git -C lib/flexlib checkout v0.4.0
+git -C lib/flexlib checkout v0.5.0
 # or
-tar xf flexlib-0.4.0.tar.gz -C lib
+tar xf flexlib-0.5.0.tar.gz -C lib
 ```
 
 With [flex](https://github.com/antonykasera/STM32F1-HAL) v1.1.2 or later,
@@ -53,14 +53,14 @@ handler, or `FX_DISABLE_ASSERT` to compile the checks out. Each library's
 README lists its other options (`FU_CRC_SMALL`, `FM_LUT_IN_RAM`). Set them in
 your own Makefile, not in `lib/flexlib`, so upgrades don't alter them.
 
-`FLEXLIB_REQUIRE := 0.4.0` before the include stops the build if `lib/flexlib`
+`FLEXLIB_REQUIRE := 0.5.0` before the include stops the build if `lib/flexlib`
 is older; in C, `fx_version.h` has `FLEXLIB_VERSION` and `FLEXLIB_VERSION_NUM`.
 
 ### Upgrading
 
 Check the release notes and each library's CHANGELOG first: before 1.0, a
 minor release may change an API (with upgrade notes); a patch release never
-does. Then check out the new tag (`git -C lib/flexlib checkout v0.4.0`) or
+does. Then check out the new tag (`git -C lib/flexlib checkout v0.5.0`) or
 replace `lib/flexlib` with the new archive, and rebuild. flexlib's own
 submodules are for its bench and are skipped by `git submodule update
 --recursive`.
@@ -68,14 +68,14 @@ submodules are for its bench and are skipped by `git submodule update
 ## Libraries and prefixes
 
 Each library has a folder, a fragment, a prefix and its own version tags
-(`flexdsp-v0.2.0`). Dependencies run one way: arch, utils, math, then the rest.
+(`flexdsp-v0.3.0`). Dependencies run one way: arch, utils, math, then the rest.
 
 | library | folder | fragment | prefix | status |
 | --- | --- | --- | --- | --- |
 | arch layer | `arch/` | (with every library) | `fx_` | released |
-| flexutils | `utils/` | `flexutils.mk` | `fu_` | 0.1.1 |
-| flexmath | `math/` | `flexmath.mk` | `fm_` | 0.2.3 |
-| flexdsp | `dsp/` | `flexdsp.mk` | `fd_` | 0.2.0 |
+| flexutils | `utils/` | `flexutils.mk` | `fu_` | 0.1.2 |
+| flexmath | `math/` | `flexmath.mk` | `fm_` | 0.2.4 |
+| flexdsp | `dsp/` | `flexdsp.mk` | `fd_` | 0.3.0 |
 | flexctrl: observers, Kalman, motor control | `ctrl/` | `flexctrl.mk` | `fct_` | planned |
 | flexcomm: protocols, packet parsers | `comm/` | `flexcomm.mk` | `fco_` | planned |
 | flexnn: int8 inference kernels | `nn/` | `flexnn.mk` | `fnn_` | planned |

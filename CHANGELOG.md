@@ -3,7 +3,9 @@
 Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md).
 
-## Unreleased
+## v0.5.0 (2026-11-12)
+
+flexdsp 0.3.0, flexmath 0.2.4 and flexutils 0.1.2.
 
 - License: Apache-2.0, with a NOTICE file for products that ship flexlib. Earlier releases (MIT) are granted under Apache-2.0 too.
 - flexdsp: faster q31 FFTs and real inverse FFTs ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
