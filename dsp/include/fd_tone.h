@@ -17,8 +17,8 @@
 
 /**
  * @name Goertzel
- * One DFT term at any frequency. Inputs enter the 32-bit state as x 2^shift
- * (q15) or x / 2^shift (q31). Keep n |x| / |sin w| under 2^31 in state
+ * One DFT term at any frequency. Inputs enter the 32-bit state as $x 2^shift$
+ * (q15) or $x / 2^shift$ (q31). Keep $n |x| / |sin(w)| < 2^31$ in state
  * units: past it the state wraps.
  * @{
  */
@@ -32,7 +32,8 @@ typedef struct {
   uint32_t shift;
 } FD_Goertzel;
 
-/** Set up for phase step freq; shift <= 31, and <= 16 for q15 input. */
+/** Set up for phase step freq; $shift <= 31$, and $shift <= 16$ for q15
+ * input. */
 void fd_goertzel_init(FD_Goertzel *g, uint32_t freq, uint32_t shift);
 /** Clear the state for a new block. */
 void fd_goertzel_reset(FD_Goertzel *g);
@@ -41,7 +42,7 @@ void fd_goertzel_q15(FD_Goertzel *g, const fm_q15 *x, uint32_t n);
 /** Feed n samples. */
 void fd_goertzel_q31(FD_Goertzel *g, const fm_q31 *x, uint32_t n);
 
-/** Sum of x[k] e^(jw (N - 1 - k)) over the N inputs so far, in state
+/** $sum x[k] e^(j w (N - 1 - k))$ over the N inputs so far, in state
  * units. */
 void fd_goertzel_dft(const FD_Goertzel *g, int64_t *re, int64_t *im);
 
@@ -71,9 +72,9 @@ void fd_nco_q15(FD_Nco *o, fm_q15 *s, fm_q15 *c, uint32_t n);
 /** As fm_sin_q31(), within 1.11 LSB; s or c may be NULL. */
 void fd_nco_q31(FD_Nco *o, fm_q31 *s, fm_q31 *c, uint32_t n);
 
-/** e^(j phase) as (cos, sin) pairs, fd_nco_q31()'s values rounded. */
+/** $e^(j phase)$ as (cos, sin) pairs, fd_nco_q31()'s values rounded. */
 void fd_nco_cplx_q15(FD_Nco *o, fd_cq15 *y, uint32_t n);
-/** e^(j phase) as (cos, sin) pairs, within 1.11 LSB. */
+/** $e^(j phase)$ as (cos, sin) pairs, within 1.11 LSB. */
 void fd_nco_cplx_q31(FD_Nco *o, fd_cq31 *y, uint32_t n);
 
 /** @} */

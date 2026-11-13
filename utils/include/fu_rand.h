@@ -67,7 +67,7 @@ uint32_t fu_xoshiro128_below_slow(FU_Xoshiro128 *r, uint32_t n, uint64_t m);
 /** @endcond */
 
 /**
- * Uniform in [0, n), with no bias (Lemire's method).
+ * Uniform in $[0, n)$, with no bias (Lemire's method).
  *
  * @param r generator
  * @param n bound, not 0

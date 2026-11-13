@@ -13,19 +13,19 @@
 
 #include "fm_fixed.h"
 
-/** floor(sqrt(x)), exact. */
+/** $floor(sqrt(x))$, exact. */
 uint32_t fm_isqrt32(uint32_t x);
-/** floor(sqrt(x)) of a 64-bit value, exact. */
+/** $floor(sqrt(x))$ of a 64-bit value, exact. */
 uint32_t fm_isqrt64(uint64_t x);
 
-/** sqrt(x); x <= 0 gives 0. */
+/** $sqrt(x)$; $x <= 0$ gives 0. */
 fm_q15 fm_sqrt_q15(fm_q15 x);
-/** sqrt(x); x <= 0 gives 0. */
+/** $sqrt(x)$; $x <= 0$ gives 0. */
 fm_q31 fm_sqrt_q31(fm_q31 x);
-/** sqrt(x); x <= 0 gives 0. */
+/** $sqrt(x)$; $x <= 0$ gives 0. */
 fm_q16 fm_sqrt_q16(fm_q16 x);
 
-/** 1 / sqrt(x); x <= 0 gives `INT32_MAX`. */
+/** $1 / sqrt(x)$; $x <= 0$ gives `INT32_MAX`. */
 fm_q16 fm_rsqrt_q16(fm_q16 x);
 
 #endif /* FM_SQRT_H */

@@ -13,17 +13,17 @@
 
 /**
  * @name Logarithms
- * Within 0.501 LSB; x <= 0 gives `INT32_MIN`.
+ * Within 0.501 LSB; $x <= 0$ gives `INT32_MIN`.
  * @{
  */
 
-/** log2(x). */
+/** $log2(x)$. */
 fm_q16 fm_log2_q16(fm_q16 x);
-/** ln(x). */
+/** $ln(x)$. */
 fm_q16 fm_ln_q16(fm_q16 x);
-/** log10(x). */
+/** $log10(x)$. */
 fm_q16 fm_log10_q16(fm_q16 x);
-/** 20 log10(x): an amplitude ratio in dB. */
+/** $20 log10(x)$: an amplitude ratio in dB. */
 fm_q16 fm_db_q16(fm_q16 x);
 
 /** @} */
@@ -34,16 +34,16 @@ fm_q16 fm_db_q16(fm_q16 x);
  * @{
  */
 
-/** 2^x. */
+/** $2^x$. */
 fm_q16 fm_exp2_q16(fm_q16 x);
-/** e^x. */
+/** $e^x$. */
 fm_q16 fm_exp_q16(fm_q16 x);
 
 /** @} */
 
-/** x^y, within 0.65 LSB plus |y| 2^-32 of the result. y = 0 gives 1, 0^0
- * included; otherwise x < 0 gives 0, and 0^y gives 0, or `INT32_MAX` for
- * y < 0. */
+/** $x^y$, within 0.65 LSB plus $|y| 2^-32$ of the result. $y = 0$ gives 1,
+ * $0^0$ included; otherwise $x < 0$ gives 0, and $0^y$ gives 0, or
+ * `INT32_MAX` for $y < 0$. */
 fm_q16 fm_pow_q16(fm_q16 x, fm_q16 y);
 
 #endif /* FM_EXP_H */

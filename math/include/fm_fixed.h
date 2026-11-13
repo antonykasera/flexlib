@@ -14,11 +14,11 @@
 #include "fx_arch.h"
 #include <stdint.h>
 
-/** Q15: [-1, 1) in steps of 2^-15. */
+/** Q15: $[-1, 1)$ in steps of 2^-15. */
 typedef int16_t fm_q15;
-/** Q31: [-1, 1) in steps of 2^-31. */
+/** Q31: $[-1, 1)$ in steps of 2^-31. */
 typedef int32_t fm_q31;
-/** Q16.16: [-32768, 32768) in steps of 2^-16. */
+/** Q16.16: $[-32768, 32768)$ in steps of 2^-16. */
 typedef int32_t fm_q16;
 
 /** 1.0 in Q16.16. */
@@ -45,12 +45,12 @@ FX_INLINE fm_q31 fm_sat_q31(int64_t x) {
  * @{
  */
 
-/** a + b. */
+/** $a + b$. */
 FX_INLINE fm_q15 fm_add_q15(fm_q15 a, fm_q15 b) { return fm_sat_q15(a + b); }
-/** a - b. */
+/** $a - b$. */
 FX_INLINE fm_q15 fm_sub_q15(fm_q15 a, fm_q15 b) { return fm_sat_q15(a - b); }
 
-/** a + b. */
+/** $a + b$. */
 FX_INLINE int32_t fm_add_q31(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   return __qadd(a, b);
@@ -60,7 +60,7 @@ FX_INLINE int32_t fm_add_q31(int32_t a, int32_t b) {
 #endif
 }
 
-/** a - b. */
+/** $a - b$. */
 FX_INLINE int32_t fm_sub_q31(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   return __qsub(a, b);
@@ -79,24 +79,24 @@ FX_INLINE fm_q16 fm_sub_q16(fm_q16 a, fm_q16 b) { return fm_sub_q31(a, b); }
 
 /**
  * @name Multiply
- * Rounded to nearest, ties toward +inf, saturated: in Q15 and Q31, -1 * -1
- * gives the largest value.
+ * Rounded to nearest, ties toward +inf, saturated: in Q15 and Q31,
+ * $(-1) (-1)$ gives the largest value.
  * @{
  */
 
-/** a * b. */
+/** $a b$. */
 FX_INLINE fm_q15 fm_mul_q15(fm_q15 a, fm_q15 b) {
   return fm_sat_q15((a * b + 0x4000) >> 15);
 }
 
-/** a * b. */
+/** $a b$. */
 FX_INLINE fm_q31 fm_mul_q31(fm_q31 a, fm_q31 b) {
   int64_t p = (int64_t)a * b + 0x40000000;
   /* p >> 62 is 1 only for -1 * -1 */
   return (p >> 62) == 1 ? INT32_MAX : (int32_t)(p >> 31);
 }
 
-/** a * b. */
+/** $a b$. */
 FX_INLINE fm_q16 fm_mul_q16(fm_q16 a, fm_q16 b) {
   int64_t p = (int64_t)a * b + 0x8000;
   int32_t r = (int32_t)(p >> 16);
@@ -112,8 +112,8 @@ FX_INLINE fm_q16 fm_mul_q16(fm_q16 a, fm_q16 b) {
  * @{
  */
 
-/** acc + a * b, exact, with acc in Q62. Nothing saturates: the sum must stay
- * in [-2, 2). */
+/** $acc + a b$, exact, with acc in Q62. Nothing saturates: the sum must stay
+ * in $[-2, 2)$. */
 FX_INLINE int64_t fm_mac_q31(int64_t acc, fm_q31 a, fm_q31 b) {
   return acc + (int64_t)a * b;
 }

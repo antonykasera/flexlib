@@ -2,6 +2,10 @@
  * @file fx_arch.h
  * @brief Single-instruction wrappers (Arm on target, plain C on host)
  *
+ * Each wrapper is one instruction on a Cortex-M3 or later, and the same
+ * result in plain C elsewhere. Also the attribute macros and the assert that
+ * the libraries use.
+ *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,72 +15,112 @@
 
 #include <stdint.h>
 
+/**
+ * @name Target
+ * 1 or 0, from the compiler's predefined macros.
+ * @{
+ */
+
 #if defined(__arm__)
 #include <arm_acle.h>
+/** 1 when compiling for Arm. */
 #define FX_ARM 1
 #else
+/** 1 when compiling for Arm. */
 #define FX_ARM 0
 #endif
 
-/* M4/M7 DSP extension; */
 #if defined(__ARM_FEATURE_DSP)
+/** 1 with the M4 / M7 DSP extension. */
 #define FX_HAVE_DSP 1
 #else
+/** 1 with the M4 / M7 DSP extension. */
 #define FX_HAVE_DSP 0
 #endif
 
+/** @cond */
 /* the packed-pair paths; FX_EMULATE_DSP runs them on the C versions */
 #if FX_HAVE_DSP || defined(FX_EMULATE_DSP)
 #define FX_DSP_PATH 1
 #else
 #define FX_DSP_PATH 0
 #endif
+/** @endcond */
 
-/* single-precision FPU (M4F, M7) */
 #if defined(__ARM_FP) && (__ARM_FP & 4)
+/** 1 with a single-precision FPU (M4F, M7). */
 #define FX_HAVE_FPU 1
 #else
+/** 1 with a single-precision FPU (M4F, M7). */
 #define FX_HAVE_FPU 0
 #endif
 
+/** @} */
+
+/** @cond */
 /* GCC 13: no ACLE bit intrinsics, and a zero check before every CLZ */
 #if FX_ARM && defined(__thumb2__) && !defined(__clang__) && __GNUC__ < 14
 #define FX_OLD_GCC 1
 #else
 #define FX_OLD_GCC 0
 #endif
+/** @endcond */
 
+/**
+ * @name Attributes
+ * @{
+ */
+
+/** static inline, always inlined. */
 #define FX_INLINE static inline __attribute__((always_inline))
 
-/* for tables of 64 B or more: 32 B = M7 cache line */
+/** 32-byte alignment, an M7 cache line: for tables of 64 bytes or more. */
 #define FX_ALIGN_LINE __attribute__((aligned(32)))
 
-/* rare paths, kept out of line */
+/** A rare path, kept out of line. */
 #define FX_COLD __attribute__((cold, noinline))
 
-/* hides x from the optimiser */
+/** Hides x's value from the optimiser. */
 #define FX_OPAQUE(x) __asm__("" : "+r"(x))
 
+/** n-byte alignment. */
 #define FX_ALIGN(n) __attribute__((aligned(n)))
+/** x is usually true. */
 #define FX_LIKELY(x) __builtin_expect(!!(x), 1)
+/** x is usually false. */
 #define FX_UNLIKELY(x) __builtin_expect(!!(x), 0)
 
+/** A pragma from a macro. */
 #define FX_PRAGMA(x) _Pragma(#x)
+/** Unroll the next loop n times (GCC). */
 #define FX_UNROLL(n) FX_PRAGMA(GCC unroll n)
 
 #ifdef __cplusplus
+/** restrict, also in C++. */
 #define FX_RESTRICT __restrict
 #else
+/** restrict, also in C++. */
 #define FX_RESTRICT restrict
 #endif
 
-/* asserts trap; override FX_ASSERT_FAIL, or FX_DISABLE_ASSERT  */
+/** @} */
+
+/**
+ * @name Asserts
+ * Programmer errors trap. Define `FX_ASSERT_FAIL` to report them instead, or
+ * `FX_DISABLE_ASSERT` to compile the checks out.
+ * @{
+ */
+
 #ifndef FX_ASSERT_FAIL
+/** Called on a failed assert; traps unless defined first. */
 #define FX_ASSERT_FAIL(file, line) __builtin_trap()
 #endif
 #ifdef FX_DISABLE_ASSERT
+/** Calls `FX_ASSERT_FAIL` when cond is false. */
 #define FX_ASSERT(cond) ((void)0)
 #else
+/** Calls `FX_ASSERT_FAIL` when cond is false. */
 #define FX_ASSERT(cond)                                                        \
   do {                                                                         \
     if (!(cond)) {                                                             \
@@ -85,9 +129,14 @@
   } while (0)
 #endif
 
-/* ---- bit operations ---- */
+/** @} */
 
-/* clz(0) = 32 */
+/**
+ * @name Bits
+ * @{
+ */
+
+/** Leading zeros; 32 for 0. */
 FX_INLINE uint32_t fx_clz(uint32_t x) {
 #if FX_OLD_GCC
   if (!__builtin_constant_p(x)) {
@@ -99,7 +148,7 @@ FX_INLINE uint32_t fx_clz(uint32_t x) {
   return x != 0U ? (uint32_t)__builtin_clz(x) : 32U;
 }
 
-/* ctz(0) = 32 */
+/** Trailing zeros; 32 for 0. */
 FX_INLINE uint32_t fx_ctz(uint32_t x) {
 #if FX_OLD_GCC
   if (!__builtin_constant_p(x)) {
@@ -111,6 +160,7 @@ FX_INLINE uint32_t fx_ctz(uint32_t x) {
   return x != 0U ? (uint32_t)__builtin_ctz(x) : 32U;
 }
 
+/** The bits in reverse order. */
 FX_INLINE uint32_t fx_rbit(uint32_t x) {
 #if FX_OLD_GCC
   uint32_t r;
@@ -126,14 +176,15 @@ FX_INLINE uint32_t fx_rbit(uint32_t x) {
 #endif
 }
 
+/** The bytes in reverse order. */
 FX_INLINE uint32_t fx_rev(uint32_t x) { return __builtin_bswap32(x); }
 
-/* rotate left by k (0..31) */
+/** Rotate left by k, $0 <= k <= 31$. */
 FX_INLINE uint32_t fx_rotl32(uint32_t x, uint32_t k) {
   return (x << (k & 31U)) | (x >> ((32U - k) & 31U));
 }
 
-/* swap bytes within each halfword */
+/** Swap the bytes within each halfword. */
 FX_INLINE uint32_t fx_rev16(uint32_t x) {
 #if FX_OLD_GCC
   if (!__builtin_constant_p(x)) {
@@ -145,9 +196,15 @@ FX_INLINE uint32_t fx_rev16(uint32_t x) {
   return ((x & 0x00FF00FFU) << 8) | ((x >> 8) & 0x00FF00FFU);
 }
 
-/* ---- saturation ---- */
+/** @} */
 
-/* plain-C fallbacks; n must be constant in the macros (SSAT/USAT immediate) */
+/**
+ * @name Saturation
+ * n must be a constant: it is the instruction's immediate.
+ * @{
+ */
+
+/** @cond */
 FX_INLINE int32_t fx_ssat_c(int32_t x, uint32_t n) {
   const int32_t hi = (int32_t)((1UL << (n - 1U)) - 1UL);
   const int32_t lo = -hi - 1;
@@ -158,53 +215,74 @@ FX_INLINE uint32_t fx_usat_c(int32_t x, uint32_t n) {
   const int32_t hi = (int32_t)((1UL << n) - 1UL);
   return (uint32_t)(x > hi ? hi : (x < 0 ? 0 : x));
 }
+/** @endcond */
 
-/* FX_SSAT(x, n): clamp to n-bit signed, n in 1..32.
- * FX_USAT(x, n): clamp to n-bit unsigned, n in 0..31. */
 #if FX_ARM && defined(__ARM_FEATURE_SAT)
+/** x clamped to n-bit signed, $1 <= n <= 32$. */
 #define FX_SSAT(x, n) ((int32_t)__ssat((x), (n)))
+/** x clamped to n-bit unsigned, $0 <= n <= 31$. */
 #define FX_USAT(x, n) ((uint32_t)__usat((x), (n)))
 #else
+/** x clamped to n-bit signed, $1 <= n <= 32$. */
 #define FX_SSAT(x, n) fx_ssat_c((x), (n))
+/** x clamped to n-bit unsigned, $0 <= n <= 31$. */
 #define FX_USAT(x, n) fx_usat_c((x), (n))
 #endif
 
-/* ---- 32x32 -> 64 multiplies (SMULL/UMULL/SMLAL/UMLAL) ---- */
+/** @} */
 
+/**
+ * @name 32 x 32 -> 64 multiplies
+ * SMULL, UMULL, SMLAL, UMLAL.
+ * @{
+ */
+
+/** $a b$, signed. */
 FX_INLINE int64_t fx_smull(int32_t a, int32_t b) { return (int64_t)a * b; }
 
+/** $a b$, unsigned. */
 FX_INLINE uint64_t fx_umull(uint32_t a, uint32_t b) { return (uint64_t)a * b; }
 
+/** $acc + a b$, signed; wraps past 64 bits. */
 FX_INLINE int64_t fx_smlal(int64_t acc, int32_t a, int32_t b) {
   return acc + (int64_t)a * b;
 }
 
+/** $acc + a b$, unsigned; wraps past 64 bits. */
 FX_INLINE uint64_t fx_umlal(uint64_t acc, uint32_t a, uint32_t b) {
   return acc + (uint64_t)a * b;
 }
 
-/* high word of the product */
+/** High word of $a b$, signed. */
 FX_INLINE int32_t fx_smull_hi(int32_t a, int32_t b) {
   return (int32_t)(fx_smull(a, b) >> 32);
 }
 
+/** High word of $a b$, unsigned. */
 FX_INLINE uint32_t fx_umull_hi(uint32_t a, uint32_t b) {
   return (uint32_t)(fx_umull(a, b) >> 32);
 }
 
-/* ---- int16 pairs, low element in bits 0-15 (SIMD32 on M4/M7) ---- */
+/** @} */
 
+/**
+ * @name int16 pairs
+ * Two int16 in a word, the low element in bits 0-15: the SIMD32 instructions
+ * on M4 / M7, plain C elsewhere.
+ * @{
+ */
+
+/** The low element, sign-extended. */
 FX_INLINE int32_t fx_lo16(int32_t x) { return (int16_t)x; }
+/** The high element, sign-extended. */
 FX_INLINE int32_t fx_hi16(int32_t x) { return x >> 16; }
 
-/* lo and hi (each taken mod 2^16) as a pair */
+/** lo and hi, each taken mod 2^16, as a pair. */
 FX_INLINE int32_t fx_pack16(int32_t lo, int32_t hi) {
   return (int32_t)(((uint32_t)hi << 16) | ((uint32_t)lo & 0xFFFFU));
 }
 
-/* GCC doesn't form PKHBT, PKHTB, SMMULR or SMULWB from C: asm on DSP cores */
-
-/* PKHBT: a's low half, b's low half on top */
+/** PKHBT: a's low half, b's low half on top. */
 FX_INLINE int32_t fx_pkhbt(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   int32_t r;
@@ -215,7 +293,7 @@ FX_INLINE int32_t fx_pkhbt(int32_t a, int32_t b) {
 #endif
 }
 
-/* PKHTB: a's high half on top, b's high half below */
+/** PKHTB: a's high half on top, b's high half below. */
 FX_INLINE int32_t fx_pkhtb(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   int32_t r;
@@ -226,7 +304,7 @@ FX_INLINE int32_t fx_pkhtb(int32_t a, int32_t b) {
 #endif
 }
 
-/* SMLAD: acc + lo*lo + hi*hi, wrapping */
+/** SMLAD: $acc + a_lo b_lo + a_hi b_hi$, wrapping. */
 FX_INLINE int32_t fx_smlad(int32_t acc, int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   return __smlad(a, b, acc);
@@ -236,7 +314,7 @@ FX_INLINE int32_t fx_smlad(int32_t acc, int32_t a, int32_t b) {
 #endif
 }
 
-/* SMLALD: the same into 64 bits (exact) */
+/** SMLALD: fx_smlad() into 64 bits, exact. */
 FX_INLINE int64_t fx_smlald(int64_t acc, int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   return __smlald(a, b, acc);
@@ -246,7 +324,7 @@ FX_INLINE int64_t fx_smlald(int64_t acc, int32_t a, int32_t b) {
 #endif
 }
 
-/* SMUAD: lo*lo + hi*hi, wrapping (only for both pairs all -32768) */
+/** SMUAD: $a_lo b_lo + a_hi b_hi$; wraps only when all four are -32768. */
 FX_INLINE int32_t fx_smuad(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   return __smuad(a, b);
@@ -255,7 +333,7 @@ FX_INLINE int32_t fx_smuad(int32_t a, int32_t b) {
 #endif
 }
 
-/* SMUSDX: a.lo*b.hi - a.hi*b.lo, the imaginary part of a complex product */
+/** SMUSDX: $a_lo b_hi - a_hi b_lo$, the imaginary part of a complex product. */
 FX_INLINE int32_t fx_smusdx(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   return __smusdx(a, b);
@@ -264,7 +342,7 @@ FX_INLINE int32_t fx_smusdx(int32_t a, int32_t b) {
 #endif
 }
 
-/* QADD16 / QSUB16: per half, saturated to int16 */
+/** QADD16: $a + b$ per half, saturated. */
 FX_INLINE int32_t fx_qadd16(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   return __qadd16(a, b);
@@ -274,6 +352,7 @@ FX_INLINE int32_t fx_qadd16(int32_t a, int32_t b) {
 #endif
 }
 
+/** QSUB16: $a - b$ per half, saturated. */
 FX_INLINE int32_t fx_qsub16(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   return __qsub16(a, b);
@@ -283,7 +362,7 @@ FX_INLINE int32_t fx_qsub16(int32_t a, int32_t b) {
 #endif
 }
 
-/* SHADD16: per half, (a + b) >> 1 rounded down; never overflows */
+/** SHADD16: $(a + b) / 2$ per half, rounded down; never overflows. */
 FX_INLINE int32_t fx_shadd16(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   return __shadd16(a, b);
@@ -293,7 +372,7 @@ FX_INLINE int32_t fx_shadd16(int32_t a, int32_t b) {
 #endif
 }
 
-/* SXTB16: bytes 0 and 2, sign-extended into a pair */
+/** SXTB16: bytes 0 and 2, sign-extended into a pair. */
 FX_INLINE int32_t fx_sxtb16(int32_t x) {
 #if FX_HAVE_DSP
   return __sxtb16(x);
@@ -302,15 +381,16 @@ FX_INLINE int32_t fx_sxtb16(int32_t x) {
 #endif
 }
 
-/* FX_SSAT16(x, n): each half clamped to n-bit signed, n in 1..16 constant */
 #if FX_HAVE_DSP
+/** Each half clamped to n-bit signed, $1 <= n <= 16$, n constant. */
 #define FX_SSAT16(x, n) ((int32_t)__ssat16((x), (n)))
 #else
+/** Each half clamped to n-bit signed, $1 <= n <= 16$, n constant. */
 #define FX_SSAT16(x, n)                                                        \
   fx_pack16(fx_ssat_c(fx_lo16(x), (n)), fx_ssat_c(fx_hi16(x), (n)))
 #endif
 
-/* SMMULR: high word of a*b, rounded half up */
+/** SMMULR: high word of $a b$, rounded half up. */
 FX_INLINE int32_t fx_smmulr(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   int32_t r;
@@ -321,7 +401,7 @@ FX_INLINE int32_t fx_smmulr(int32_t a, int32_t b) {
 #endif
 }
 
-/* SMULWB: (a * b.lo) >> 16 rounded down; SMLAWB adds acc, wrapping */
+/** SMULWB: $a b_lo / 2^16$, rounded down. */
 FX_INLINE int32_t fx_smulwb(int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   int32_t r;
@@ -332,6 +412,7 @@ FX_INLINE int32_t fx_smulwb(int32_t a, int32_t b) {
 #endif
 }
 
+/** SMLAWB: $acc + a b_lo / 2^16$, wrapping. */
 FX_INLINE int32_t fx_smlawb(int32_t acc, int32_t a, int32_t b) {
 #if FX_HAVE_DSP
   return __smlawb(a, b, acc);
@@ -340,19 +421,33 @@ FX_INLINE int32_t fx_smlawb(int32_t acc, int32_t a, int32_t b) {
 #endif
 }
 
-/* ---- barriers ---- */
+/** @} */
 
-/* orders accesses in the compiler only (enough for a single-core ring) */
+/**
+ * @name Barriers
+ * @{
+ */
+
+/** Orders accesses in the compiler only: enough between an interrupt and the
+ * main loop on one core. */
 FX_INLINE void fx_compiler_barrier(void) { __asm__ volatile("" ::: "memory"); }
 
 #if FX_ARM
+/** DMB: memory accesses complete in order. */
 FX_INLINE void fx_dmb(void) { __asm__ volatile("dmb" ::: "memory"); }
+/** DSB: memory accesses complete before the next instruction. */
 FX_INLINE void fx_dsb(void) { __asm__ volatile("dsb" ::: "memory"); }
+/** ISB: the pipeline refetches. */
 FX_INLINE void fx_isb(void) { __asm__ volatile("isb" ::: "memory"); }
 #else
+/** DMB: memory accesses complete in order. */
 FX_INLINE void fx_dmb(void) { __atomic_thread_fence(__ATOMIC_SEQ_CST); }
+/** DSB: memory accesses complete before the next instruction. */
 FX_INLINE void fx_dsb(void) { __atomic_thread_fence(__ATOMIC_SEQ_CST); }
+/** ISB: the pipeline refetches. */
 FX_INLINE void fx_isb(void) { __atomic_thread_fence(__ATOMIC_SEQ_CST); }
 #endif
+
+/** @} */
 
 #endif /* FX_ARCH_H */
