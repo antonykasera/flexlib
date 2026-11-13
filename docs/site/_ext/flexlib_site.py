@@ -83,8 +83,34 @@ def add_macro_values(doctree, values):
                                                          classes=["fl-val"])
 
 
+_PARAM_SEP = ("--", "\u2013", "\u2014")
+
+
+def param_columns(doctree):
+    """`name -- text` items of a Parameters field into name and text parts."""
+    for field in doctree.findall(nodes.field):
+        if not field[0].astext().startswith("Parameters"):
+            continue
+        for p in list(field[1].findall(nodes.paragraph)):
+            if not p.children or not isinstance(p[0], nodes.strong):
+                continue
+            name, rest = p[0], list(p.children[1:])
+            if rest and isinstance(rest[0], nodes.Text):
+                text = str(rest[0]).lstrip()
+                for sep in _PARAM_SEP:
+                    if text.startswith(sep):
+                        text = text[len(sep):].lstrip()
+                        break
+                rest[0] = nodes.Text(text)
+            p.children = []
+            p += nodes.literal(name.astext(), name.astext(), classes=["fl-pname"])
+            p += nodes.inline("", "", *rest, classes=["fl-pdesc"])
+            p["classes"].append("fl-param")
+
+
 def on_doctree_resolved(app, doctree, docname):
     add_macro_values(doctree, getattr(app.env, "fl_macro_values", {}))
+    param_columns(doctree)
     # Doxygen's links to functions arrive as plain text: make them code
     for ref in list(doctree.findall(nodes.reference)):
         for inl in list(ref.findall(nodes.inline)):

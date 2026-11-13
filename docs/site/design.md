@@ -1,3 +1,3 @@
 # Design
 
-The methods behind the numbers.
+This section covers the mathematical models and methods used.

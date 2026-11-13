@@ -1,0 +1,96 @@
+<p class="fl-header-name">fu_fmt.h</p>
+
+# Formatting
+
+Numbers to text without printf: decimal, hex, Q16.16 and float, and
+`fu_snprintf`, a small snprintf with a `%q` conversion for Q16.16.
+
+Exactness
+: `fu_fmt_q16` and `fu_fmt_f32` print the same digits as printf's `%.*f`,
+  rounding the exact value, ties to even. NaN prints `nan`.
+
+Buffers
+: Each `fu_fmt_` function writes the text and a NUL into a buffer of its
+  `_SIZE` and returns the length without the NUL.
+
+Truncation
+: `fu_snprintf` cuts the text to `size` - 1 bytes, ends it with a NUL and
+  returns the full length, as snprintf does.
+
+Asserts
+: More than 9 fraction digits, `min_digits` above 8, an unknown conversion.
+
+## Numbers
+
+| function | cycles | newlib | ratio |
+| --- | --: | --: | --: |
+| `fu_fmt_u32`, 10 digits | 116 | 1024 | 8.83 |
+| `fu_fmt_u32`, log | 83 | 887 | 10.69 |
+| `fu_fmt_i32`, log | 93 | | |
+| `fu_fmt_hex32`, 8 digits | 78 | | |
+| `fu_fmt_q16`, 4 digits, log | 154 | 4281 | 27.80 |
+| `fu_fmt_f32`, 2 digits | 182 | 4285 | 23.54 |
+| `fu_snprintf`, u32 + i32 + hex | 763 | 3279 | 4.30 |
+
+Medians on an STM32F103 at 72 MHz, `-O2`. newlib: `snprintf` with the
+matching format. log: inputs spread evenly on a log scale; floats between
+2^-7 and 2^13.
+
+## Example
+
+```{literalinclude} ../examples/fu_fmt.c
+:language: c
+```
+
+## API
+
+```{doxygenfunction} fu_fmt_u32
+```
+
+```{doxygendefine} FU_FMT_U32_SIZE
+```
+
+```{doxygenfunction} fu_fmt_i32
+```
+
+```{doxygendefine} FU_FMT_I32_SIZE
+```
+
+```{doxygenfunction} fu_fmt_hex32
+```
+
+```{doxygendefine} FU_FMT_HEX32_SIZE
+```
+
+```{doxygenfunction} fu_fmt_q16
+```
+
+```{doxygendefine} FU_FMT_Q16_SIZE
+```
+
+```{doxygenfunction} fu_fmt_f32
+```
+
+```{doxygendefine} FU_FMT_F32_SIZE
+```
+
+```{doxygendefine} FU_FMT_FRAC_MAX
+```
+
+```{doxygenfunction} fu_fmt_dec_digits
+```
+
+```{doxygenfunction} fu_snprintf
+```
+
+```{doxygenfunction} fu_vsnprintf
+```
+
+## Verification
+
+- `fu_fmt_u32` and `fu_fmt_hex32` on all 2^32 inputs against a plain
+  reference.
+- `fu_fmt_q16` on all 2^32 values and `fu_fmt_f32` on all 2^32 bit patterns
+  against glibc's `%.*f`, every fraction count from 0 to 9.
+- `fu_snprintf` at every buffer size from 0 to the length + 2: the right
+  prefix, a NUL, no write past `size`.

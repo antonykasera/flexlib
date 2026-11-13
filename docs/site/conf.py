@@ -35,7 +35,7 @@ breathe_domain_by_extension = {"h": "c"}
 breathe_show_include = False
 primary_domain = "c"
 toc_object_entries = False
-smartquotes = False
+smartquotes_action = "De"  # dashes and ellipses; quotes stay straight
 highlight_language = "c"
 
 html_theme = "pydata_sphinx_theme"
