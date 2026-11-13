@@ -14,14 +14,14 @@
 
 #include "fm_fixed.h"
 
-/** a / b. */
+/** $a / b$. */
 fm_q15 fm_div_q15(fm_q15 a, fm_q15 b);
-/** a / b. */
+/** $a / b$. */
 fm_q31 fm_div_q31(fm_q31 a, fm_q31 b);
-/** a / b. */
+/** $a / b$. */
 fm_q16 fm_div_q16(fm_q16 a, fm_q16 b);
 
-/** 1 / x; 0 and +-2^-16 saturate, 0 to `INT32_MAX`. */
+/** $1 / x$; $x = 0$ and $x = +-2^-16$ saturate, 0 to `INT32_MAX`. */
 fm_q16 fm_recip_q16(fm_q16 x);
 
 #endif /* FM_DIV_H */

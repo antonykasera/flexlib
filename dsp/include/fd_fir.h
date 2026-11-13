@@ -4,7 +4,7 @@
  *
  * `h[0]` multiplies the newest sample. Every output is the exact sum rounded
  * once (0.5 LSB) and saturated, for any coefficients: init picks 32-bit (q15)
- * or 64-bit (q31) sums when sum |h| < 2 (an interpolator: each branch's),
+ * or 64-bit (q31) sums when $sum |h| < 2$ (an interpolator: each branch's),
  * wider ones otherwise. The state
  * holds the history plus a chunk of any size; a block runs in chunk-sized
  * pieces, and a larger chunk moves the history less often.
@@ -50,9 +50,9 @@ typedef struct {
  *
  * @param f         state
  * @param h         ntaps coefficients; must outlive f
- * @param ntaps     >= 1
+ * @param ntaps     $>= 1$
  * @param state     history buffer; must outlive f
- * @param state_len >= ntaps, `FD_FIR_STATE_LEN(ntaps, chunk)`
+ * @param state_len $>= ntaps$, `FD_FIR_STATE_LEN(ntaps, chunk)`
  */
 void fd_fir_init_q15(FD_FirQ15 *f, const fm_q15 *h, uint32_t ntaps,
                      fm_q15 *state, uint32_t state_len);
@@ -94,10 +94,10 @@ typedef struct {
   uint32_t phase;
 } FD_FirDecimQ31;
 
-/** fd_fir_init_q15() for a decimator by m >= 1. */
+/** fd_fir_init_q15() for a decimator by $m >= 1$. */
 void fd_fir_decim_init_q15(FD_FirDecimQ15 *d, const fm_q15 *h, uint32_t ntaps,
                            uint32_t m, fm_q15 *state, uint32_t state_len);
-/** fd_fir_init_q31() for a decimator by m >= 1. */
+/** fd_fir_init_q31() for a decimator by $m >= 1$. */
 void fd_fir_decim_init_q31(FD_FirDecimQ31 *d, const fm_q31 *h, uint32_t ntaps,
                            uint32_t m, fm_q31 *state, uint32_t state_len);
 /** Decimate n samples; returns the outputs written, n / m when n is a
@@ -143,10 +143,10 @@ typedef struct {
  * @param p         state
  * @param h         ntaps coefficients at l times the input rate; must
  *                  outlive p
- * @param ntaps     >= 1
- * @param l         >= 1
+ * @param ntaps     $>= 1$
+ * @param l         $>= 1$
  * @param state     history buffer; must outlive p
- * @param state_len >= `FD_FIR_INTERP_STATE_LEN(ntaps, l, 1)`
+ * @param state_len at least `FD_FIR_INTERP_STATE_LEN(ntaps, l, 1)`
  */
 void fd_fir_interp_init_q15(FD_FirInterpQ15 *p, const fm_q15 *h, uint32_t ntaps,
                             uint32_t l, fm_q15 *state, uint32_t state_len);
@@ -173,10 +173,10 @@ void fd_fir_interp_q31(FD_FirInterpQ31 *p, const fm_q31 *x, fm_q31 *y,
  * Nyquist (highpass) or the band centre (bandpass).
  *
  * @param h     ntaps coefficients out
- * @param ntaps >= 1; odd for highpass and bandstop
+ * @param ntaps $>= 1$; odd for highpass and bandstop
  * @param band  filter type
- * @param f1    cutoff, cycles per sample, 0 < f1 < 0.5
- * @param f2    upper edge for bandpass and bandstop, f1 < f2 < 0.5
+ * @param f1    cutoff, cycles per sample, $0 < f1 < 0.5$
+ * @param f2    upper edge for bandpass and bandstop, $f1 < f2 < 0.5$
  * @param win   window
  * @retval FD_ERR_RANGE a frequency out of range, an even length for
  *                      highpass or bandstop, or a zero gain
@@ -189,9 +189,9 @@ FD_Status fd_fir_quantize_q15(const float *h, fm_q15 *q, uint32_t ntaps);
 /** Round to q31; FD_ERR_RANGE when a coefficient saturates. */
 FD_Status fd_fir_quantize_q31(const float *h, fm_q31 *q, uint32_t ntaps);
 
-/** sum |h| in Q16.16, saturated; 2 or more selects the wide sums. */
+/** $sum |h|$ in Q16.16, saturated; 2 or more selects the wide sums. */
 fm_q16 fd_fir_gain_q15(const fm_q15 *h, uint32_t ntaps);
-/** sum |h| in Q16.16, saturated; 2 or more selects the wide sums. */
+/** $sum |h|$ in Q16.16, saturated; 2 or more selects the wide sums. */
 fm_q16 fd_fir_gain_q31(const fm_q31 *h, uint32_t ntaps);
 
 /** @} */

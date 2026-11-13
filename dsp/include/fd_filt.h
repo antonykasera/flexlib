@@ -16,7 +16,7 @@
 
 /**
  * @name DC blocker
- * y = x - x1 + a y1.
+ * $y = x - x1 + a y1$.
  * @{
  */
 
@@ -32,9 +32,9 @@ typedef struct {
   fm_q31 a, x1, y1;
 } FD_DcBlockQ31;
 
-/** Set up with pole a, from zero history. */
+/** Set up with pole $a$, from zero history. */
 void fd_dcblock_init_q15(FD_DcBlockQ15 *d, fm_q15 a);
-/** Set up with pole a, from zero history. */
+/** Set up with pole $a$, from zero history. */
 void fd_dcblock_init_q31(FD_DcBlockQ31 *d, fm_q31 a);
 /** Filter n samples. */
 void fd_dcblock_q15(FD_DcBlockQ15 *d, const fm_q15 *x, fm_q15 *y, uint32_t n);
@@ -45,7 +45,7 @@ void fd_dcblock_q31(FD_DcBlockQ31 *d, const fm_q31 *x, fm_q31 *y, uint32_t n);
 
 /**
  * @name One-pole smoother
- * y += a (x - y), a >= 0; y never passes x.
+ * $y += a (x - y)$, $a >= 0$; y never passes x.
  * @{
  */
 
@@ -61,18 +61,18 @@ typedef struct {
   fm_q31 a, y;
 } FD_OnePoleQ31;
 
-/** Set up with coefficient a >= 0 and output y0. */
+/** Set up with coefficient $a >= 0$ and output y0. */
 void fd_onepole_init_q15(FD_OnePoleQ15 *p, fm_q15 a, fm_q15 y0);
-/** Set up with coefficient a >= 0 and output y0. */
+/** Set up with coefficient $a >= 0$ and output y0. */
 void fd_onepole_init_q31(FD_OnePoleQ31 *p, fm_q31 a, fm_q31 y0);
 /** Filter n samples. */
 void fd_onepole_q15(FD_OnePoleQ15 *p, const fm_q15 *x, fm_q15 *y, uint32_t n);
 /** Filter n samples. */
 void fd_onepole_q31(FD_OnePoleQ31 *p, const fm_q31 *x, fm_q31 *y, uint32_t n);
 
-/** a for a -3 dB corner at fc cycles per sample, 0 < fc < 0.5 (float). */
+/** a for a -3 dB corner at fc cycles per sample, $0 < fc < 0.5$ (float). */
 fm_q15 fd_onepole_coef_q15(float fc);
-/** a for a -3 dB corner at fc cycles per sample, 0 < fc < 0.5 (float). */
+/** a for a -3 dB corner at fc cycles per sample, $0 < fc < 0.5$ (float). */
 fm_q31 fd_onepole_coef_q31(float fc);
 
 /** @} */
@@ -100,9 +100,9 @@ typedef struct {
   int64_t sum;
 } FD_MovAvgQ31;
 
-/** Set up over n samples, 1 to 65536; buf holds n and must outlive m. */
+/** Set up over n samples, $1 <= n <= 65536$; buf holds n and must outlive m. */
 void fd_movavg_init_q15(FD_MovAvgQ15 *m, fm_q15 *buf, uint32_t n);
-/** Set up over n >= 1 samples; buf holds n and must outlive m. */
+/** Set up over $n >= 1$ samples; buf holds n and must outlive m. */
 void fd_movavg_init_q31(FD_MovAvgQ31 *m, fm_q31 *buf, uint32_t n);
 /** Filter n samples. */
 void fd_movavg_q15(FD_MovAvgQ15 *m, const fm_q15 *x, fm_q15 *y, uint32_t n);

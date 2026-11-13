@@ -3,7 +3,7 @@
  * @brief LMS adaptive filters: plain, normalised and sign-error, q15 / q31
  *
  * Weights are Q30 in 32 bits for both formats. The output is the exact sum
- * of the taps times the samples, rounded once and saturated; e = d - y,
+ * of the taps times the samples, rounded once and saturated; $e = d - y$,
  * saturated. The state holds the history plus a chunk of any size.
  *
  * Copyright (c) 2026 Antony Kasera
@@ -18,12 +18,12 @@
 
 /** Weight update. */
 typedef enum {
-  FD_LMS_PLAIN, /**< w += mu e x */
-  FD_LMS_NORM,  /**< w += mu e x / x'x, an exact division per sample */
-  FD_LMS_SIGN,  /**< w += mu sign(e) x */
+  FD_LMS_PLAIN, /**< $w += mu e x$ */
+  FD_LMS_NORM,  /**< $w += mu e x / x'x$, an exact division per sample */
+  FD_LMS_SIGN,  /**< $w += mu sign(e) x$ */
 } FD_LmsMode;
 
-/** State length for ntaps taps and a chunk of `chunk` >= 1 samples. */
+/** State length for ntaps taps and a chunk of $chunk >= 1$ samples. */
 #define FD_LMS_STATE_LEN(ntaps, chunk) ((ntaps) + (chunk))
 
 /** q15 LMS state; opaque. */
@@ -46,10 +46,10 @@ typedef struct {
  *
  * @param f         state
  * @param w         ntaps weights; must outlive f
- * @param ntaps     >= 1
+ * @param ntaps     $>= 1$
  * @param state     history buffer; must outlive f
- * @param state_len > ntaps, `FD_LMS_STATE_LEN(ntaps, chunk)`
- * @param mu        step size, >= 0
+ * @param state_len $> ntaps$, `FD_LMS_STATE_LEN(ntaps, chunk)`
+ * @param mu        step size, $mu >= 0$
  * @param mode      update rule
  */
 void fd_lms_init_q15(FD_LmsQ15 *f, int32_t *w, uint32_t ntaps, fm_q15 *state,

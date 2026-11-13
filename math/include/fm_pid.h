@@ -2,8 +2,8 @@
  * @file fm_pid.h
  * @brief PID controllers in Q16.16 and float with anti-windup
  *
- * Gains are per step: ki = Ki dt, kd = Kd / dt. The derivative acts on the
- * measurement, the output is clamped to [out_min, out_max], and while it is
+ * Gains are per step: $ki = Ki dt$, $kd = Kd / dt$. The derivative acts on the
+ * measurement, the output is clamped to $[out_min, out_max]$, and while it is
  * clamped the integrator stops at the limit.
  *
  * Copyright (c) 2026 Antony Kasera
@@ -34,7 +34,7 @@ typedef struct {
   float prev;
 } FM_PidF32;
 
-/** Set up with zero state; out_min <= out_max. */
+/** Set up with zero state; $out_min <= out_max$. */
 void fm_pid_init_q16(FM_PidQ16 *p, fm_q16 kp, fm_q16 ki, fm_q16 kd,
                      fm_q16 out_min, fm_q16 out_max);
 /** Clear the integrator and take pv as the last measurement. */
@@ -44,7 +44,7 @@ void fm_pid_reset_q16(FM_PidQ16 *p, fm_q16 pv);
  * rounded once (ties up). */
 fm_q16 fm_pid_q16(FM_PidQ16 *p, fm_q16 sp, fm_q16 pv);
 
-/** Set up with zero state; out_min <= out_max. */
+/** Set up with zero state; $out_min <= out_max$. */
 void fm_pid_init_f32(FM_PidF32 *p, float kp, float ki, float kd, float out_min,
                      float out_max);
 /** Clear the integrator and take pv as the last measurement. */

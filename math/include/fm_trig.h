@@ -14,9 +14,9 @@
 
 #include "fm_fixed.h"
 
-/** sin, within 0.66 LSB. */
+/** $sin(angle)$, within 0.66 LSB. */
 fm_q15 fm_sin_q15(uint16_t angle);
-/** cos, within 0.66 LSB. */
+/** $cos(angle)$, within 0.66 LSB. */
 fm_q15 fm_cos_q15(uint16_t angle);
 
 /** fm_sin_q15() and fm_cos_q15() single call. */
@@ -25,9 +25,9 @@ FX_INLINE void fm_sincos_q15(uint16_t angle, fm_q15 *s, fm_q15 *c) {
   *c = fm_cos_q15(angle);
 }
 
-/** sin, within 1.11 LSB. */
+/** $sin(angle)$, within 1.11 LSB. */
 fm_q31 fm_sin_q31(uint32_t angle);
-/** cos, within 1.11 LSB. */
+/** $cos(angle)$, within 1.11 LSB. */
 fm_q31 fm_cos_q31(uint32_t angle);
 /** fm_sin_q31() and fm_cos_q31() single call, the same bits. */
 void fm_sincos_q31(uint32_t angle, fm_q31 *s, fm_q31 *c);

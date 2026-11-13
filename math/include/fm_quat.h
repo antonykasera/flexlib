@@ -9,7 +9,7 @@
 #ifndef FM_QUAT_H
 #define FM_QUAT_H
 
-/** Quaternion w + xi + yj + zk. */
+/** Quaternion $w + x i + y j + z k$. */
 typedef struct {
   float w; /**< scalar part */
   float x; /**< i */
@@ -17,14 +17,14 @@ typedef struct {
   float z; /**< k */
 } FM_Quat;
 
-/** r = a b (Hamilton), each component within 0.5 ULP + 2^-32 sum of the
+/** $r = a b$ (Hamilton), each component within 0.5 ULP + 2^-32 sum of the
  * |products|; r may alias an input; inf or NaN in gives NaN. */
 void fm_quat_mul(FM_Quat *r, const FM_Quat *a, const FM_Quat *b);
 
-/** r = q / |q| within 0.6 ULP, any finite q; zero gives the identity. */
+/** $r = q / |q|$ within 0.6 ULP, any finite q; zero gives the identity. */
 void fm_quat_normalize(FM_Quat *r, const FM_Quat *q);
 
-/** r = q v q* for a unit q, within 2^-22 |v|. */
+/** $r = q v q*$ for a unit q, within $2^-22 |v|$. */
 void fm_quat_rotate(float r[3], const FM_Quat *q, const float v[3]);
 
 /** Rotate q by the body rates w (rad/s) over dt: the exact rotation,
