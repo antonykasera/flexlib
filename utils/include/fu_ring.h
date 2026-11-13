@@ -91,7 +91,7 @@ const uint8_t *fu_ring_span(const FU_Ring *r, size_t *len);
  * @param dma_buf   the DMA's buffer
  * @param dma_size  its size in bytes
  * @param dma_pos   where the last call stopped; 0 at the start
- * @param remaining the channel's count register now (CNDTR on STM32)
+ * @param remaining the channel's count register now (`CNDTR` on STM32)
  */
 size_t fu_ring_from_dma(FU_Ring *r, const void *dma_buf, size_t dma_size,
                         size_t *dma_pos, size_t remaining);

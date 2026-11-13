@@ -3,7 +3,7 @@
  * @brief Text to numbers without libc: u32, i32, hex and Q16.16
  *
  * Each parser reads `s[0, len)`, needs no NUL and skips no spaces. With
- * `used` NULL, all of `s` must be the number; otherwise the number may be a
+ * `used` `NULL`, all of `s` must be the number; otherwise the number may be a
  * prefix, and `*used` gets the characters it took.
  *
  * Copyright (c) 2026 Antony Kasera

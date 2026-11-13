@@ -22,7 +22,7 @@
  * Encode n bytes; returns the encoded length. The 0 that ends the frame is
  * not written.
  *
- * @param dst FU_COBS_MAX(n) bytes, not overlapping src
+ * @param dst `FU_COBS_MAX(n)` bytes, not overlapping src
  * @param src data
  * @param n   bytes
  */
