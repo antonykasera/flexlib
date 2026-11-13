@@ -1,5 +1,9 @@
 # flexmath changelog
 
+## Unreleased
+
+- `fm_add_q31` / `fm_sub_q31` take and return `fm_q31`, like the Q15 and Q16.16 forms (was `int32_t`, the same type: no change for callers).
+
 ## 0.2.4 (2026-11-12)
 
 - Licensed under Apache-2.0 (was MIT; earlier releases are granted under Apache-2.0 too). No code change.

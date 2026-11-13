@@ -796,11 +796,11 @@ static void fd_conv_rows(void) {
       stats_add(&rc15, l, yc[l + N - 1] - r);
     }
   }
-  row(&f15, "flexdsp", "4000 pairs: full scale, sum |b| < 2");
-  row(&c15, "CMSIS-DSP", "4000 pairs: full scale, sum |b| < 2");
-  row(&cf15, "CMSIS-DSP", "4000 pairs: full scale, sum |b| < 2");
-  row(&f31, "flexdsp", "4000 pairs: full scale, sum |b| < 2");
-  row(&c31, "CMSIS-DSP", "4000 pairs: full scale, sum |b| < 2");
+  row(&f15, "flexdsp", "4000 pairs: full scale, sum abs(b) < 2");
+  row(&c15, "CMSIS-DSP", "4000 pairs: full scale, sum abs(b) < 2");
+  row(&cf15, "CMSIS-DSP", "4000 pairs: full scale, sum abs(b) < 2");
+  row(&f31, "flexdsp", "4000 pairs: full scale, sum abs(b) < 2");
+  row(&c31, "CMSIS-DSP", "4000 pairs: full scale, sum abs(b) < 2");
   row(&r15, "flexdsp", "4000 pairs, all 127 lags");
   row(&rc15, "CMSIS-DSP", "4000 pairs, all 127 lags");
 }
@@ -981,9 +981,12 @@ static void fd_corr_fft_rows(void) {
     err += be;
     worst = fmin(worst, 10 * log10(bs / be));
   }
-  printf("\nCorrelation through q15 FFTs (fd_corr_fft_q15), 256 x 256 in 512 "
-         "points, 200\npairs of full-scale noise, all 511 lags: SNR %.1f dB, "
-         "worst pair %.1f dB\n(fd_corr and fd_conv are exact).\n",
+  printf("\nCorrelation through q15 FFTs, against the exact sums (fd_corr and "
+         "fd_conv\nare exact).\n\n"
+         "| function | impl | inputs | SNR dB | worst pair dB |\n"
+         "|---|---|---|--:|--:|\n"
+         "| correlate q15 through FFT, 256 x 256 in 512 | flexdsp | 200 pairs "
+         "of full-scale noise, all 511 lags | %.1f | %.1f |\n",
          10 * log10(sig / err), worst);
 }
 
@@ -1469,8 +1472,8 @@ int main(void) {
   fd_biquad_rows(0.0005f, "Butterworth 4, fc 5e-4", 0); /* Q2.14 b round to 0 */
   fd_conv_rows();
   fd_levinson_rows();
-  fd_lms_rows();
   fd_resample_rows();
+  fd_lms_rows();
   fd_corr_fft_rows();
   printf("\n## flexdsp transforms\n\n"
          "Signal-to-noise against the exact DFT, and the largest bin over the "
