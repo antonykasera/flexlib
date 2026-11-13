@@ -26,7 +26,7 @@ ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 INCLUDE_PATH           = arch utils/include math/include dsp/include
-PREDEFINED             = FX_INLINE=
+PREDEFINED             = FX_INLINE= "FX_ALIGN(x)="
 
 # HTML to read locally; XML for Sphinx (Breathe)
 GENERATE_HTML          = YES
