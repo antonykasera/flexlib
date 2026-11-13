@@ -44,4 +44,5 @@ In a [flex](https://github.com/antonykasera/STM32F1-HAL) project,
 utils/index
 math/index
 dsp/index
+design/index
 ```
