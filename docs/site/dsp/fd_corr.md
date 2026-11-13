@@ -7,23 +7,23 @@ interpolation and Levinson-Durbin in q15 and q31, and correlation through
 q15 FFTs.
 
 Rounding
-: Every direct output is an exact sum over 2^(15 + shift) (q31:
-  2^(31 + shift)), rounded once (ties up) and saturated. shift goes to 16
-  (q31: 32), and shift = ceil(log2 min(na, nb)) rules out saturation.
+: Every direct output is an exact sum over $2^(15 + shift)$ (q31:
+  $2^(31 + shift)$), rounded once (ties up) and saturated. shift goes to 16
+  (q31: 32), and $shift = ceil(log2 min(na, nb))$ rules out saturation.
 
 Lags
 : {c:func}`fd_corr_q15` computes any range of lags, negative ones included;
-  terms outside either array are zero. All lags: lag0 = 1 - nb,
-  nlags = na + nb - 1, the values and order of CMSIS-DSP's
+  terms outside either array are zero. All lags: $lag0 = 1 - nb$,
+  $nlags = na + nb - 1$, the values and order of CMSIS-DSP's
   `arm_correlate_q15`.
 
 Autocorrelation
-: {c:func}`fd_autocorr_q15` returns r[k] 2^e with r[0] in [2^30, 2^31): 31
+: {c:func}`fd_autocorr_q15` returns $r[k] 2^e$ with $r[0]$ in $[2^30, 2^31)$: 31
   significant bits at any signal level, the input
   {c:func}`fd_levinson_q31` wants.
 
 Levinson-Durbin
-: The order-p predictor x[n] ~ sum a[j - 1] x[n - j], with each step's sums
+: The order-p predictor $x[n] ~ sum a[j - 1] x[n - j]$, with each step's sums
   exact and rounded once. It reports a matrix that is not positive definite
   and coefficients that pass 2^ashift.
 
@@ -127,6 +127,6 @@ CMSIS-DSP rounds every product and divides through a q15 reciprocal.
 
 Runs of whole windows go through the FIR kernels, four outputs per pass
 (q31: three), and so do the ends, with the samples past either end read as
-zero. The sums are 32-bit (q31: 64-bit) whenever max |a| sum |b| or
-max |b| sum |a| allows it, which a filter with sum |h| < 2 or 12-bit data
+zero. The sums are 32-bit (q31: 64-bit) whenever $max |a| sum |b|$ or
+$max |b| sum |a|$ allows it, which a filter with $sum |h| < 2$ or 12-bit data
 always does; otherwise 64-bit (q31: 96-bit).

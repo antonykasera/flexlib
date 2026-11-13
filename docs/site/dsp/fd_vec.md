@@ -25,8 +25,8 @@ Aliasing
 : `y` may equal an input of the same type.
 
 Asserts
-: A shift outside -15 to 15 (q31: -31 to 31), `lo > hi`, n = 0 where the
-  result needs a sample, n < 2 or n >= 2^24 for variance.
+: A shift outside $[-15, 15]$ (q31: $[-31, 31]$), $lo > hi$, $n = 0$ where the
+  result needs a sample, $n < 2$ or $n >= 2^24$ for variance.
 
 Checked
 : - Q15 add, subtract, multiply, complex multiply, {c:func}`fd_cmag_q15` and

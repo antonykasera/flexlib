@@ -13,7 +13,7 @@ Gaussian
   6.6 sigma.
 
 Triangular
-: In (-2^bits, 2^bits) LSB, bits <= 15: dither for dropping bits.
+: In $(-2^bits, 2^bits)$ LSB, $bits <= 15$: dither for dropping bits.
 
 Checked
 : - Gaussian, over 200000 samples of each format: the mean within 0.01

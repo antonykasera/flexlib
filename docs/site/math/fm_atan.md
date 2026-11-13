@@ -6,14 +6,14 @@ atan2, asin and acos in Q15 and Q31, returning binary angles.
 
 Angles
 : As in [](fm_trig.md): a full turn is 2^16 for the Q15 functions and 2^32
-  for Q31. atan2 covers [-1/2, 1/2) turn, asin [-1/4, 1/4], acos [0, 1/2];
+  for Q31. atan2 covers $[-1/2, 1/2)$ turn, asin $[-1/4, 1/4]$, acos $[0, 1/2]$;
   acos returns an unsigned type to hold 1/2.
 
 Error
 : atan2 within 0.65 LSB; asin and acos within 0.75 LSB in Q15, 0.81 in Q31.
 
 Origin
-: atan2(0, 0) is 0.
+: $atan2(0, 0) = 0$.
 
 Checked
 : - {c:func}`fm_atan2_q15` on all 2^32 pairs; {c:func}`fm_asin_q31` and

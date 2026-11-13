@@ -10,7 +10,7 @@ Rounding
   fixed-point roots round to nearest, within 0.5 LSB.
 
 Domain
-: x <= 0 gives 0; {c:func}`fm_rsqrt_q16` gives `INT32_MAX`.
+: $x <= 0$ gives 0; {c:func}`fm_rsqrt_q16` gives `INT32_MAX`.
 
 Checked
 : - {c:func}`fm_isqrt32` on all 2^32 inputs; {c:func}`fm_sqrt_q31`,

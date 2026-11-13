@@ -11,11 +11,11 @@ Product
   in gives NaN.
 
 Normalise
-: q / |q| within 0.6 ULP for any finite q, including those whose |q|^2
+: $q / |q|$ within 0.6 ULP for any finite q, including those whose $|q|^2$
   overflows or underflows in float; zero gives the identity.
 
 Rotate
-: q v q* for a unit q, within 2^-22 |v|.
+: $q v q*$ for a unit q, within $2^-22 |v|$.
 
 Integrate
 : Rotates q by the body rates w (rad/s) over dt with the exact rotation,
@@ -27,7 +27,7 @@ Checked
     cases each against `long double`; rates to 35 rad/s, dt from 0.1 to
     20 ms.
   - Aliasing, the special values, |q|^2 overflow and underflow.
-  - 10^5 steps of 1 ms: |q| within 2^-22 of 1.
+  - 10^5 steps of 1 ms: $|q|$ within 2^-22 of 1.
 
 ## API
 

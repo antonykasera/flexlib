@@ -52,6 +52,7 @@ html[data-theme="light"] {
   --fl-c-macro: #9c6500;
   --fl-c-str: #ba2121;
   --fl-c-num: #666666;
+  --fl-math-bg: #e9f1f5;
 }
 html[data-theme="dark"] {
   --fl-bg: #14181d;
@@ -66,6 +67,7 @@ html[data-theme="dark"] {
   --fl-c-macro: #79c0ff;
   --fl-c-str: #a5d6ff;
   --fl-c-num: #a5d6ff;
+  --fl-math-bg: #1b2a33;
 }
 html[data-theme] {
   --pst-color-background: var(--fl-bg);
@@ -128,6 +130,17 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: normal; text-transform: none;
   font-size: 0.875rem;
 }
 .bd-article .pst-scrollable-table-container + p { color: var(--fl-muted); font-size: 0.875rem; }
+
+/* math: superscripts that keep the line height; $...$ formulas on a tint */
+.bd-article sup, .bd-article sub { font-size: 0.75em; line-height: 0; }
+.fl-math {
+  background: var(--fl-math-bg);
+  border-radius: 3px;
+  padding: 0.05em 0.3em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.fl-math .fl-var { font-style: italic; }
 
 /* code */
 .bd-article pre, div.highlight {

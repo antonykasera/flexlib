@@ -7,8 +7,8 @@ sums of Q31 products, and conversion to and from float. Everything but the
 float conversion is inline.
 
 Formats
-: `fm_q15` is `int16_t` in [-1, 1), `fm_q31` is `int32_t` in [-1, 1),
-  `fm_q16` is `int32_t` in [-32768, 32768) with 16 fraction bits.
+: `fm_q15` is `int16_t` in $[-1, 1)$, `fm_q31` is `int32_t` in $[-1, 1)$,
+  `fm_q16` is `int32_t` in $[-32768, 32768)$ with 16 fraction bits.
 
 Rounding
 : Products round to nearest, ties toward +inf. Float to Q rounds to nearest,
@@ -20,7 +20,7 @@ Saturation
 
 Accumulator
 : {c:func}`fm_mac_q31` adds exact products in Q62 and does not saturate: the
-  running sum must stay in [-2, 2). {c:func}`fm_q62_to_q31` rounds and
+  running sum must stay in $[-2, 2)$. {c:func}`fm_q62_to_q31` rounds and
   saturates once.
 
 Checked

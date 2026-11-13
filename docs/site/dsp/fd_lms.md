@@ -2,8 +2,8 @@
 
 # LMS
 
-Adaptive FIR filters in q15 and q31: plain LMS (w += mu e x), normalised
-(w += mu e x / x'x) and sign-error (w += mu sign(e) x).
+Adaptive FIR filters in q15 and q31: plain LMS ($w += mu e x$), normalised
+($w += mu e x / x'x$) and sign-error ($w += mu sign(e) x$).
 
 Weights
 : Q30 in 32 bits for both formats, so updates far below one output LSB
@@ -11,7 +11,7 @@ Weights
 
 Output
 : The exact sum of the taps times the samples, rounded once and saturated;
-  e = d - y, saturated.
+  $e = d - y$, saturated.
 
 Update
 : The step is mu e (normalised: mu e over x'x of the window, at most
@@ -26,7 +26,7 @@ State
   changes the speed, not the results.
 
 Asserts
-: ntaps 0, a state buffer not longer than ntaps, mu < 0.
+: ntaps 0, a state buffer not longer than ntaps, $mu < 0$.
 
 Checked
 : - Outputs, errors and taps bit for bit against a 128-bit model: 6 lengths
@@ -82,7 +82,7 @@ Checked
 | `fd_lms_q31`, normalised | 80848 | |
 | `fd_lms_q31`, sign-error | 62360 | |
 
-Identifying a 16-tap system with noise 60 dB down at mu = 2^-10, weight
+Identifying a 16-tap system with noise 60 dB down at $mu = 2^-10$, weight
 error in dB below the system's norm, with a `double` LMS on the same data:
 
 | samples | q15 | CMSIS-DSP q15 | q31 | CMSIS-DSP q31 | double |

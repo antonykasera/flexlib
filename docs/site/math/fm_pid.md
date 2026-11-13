@@ -5,13 +5,13 @@
 PID controllers in Q16.16 and float, with output limits and anti-windup.
 
 Gains
-: Per step: ki = Ki dt, kd = Kd / dt.
+: Per step: $ki = Ki dt$, $kd = Kd / dt$.
 
 Derivative
 : On the measurement, so a setpoint step does not kick the output.
 
 Limits
-: The output is clamped to [out_min, out_max]. While it is clamped, the
+: The output is clamped to $[out_min, out_max]$. While it is clamped, the
   integrator stops at the value that puts the output on the limit, so no
   wind-up builds up to be unwound later.
 
@@ -22,7 +22,7 @@ Rounding
   and leaves the state unchanged.
 
 Asserts
-: out_min > out_max.
+: $out_min > out_max$.
 
 Checked
 : - {c:func}`fm_pid_q16` bit for bit against a 128-bit model on 40000

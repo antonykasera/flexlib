@@ -27,7 +27,8 @@ extensions = ["breathe", "myst_parser", "sphinx_design", "sphinx_copybutton",
               "flexlib_site"]
 exclude_patterns = ["examples", "_ext", "get-started.md", "results.md",
                     "design.md"]
-myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "attrs_inline"]
+# no dollarmath: $...$ formulas are typeset by flexlib_math, without MathJax
+myst_enable_extensions = ["colon_fence", "deflist", "attrs_inline"]
 myst_heading_anchors = 3
 
 breathe_projects = {"flexlib": str(ROOT / "build/doxygen/xml")}

@@ -11,10 +11,10 @@ Sizes
   q15 buffer must be 4-byte aligned. `FD_FFT_MAX` is 1024 by default.
 
 Scaling
-: Each transform returns an exponent e: the result is x[k] 2^e in integer
+: Each transform returns an exponent e: the result is $x[k] 2^e$ in integer
   units. Before each stage the block's headroom is measured and the stage
   scales by what its growth needs, left as well as right, so a quiet input
-  keeps its bits. An all-zero block gives zeros and e = 0. The inverses
+  keeps its bits. An all-zero block gives zeros and $e = 0$. The inverses
   include 1/n.
 
 Rounding
@@ -22,14 +22,14 @@ Rounding
   down. Nothing saturates or wraps, for any input.
 
 Real layout
-: n samples in, n/2 complex values out in the same buffer: `x[0]` = Re X[0],
-  `x[1]` = Re X[n/2] (both bins are real), then `x[2k]`, `x[2k + 1]` = X[k]
-  for k = 1 to n/2 - 1.
+: n samples in, n/2 complex values out in the same buffer: $x[0] = Re X[0]$,
+  $x[1] = Re X[n/2]$ (both bins are real), then $x[2k], x[2k + 1] = X[k]$
+  for $k = 1$ to $n/2 - 1$.
 
 Helpers
 : {c:func}`fd_fft_rescale_q15` moves bins to another exponent, rounded and
-  saturated: `to = log2 n` gives X / n, CMSIS-DSP's scaling.
-  {c:func}`fd_fft_db_q15` gives 10 log10 |X|^2 with the exponent folded in,
+  saturated: $to = log2 n$ gives $X / n$, CMSIS-DSP's scaling.
+  {c:func}`fd_fft_db_q15` gives $10 log10 |X|^2$ with the exponent folded in,
   0 dB at full scale.
 
 Asserts
@@ -40,7 +40,7 @@ Checked
     against an integer model of each stage, which never overflows; stage
     inputs at each growth bound.
   - Against the double DFT at 16 to 1024 points on white noise, tones, two
-    tones and -60 dB noise: within 2 + 0.6 log2 n LSB of the result's
+    tones and -60 dB noise: within $2 + 0.6 log2 n$ LSB of the result's
     exponent, SNR over 55 dB (q15) and 150 dB (q31).
   - Inputs scaled by 2^k give the same bits with e larger by k; round
     trips; the real layout against the complex transform.
@@ -119,5 +119,5 @@ CMSIS-DSP's truncation, -5 and -6 in its format.
 :language: c
 ```
 
-A full-scale sine reads 20 log10(n/2) above 0 dB, less the window's coherent
+A full-scale sine reads $20 log10(n/2)$ dB, less the window's coherent
 gain ({c:func}`fd_window_gains_q15`).

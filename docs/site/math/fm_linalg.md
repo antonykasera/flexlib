@@ -11,7 +11,7 @@ Layout
 Rounding
 : Every output is one exact sum of products, rounded once. q31: to nearest
   (ties up) and saturated, within 0.5 LSB, so a sum past 1 clamps instead
-  of wrapping. float: within 0.5 ULP + 2^-32 sum |a_i b_i|, so terms that
+  of wrapping. float: within $0.5 ULP + 2^-32 sum |a_i b_i|$, so terms that
   cancel leave the exact remainder.
 
 Special values
@@ -88,7 +88,7 @@ Checked
 
 Medians on an STM32F103 at 72 MHz, `-O2`, warm cache. The plain C column is
 the same loop in float through libgcc. Errors over 200000 random q31
-matrices in [-1/4, 1/4) and 100000 random float matrices.
+matrices in $[-1/4, 1/4)$ and 100000 random float matrices.
 
 | function | cycles | plain C | CMSIS-DSP | max error | CMSIS-DSP |
 |---|--:|--:|--:|--:|--:|

@@ -20,11 +20,11 @@ Parametric windows
   q31 within 1.5 10^-6.
 
 Gains
-: {c:func}`fd_window_gains_q15` gives the coherent gain (sum w / n), which
-  scales a tone's bin, and the power gain (sum w^2 / n), which scales noise.
+: {c:func}`fd_window_gains_q15` gives the coherent gain ($sum w / n$), which
+  scales a tone's bin, and the power gain ($sum w^2 / n$), which scales noise.
 
 Asserts
-: n = 0, beta < 0, sigma <= 0, alpha outside [0, 1].
+: $n = 0$, $beta < 0$, $sigma <= 0$, alpha outside $[0, 1]$.
 
 Checked
 : - Every fixed window at every length up to 4096, symmetric and periodic,

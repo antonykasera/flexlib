@@ -43,7 +43,7 @@ Checked
 Medians over 256 inputs on an STM32F103 at 72 MHz, `-O2`, warm cache.
 CMSIS-DSP: `arm_divide_q15` and `arm_divide_q31`. libgcc: the truncating
 64-bit division `(int64_t)a * 65536 / b`, and `2^32 / x`. CMSIS-DSP errors
-for |a| < |b|.
+for $|a| < |b|$.
 
 ## Example
 

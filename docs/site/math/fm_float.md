@@ -21,7 +21,7 @@ Logarithms and exponentials
 
 Special values
 : As C: a NaN input comes back quieted with its payload; a domain error
-  (x < 0 for roots and logarithms, |x| > 1 for asin and acos, an infinite
+  ($x < 0$ for roots and logarithms, $|x| > 1$ for asin and acos, an infinite
   angle) gives the default NaN; +-0 gives +-inf for the reciprocals and
   -inf for the logarithms; {c:func}`fm_atan2f` follows `atan2f` on zeros and
   infinities.
@@ -103,9 +103,9 @@ the exhaustive run's.
 | `fm_exp2f` | 87 | 3546 | 0.5026 |
 | `fm_expf` | 112 | 1292 | 0.5028 |
 
-For |x| from pi/4 to 2^22, {c:func}`fm_sinf` takes 150 cycles and newlib's
+For $pi/4 <= |x| <= 2^22$, {c:func}`fm_sinf` takes 150 cycles and newlib's
 `sinf` 15320. CMSIS-DSP's `arm_sin_f32` takes 573 cycles and reaches
-1.27 10^7 ULP on [-pi, pi]; `arm_atan2_f32` takes 1461 and reaches
+1.27 10^7 ULP on $[-pi, pi]$; `arm_atan2_f32` takes 1461 and reaches
 5.18 ULP. With the flash cache flushed before each call, {c:func}`fm_sinf`
 takes 1583 cycles and newlib's `sinf` 5512.
 

@@ -7,12 +7,12 @@ Goertzel detection of one frequency, a numerically controlled oscillator
 
 Frequencies
 : Phase steps per sample, a full turn being 2^32: f Hz at a rate fs is
-  f / fs 2^32. A Goertzel detector takes any frequency, not only a DFT
+  $f / fs 2^32$. A Goertzel detector takes any frequency, not only a DFT
   bin.
 
 Goertzel
 : Inputs enter the 32-bit state as x 2^shift (q15) or x / 2^shift (q31),
-  and the state wraps past 2^31: keep n |x| / |sin w| under 2^31 in state
+  and the state wraps past 2^31: keep $n |x| / |sin(w)| < 2^31$ in state
   units. {c:func}`fd_goertzel_dft` gives the DFT term, and
   {c:func}`fd_goertzel_power` its squared magnitude, exact from the state.
 

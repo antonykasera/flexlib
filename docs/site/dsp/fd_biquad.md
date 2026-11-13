@@ -6,7 +6,7 @@ Cascades of second-order sections in direct form 1, q15 and q31, and their
 design in float: RBJ cookbook sections and Butterworth cascades.
 
 Coefficients
-: Per section b0 b1 b2 a1 a2, with y = b0 x + b1 x1 + b2 x2 + a1 y1 + a2 y2:
+: Per section b0 b1 b2 a1 a2, with $y = b0 x + b1 x1 + b2 x2 + a1 y1 + a2 y2$:
   the CMSIS-DSP order and signs. Q2.30 (q31) or Q2.14 (q15). The b are
   stored divided by 2^bshift, so a large gain costs the b alone and the
   feedback keeps full precision.
@@ -20,8 +20,8 @@ Error feedback
   moves the rounding noise away from DC: for low corners in q31.
 
 Design
-: `FD_BiquadDesign` holds the poles as d1 = 2 - a1 and
-  d2 = a2 + 1, which stay exact near z = 1. The quantize functions round,
+: `FD_BiquadDesign` holds the poles as $d1 = 2 - a1$ and
+  $d2 = a2 + 1$, which stay exact near $z = 1$. The quantize functions round,
   pick the smallest bshift, and report sections that rounding made unstable.
 
 Asserts
@@ -31,8 +31,8 @@ Checked
 : - Bit for bit against the cascade in 128 bits: 1 to 4 sections of
     designed, random narrow and random wide coefficients, plain and with
     error feedback, blocks cut at random, in place, after a reset.
-  - The boundaries: sum |c| = 4, sections with sum |b| < 4 and sum |a| < 4
-    but sum |c| >= 4, saturation at full scale.
+  - The boundaries: $sum |c| = 4$, sections with $sum |b| < 4$ and $sum |a| < 4$
+    but $sum |c| >= 4$, saturation at full scale.
   - The designs against RBJ in double at 5 frequencies from 10^-4 to 0.45;
     an 8th-order Butterworth at -3.01 dB at its corner.
   - Error feedback 40 dB quieter than the plain cascade on a 4th-order
@@ -101,7 +101,7 @@ noise through a 4th-order Butterworth at 0.01 cycles per sample.
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
 | `fd_biquad_q15` | 6120 | 13291 | 96 | 355 |
-| `fd_biquad_q15`, sum \|c\| >= 4 | 8336 | | | |
+| `fd_biquad_q15`, $sum \|c\| >= 4$ | 8336 | | | |
 | `fd_biquad_q31` | 14200 | 11883 | 80 | 349 |
 | `fd_biquad_q31`, error feedback | 18052 | 25739 | 5 | 1.7 |
 
@@ -126,7 +126,7 @@ A 48 kHz EQ of four sections (low shelf, two peaks, high shelf), blocks of 64:
 
 ## How it works
 
-When a section's |b0| + |b1| + |b2| + |a1| + |a2| is under 4, its sum fits
+When a section's $|b0| + |b1| + |b2| + |a1| + |a2| < 4$, its sum fits
 64 bits (q15: 32) and runs in one accumulator. Shelves and peaks usually
 pass 4; their b and a parts are then summed apart, each exact in 64 bits
 (q15: 32), and added with an overflow check. Only sections whose stored b or

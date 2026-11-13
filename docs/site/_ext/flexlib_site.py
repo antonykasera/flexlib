@@ -1,4 +1,4 @@
-"""Site helpers: macro values in API entries, C classes on inline code."""
+"""Site helpers: macro values in API entries, C classes on inline code, math."""
 
 import re
 import xml.etree.ElementTree as ET
@@ -6,6 +6,8 @@ from pathlib import Path
 
 from docutils import nodes
 from sphinx import addnodes
+
+import flexlib_math
 
 C_KEYWORDS = {
     "auto", "break", "case", "const", "continue", "default", "do", "else",
@@ -27,6 +29,8 @@ _FUNCTION = re.compile(r"[A-Za-z_]\w*\(\)|f[umdx]_[a-z0-9_]+")
 
 # constant macros only: a function-like macro's body is implementation
 _SHORT_VALUE = 24
+# set per target; Doxygen only sees the host's value
+_TARGET_MACROS = {"FX_ARM", "FX_HAVE_DSP", "FX_HAVE_FPU"}
 
 
 def classify(text):
@@ -54,7 +58,8 @@ def load_macro_values(app):
                 continue
             init = "".join(m.find("initializer").itertext()).strip() \
                 if m.find("initializer") is not None else ""
-            if init and len(init) <= _SHORT_VALUE:
+            if init and len(init) <= _SHORT_VALUE and \
+                    m.findtext("name") not in _TARGET_MACROS:
                 values[m.findtext("name")] = init
     app.env.fl_macro_values = values
 
@@ -88,9 +93,10 @@ _PARAM_SEP = ("--", "\u2013", "\u2014")
 
 
 def param_columns(doctree):
-    """`name -- text` items of a Parameters field into name and text parts."""
+    """`name -- text` items of a Parameters or Return values field into name
+    and text parts."""
     for field in doctree.findall(nodes.field):
-        if not field[0].astext().startswith("Parameters"):
+        if not field[0].astext().startswith(("Parameters", "Return values")):
             continue
         for p in list(field[1].findall(nodes.paragraph)):
             if not p.children or not isinstance(p[0], nodes.strong):
@@ -124,6 +130,7 @@ def on_doctree_resolved(app, doctree, docname):
         cls = classify(lit.astext())
         if cls:
             lit["classes"].append(cls)
+    flexlib_math.typeset(doctree)
 
 
 def setup(app):

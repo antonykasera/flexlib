@@ -13,8 +13,8 @@ Rational l / m
   the function returns the outputs written, at most `FD_RESAMPLE_OUT_MAX`.
 
 Half-band by 2
-: A half-band lowpass of 4k - 1 taps has the centre 1/2 and zeros at the
-  other even offsets. Only the 2k nonzero taps are stored and multiplied,
+: A half-band lowpass of $4k - 1$ taps has the centre 1/2 and zeros at the
+  other even offsets. Only the $2k$ nonzero taps are stored and multiplied,
   and the centre is an exact add (the interpolator's odd outputs are delayed
   inputs). The outputs are the same bits as the full filter through
   {c:func}`fd_fir_decim_q15`.

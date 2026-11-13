@@ -27,7 +27,7 @@ Asserts
 
 Checked
 : - Bit for bit against a 128-bit convolution at 16 lengths from 1 to 64
-    taps, with sum |h| below, at and far above 2, on random, alternating
+    taps, with $sum |h|$ below, at and far above 2, on random, alternating
     full-scale and constant -1 input; six chunk sizes, blocks cut at
     random, in place, and one sample at a time.
   - Decimators by 1 to 7 and interpolators by 1 to 8 against the same
@@ -137,7 +137,7 @@ Errors over 10^6 random samples through a Hamming lowpass.
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
 | `fd_fir_q15` | 8078 | 19863 | 0.5 | 1 |
-| `fd_fir_q15`, sum \|h\| >= 2 | 18134 | | 0.5 | |
+| `fd_fir_q15`, $sum \|h\| >= 2$ | 18134 | | 0.5 | |
 | `fd_fir_q31` | 17836 | 16593 | 0.5 | 1 |
 | `fd_fir_decim_q15` by 4 | 3686 | 4854 | 0.5 | |
 | `fd_fir_interp_q15` by 4 | 12522 | 20806 | 0.5 | |
@@ -155,7 +155,7 @@ CMSIS-DSP: `arm_fir_q15`, `arm_fir_q31`, `arm_fir_decimate_q15`,
 
 ## How it works
 
-Init sums |h| ({c:func}`fd_fir_gain_q15`). Below 2, every partial sum of a
+Init computes $sum |h|$ ({c:func}`fd_fir_gain_q15`). Below 2, every partial sum of a
 q15 filter fits 32 bits and of a q31 filter 64 bits, and the narrow kernel
 runs; at 2 or more the kernel keeps 64-bit (q31: 96-bit) sums, at about
 twice the cycles. An interpolator decides per branch.
