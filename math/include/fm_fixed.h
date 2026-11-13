@@ -51,7 +51,7 @@ FX_INLINE fm_q15 fm_add_q15(fm_q15 a, fm_q15 b) { return fm_sat_q15(a + b); }
 FX_INLINE fm_q15 fm_sub_q15(fm_q15 a, fm_q15 b) { return fm_sat_q15(a - b); }
 
 /** $a + b$. */
-FX_INLINE int32_t fm_add_q31(int32_t a, int32_t b) {
+FX_INLINE fm_q31 fm_add_q31(fm_q31 a, fm_q31 b) {
 #if FX_HAVE_DSP
   return __qadd(a, b);
 #else
@@ -61,7 +61,7 @@ FX_INLINE int32_t fm_add_q31(int32_t a, int32_t b) {
 }
 
 /** $a - b$. */
-FX_INLINE int32_t fm_sub_q31(int32_t a, int32_t b) {
+FX_INLINE fm_q31 fm_sub_q31(fm_q31 a, fm_q31 b) {
 #if FX_HAVE_DSP
   return __qsub(a, b);
 #else
