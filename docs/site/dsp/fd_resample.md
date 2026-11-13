@@ -165,23 +165,23 @@ Errors over 10^6 half-scale inputs.
 
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
-| `fd_resample_q15` 3 / 2, 24 taps | 6577 | 18188 | 0.5 | 1 |
-| `fd_resample_q31` 3 / 2, 24 taps | 12347 | 19674 | 0.5 | 1 |
-| `fd_resample_q15` 160 / 147, 1280 taps | 7923 | | 0.5 | |
-| `fd_halfband_decim_q15`, 31 taps | 2988 | | 0.5 | |
-| `fd_halfband_decim_q31`, 31 taps | 6075 | | 0.5 | |
-| `fd_halfband_interp_q15`, 31 taps | 5293 | | 0.5 | |
-| `fd_halfband_interp_q31`, 31 taps | 11738 | | 0.5 | |
-| `fd_cic_decim_q15`, order 3 by 64, 12-bit | 2012 | | exact | |
-| `fd_cic_decim_q15`, order 3 by 64, 16-bit | 2932 | | 0.5 | |
-| `fd_cic_decim_q15`, order 5 by 16, 12-bit | 4688 | | exact | |
+| `fd_resample_q15` 3 / 2, 24 taps | {cy}`fd_resample_q15 3/2, 24 taps x 64` | {cy}`arm_fir_interpolate_q15 by 3, keep 1 in 2` | {acc}`resample q15 3/2, 24 taps; flexdsp` | {acc}`resample q15 3/2, 24 taps; CMSIS-DSP` |
+| `fd_resample_q31` 3 / 2, 24 taps | {cy}`fd_resample_q31 3/2, 24 taps x 64` | {cy}`arm_fir_interpolate_q31 by 3, keep 1 in 2` | {acc}`resample q31 3/2, 24 taps; flexdsp` | {acc}`resample q31 3/2, 24 taps; CMSIS-DSP` |
+| `fd_resample_q15` 160 / 147, 1280 taps | {cy}`fd_resample_q15 160/147, 1280 taps x 64` |  | 0.5 |  |
+| `fd_halfband_decim_q15`, 31 taps | {cy}`fd_halfband_decim_q15, 31 taps x 64` |  | {acc}`half-band decimate q15, 31 taps; flexdsp` |  |
+| `fd_halfband_decim_q31`, 31 taps | {cy}`fd_halfband_decim_q31, 31 taps x 64` |  | 0.5 |  |
+| `fd_halfband_interp_q15`, 31 taps | {cy}`fd_halfband_interp_q15, 31 taps x 64` |  | {acc}`half-band interpolate q15, 31 taps; flexdsp` |  |
+| `fd_halfband_interp_q31`, 31 taps | {cy}`fd_halfband_interp_q31, 31 taps x 64` |  | 0.5 |  |
+| `fd_cic_decim_q15`, order 3 by 64, 12-bit | {cy}`fd_cic_decim_q15 order 3 by 64, 12-bit x 256` |  | exact |  |
+| `fd_cic_decim_q15`, order 3 by 64, 16-bit | {cy}`fd_cic_decim_q15 order 3 by 64, 16-bit x 256` |  | 0.5 |  |
+| `fd_cic_decim_q15`, order 5 by 16, 12-bit | {cy}`fd_cic_decim_q15 order 5 by 16, 12-bit x 256` |  | exact |  |
 
 - CMSIS-DSP has no rational resampler: its rows interpolate by 3 with
   `arm_fir_interpolate_q15` / `_q31` and keep every second output,
   computing three outputs for every two kept. Its q31 interpolator wraps
   past full scale.
 - {c:func}`fd_fir_decim_q15` and {c:func}`fd_fir_interp_q15` by 2 on the
-  same 31 taps take 6386 and 10384 cycles.
+  same 31 taps take {cy}`fd_fir_decim_q15 by 2, the same 31 taps x 64` and {cy}`fd_fir_interp_q15 by 2, the same 31 taps x 64` cycles.
 - 160 / 147 is 124 cycles per output with 8 taps per branch: 8% of the
   F103 for 48 kHz out.
 

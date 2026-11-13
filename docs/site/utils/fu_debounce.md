@@ -48,11 +48,11 @@ Checked
 
 | function | cycles |
 |---|--:|
-| `fu_debounce32`, 32 inputs | 20 |
-| `fu_debounce`, 1 input | 18 |
+| `fu_debounce32`, 32 inputs | {cy}`fu_debounce32, 32 inputs per tick (inline)` |
+| `fu_debounce`, 1 input | {cy}`fu_debounce, 1 input per tick (inline)` |
 
 Medians per tick on an STM32F103 at 72 MHz, `-O2`, inlined. 16 inputs
-through `fu_debounce` take 379.
+through `fu_debounce` take {cy}`16 x fu_debounce, 16 inputs per tick`.
 
 ## Example
 

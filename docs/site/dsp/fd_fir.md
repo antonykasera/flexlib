@@ -136,16 +136,16 @@ Errors over 10^6 random samples through a Hamming lowpass.
 
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
-| `fd_fir_q15` | 8078 | 19863 | 0.5 | 1 |
-| `fd_fir_q15`, $sum \|h\| >= 2$ | 18134 | | 0.5 | |
-| `fd_fir_q31` | 17836 | 16593 | 0.5 | 1 |
-| `fd_fir_decim_q15` by 4 | 3686 | 4854 | 0.5 | |
-| `fd_fir_interp_q15` by 4 | 12522 | 20806 | 0.5 | |
-| `fd_fir_sample_q15` | 453 | | 0.5 | |
+| `fd_fir_q15` | {cy}`fd_fir_q15, 32 taps x 64` | {cy}`arm_fir_q15, 32 taps x 64` | {acc}`FIR q15, 32 taps; flexdsp` | {acc}`FIR q15, 32 taps; CMSIS-DSP` |
+| `fd_fir_q15`, $sum \|h\| >= 2$ | {cy}`fd_fir_q15, gain 2 or more (64-bit)` | | 0.5 | |
+| `fd_fir_q31` | {cy}`fd_fir_q31, 32 taps x 64` | {cy}`arm_fir_q31, 32 taps x 64` | {acc}`FIR q31, 32 taps; flexdsp` | {acc}`FIR q31, 32 taps; CMSIS-DSP` |
+| `fd_fir_decim_q15` by 4 | {cy}`fd_fir_decim_q15 by 4, 32 taps x 64` | {cy}`arm_fir_decimate_q15 by 4, 32 x 64` | 0.5 |  |
+| `fd_fir_interp_q15` by 4 | {cy}`fd_fir_interp_q15 by 4, 32 taps x 64` | {cy}`arm_fir_interpolate_q15 by 4, 32 x 64` | 0.5 |  |
+| `fd_fir_sample_q15` | {cy}`fd_fir_sample_q15, 32 taps` |  | 0.5 |  |
 
 CMSIS-DSP: `arm_fir_q15`, `arm_fir_q31`, `arm_fir_decimate_q15`,
-`arm_fir_interpolate_q15`. `arm_fir_fast_q15` takes 13941 cycles (1 LSB),
-`arm_fir_fast_q31` 22446 (17 LSB).
+`arm_fir_interpolate_q15`. `arm_fir_fast_q15` takes {cy}`arm_fir_fast_q15, 32 taps x 64` cycles ({acc}`FIR q15, 32 taps (fast); CMSIS-DSP` LSB),
+`arm_fir_fast_q31` {cy}`arm_fir_fast_q31, 32 taps x 64` ({acc}`FIR q31, 32 taps (fast); CMSIS-DSP` LSB).
 
 ## Example
 

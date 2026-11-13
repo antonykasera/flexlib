@@ -45,12 +45,12 @@ Checked
 
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
-| `fm_atan2_q15` | 63 | 215 | 0.615 | 3.68 |
-| `fm_asin_q15` | 98 | | 0.747 | |
-| `fm_acos_q15` | 99 | | 0.747 | |
-| `fm_atan2_q31` | 181 | 513 | 0.646 | 4.81 |
-| `fm_asin_q31` | 284 | | 0.800 | |
-| `fm_acos_q31` | 283 | | 0.800 | |
+| `fm_atan2_q15` | {cy}`fm_atan2_q15` | {cy}`arm_atan2_q15` | {acc}`atan2 q15; flexmath` | {acc}`atan2 q15; CMSIS-DSP` |
+| `fm_asin_q15` | {cy}`fm_asin_q15` |  | 0.747 |  |
+| `fm_acos_q15` | {cy}`fm_acos_q15` |  | 0.747 |  |
+| `fm_atan2_q31` | {cy}`fm_atan2_q31` | {cy}`arm_atan2_q31` | 0.646 | {acc}`atan2 q31; CMSIS-DSP` |
+| `fm_asin_q31` | {cy}`fm_asin_q31` |  | 0.800 |  |
+| `fm_acos_q31` | {cy}`fm_acos_q31` |  | 0.800 |  |
 
 Medians over 256 inputs on an STM32F103 at 72 MHz, `-O2`, warm cache.
 CMSIS-DSP: `arm_atan2_q15` and `arm_atan2_q31`; its errors are measured in

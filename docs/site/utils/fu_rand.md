@@ -64,13 +64,13 @@ Checked
 
 | function | cycles | newlib | ratio |
 | --- | --: | --: | --: |
-| `fu_xorshift32` | 8 | | |
-| `fu_xoshiro128ss` | 22 | 44 | 2.00 |
-| `fu_xoshiro128_below`, $n = 100$ | 33 | | |
-| `fu_xoshiro128_jump` | 3268 | | |
+| `fu_xorshift32` | {cy}`fu_xorshift32 (inline)` |  |  |
+| `fu_xoshiro128ss` | {cy}`fu_xoshiro128ss (inline)` | {cy}`rand()` |  |
+| `fu_xoshiro128_below`, $n = 100$ | {cy}`fu_xoshiro128_below(100), unbiased` |  |  |
+| `fu_xoshiro128_jump` | {cy}`fu_xoshiro128_jump (2^64 steps)` |  |  |
 
 Medians on an STM32F103 at 72 MHz, `-O2`, inlined. newlib: `rand()`, 31
-bits per call. A plain `% 100` on xoshiro128** takes 38 and is biased.
+bits per call. A plain `% 100` on xoshiro128** takes {cy}`xoshiro128** % 100 (UDIV, biased)` and is biased.
 
 ## Example
 

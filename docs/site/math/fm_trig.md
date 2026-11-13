@@ -47,17 +47,17 @@ Checked
 
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
-| `fm_sin_q15` | 29 | 29 | 0.65 | 4.58 |
-| `fm_cos_q15` | 30 | | 0.65 | |
-| `fm_sincos_q15` | 63 | | 0.65 | |
-| `fm_sin_q31` | 67 | 46 | 1.105 | 40400 |
-| `fm_cos_q31` | 71 | | 1.105 | |
-| `fm_sincos_q31` | 105 | | 1.105 | |
+| `fm_sin_q15` | {cy}`fm_sin_q15` | {cy}`arm_sin_q15` | {acc}`sin q15; flexmath` | {acc}`sin q15; CMSIS-DSP` |
+| `fm_cos_q15` | {cy}`fm_cos_q15` |  | 0.65 |  |
+| `fm_sincos_q15` | {cy}`fm_sincos_q15` |  | 0.65 |  |
+| `fm_sin_q31` | {cy}`fm_sin_q31` | {cy}`arm_sin_q31` | 1.105 | {acc}`sin q31; CMSIS-DSP` |
+| `fm_cos_q31` | {cy}`fm_cos_q31` |  | 1.105 |  |
+| `fm_sincos_q31` | {cy}`fm_sincos_q31` |  | 1.105 |  |
 
 Medians over 256 inputs on an STM32F103 at 72 MHz, `-O2`, warm cache.
 CMSIS-DSP: `arm_sin_q15` and `arm_sin_q31`. With the flash cache flushed
-before each call, {c:func}`fm_sin_q15` takes 480 cycles and
-{c:func}`fm_sin_q31` 851; `FM_LUT_IN_RAM` moves the tables to RAM.
+before each call, {c:func}`fm_sin_q15` takes {cy}`fm_sin_q15 @ cold` cycles and
+{c:func}`fm_sin_q31` {cy}`fm_sin_q31 @ cold`; `FM_LUT_IN_RAM` moves the tables to RAM.
 
 ## Example
 

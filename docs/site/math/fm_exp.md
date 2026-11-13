@@ -52,13 +52,13 @@ Checked
 
 | function | cycles | CMSIS-DSP | libm | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|--:|
-| `fm_log2_q16` | 72 | | 1747 | 0.5000 | |
-| `fm_ln_q16` | 87 | 548 | 1586 | 0.5001 | 1.71 |
-| `fm_log10_q16` | 87 | | | 0.5001 | |
-| `fm_db_q16` | 87 | | | 0.5005 | |
-| `fm_exp2_q16` | 67 | | 3740 | 0.5306 | |
-| `fm_exp_q16` | 89 | | 1566 | 0.5366 | |
-| `fm_pow_q16` | 153 | | 5183 | | |
+| `fm_log2_q16` | {cy}`fm_log2_q16` |  | {cy}`log2f via float` | 0.5000 |  |
+| `fm_ln_q16` | {cy}`fm_ln_q16` | {cy}`arm_vlog_q31, one value (ln, q5.26 out)` | {cy}`logf via float` | 0.5001 | {acc}`ln, q5.26 out; CMSIS-DSP` |
+| `fm_log10_q16` | {cy}`fm_log10_q16` |  |  | 0.5001 |  |
+| `fm_db_q16` | {cy}`fm_db_q16` |  |  | 0.5005 |  |
+| `fm_exp2_q16` | {cy}`fm_exp2_q16` |  | {cy}`exp2f via float` | 0.5306 |  |
+| `fm_exp_q16` | {cy}`fm_exp_q16` |  | {cy}`expf via float` | 0.5366 |  |
+| `fm_pow_q16` | {cy}`fm_pow_q16` |  | {cy}`powf via float` |  |  |
 
 Medians over 256 inputs on an STM32F103 at 72 MHz, `-O2`, warm cache.
 CMSIS-DSP: `arm_vlog_q31` on one value, with a q5.26 result. libm: conversion

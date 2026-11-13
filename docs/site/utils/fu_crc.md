@@ -62,15 +62,15 @@ Checked
 
 | function | cycles | byte table | ratio |
 |---|--:|--:|--:|
-| `fu_crc32`, 256 B | 1584 | 2829 | 1.79 |
-| `fu_crc32`, 8 B | 97 | 100 | 1.03 |
-| `fu_crc16_ccitt`, 64 B | 568 | 717 | 1.26 |
-| `fu_crc16_modbus`, 64 B | 523 | 780 | 1.49 |
-| `fu_crc8_smbus`, 64 B | 453 | 525 | 1.16 |
-| `fu_crc8_maxim`, 64 B | 453 | 525 | 1.16 |
+| `fu_crc32`, 256 B | {cy}`fu_crc32, 256 B` | {cy}`crc32 byte table 1 KB, 256 B` |  |
+| `fu_crc32`, 8 B | {cy}`fu_crc32, 8 B` | {cy}`crc32 byte table 1 KB, 8 B` |  |
+| `fu_crc16_ccitt`, 64 B | {cy}`fu_crc16_ccitt, 64 B` | {cy}`crc16 ccitt byte table, 1 per step, 64 B` |  |
+| `fu_crc16_modbus`, 64 B | {cy}`fu_crc16_modbus, 64 B` | {cy}`crc16 modbus byte table, 1 per step, 64 B` |  |
+| `fu_crc8_smbus`, 64 B | {cy}`fu_crc8_smbus, 64 B` | {cy}`crc8 smbus byte table, 1 per step, 64 B` |  |
+| `fu_crc8_maxim`, 64 B | {cy}`fu_crc8_maxim, 64 B` | {cy}`crc8 maxim byte table, 1 per step, 64 B` |  |
 
 Medians on an STM32F103 at 72 MHz, `-O2`, warm cache. Byte table: one
-lookup per byte, the usual C loop; a bitwise loop takes 13843 for CRC-32
+lookup per byte, the usual C loop; a bitwise loop takes {cy}`crc32 bitwise, 256 B` for CRC-32
 over 256 B.
 
 ## Example

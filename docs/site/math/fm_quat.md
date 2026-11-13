@@ -55,12 +55,12 @@ the textbook formula in float through libgcc (integrate: with `sqrtf`,
 
 | function | cycles | plain C | CMSIS-DSP | max error | CMSIS-DSP |
 |---|--:|--:|--:|--:|--:|
-| `fm_quat_mul` | 747 | 1431 | 1434 | 0.5 ULP | 1.96 10^6 ULP |
-| `fm_quat_normalize` | 534 | 937 | 914 | 0.543 ULP | 2.79 ULP |
-| `fm_quat_rotate` | 843 | 1491 | | 2^-22 \|v\| | |
-| `fm_quat_integrate` | 2083 | 5108 | | 2^-22 | |
+| `fm_quat_mul` | {cy}`fm_quat_mul` | {cy}`quat mul, float` | {cy}`arm_quaternion_product_single_f32` | {acc}`quaternion product f32; flexmath` ULP | {acc}`quaternion product f32; CMSIS-DSP` ULP |
+| `fm_quat_normalize` | {cy}`fm_quat_normalize` | {cy}`quat normalize, 1 / sqrtf and 4 multiplies` | {cy}`arm_quaternion_normalize_f32, one` | {acc}`quaternion normalize f32; flexmath` ULP | {acc}`quaternion normalize f32; CMSIS-DSP` ULP |
+| `fm_quat_rotate` | {cy}`fm_quat_rotate` | {cy}`quat rotate, float` | | 2^-22 \|v\| | |
+| `fm_quat_integrate` | {cy}`fm_quat_integrate` | {cy}`quat integrate, float with sqrtf / sinf / cosf` |  | 2^-22 |  |
 
-A first-order step plus normalisation takes 1522 cycles.
+A first-order step plus normalisation takes {cy}`quat integrate, first order + normalise` cycles.
 
 ## Example
 

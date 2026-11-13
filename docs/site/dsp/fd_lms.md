@@ -75,22 +75,22 @@ Checked
 
 | function | cycles | CMSIS-DSP |
 |---|--:|--:|
-| `fd_lms_q15` | 35585 | 42696 |
-| `fd_lms_q15`, normalised | 40057 | 48624 |
-| `fd_lms_q15`, sign-error | 35550 | |
-| `fd_lms_q31` | 64066 | 71613 |
-| `fd_lms_q31`, normalised | 80848 | |
-| `fd_lms_q31`, sign-error | 62360 | |
+| `fd_lms_q15` | {cy}`fd_lms_q15, 32 taps x 64` | {cy}`arm_lms_q15, 32 taps x 64` |
+| `fd_lms_q15`, normalised | {cy}`fd_lms_q15 normalised, 32 taps x 64` | {cy}`arm_lms_norm_q15, 32 taps x 64` |
+| `fd_lms_q15`, sign-error | {cy}`fd_lms_q15 sign-error, 32 taps x 64` |  |
+| `fd_lms_q31` | {cy}`fd_lms_q31, 32 taps x 64` | {cy}`arm_lms_q31, 32 taps x 64` |
+| `fd_lms_q31`, normalised | {cy}`fd_lms_q31 normalised, 32 taps x 64` |  |
+| `fd_lms_q31`, sign-error | {cy}`fd_lms_q31 sign-error, 32 taps x 64` |  |
 
 Identifying a 16-tap system with noise 60 dB down at $mu = 2^-10$, weight
 error in dB below the system's norm, with a `double` LMS on the same data:
 
 | samples | q15 | CMSIS-DSP q15 | q31 | CMSIS-DSP q31 | double |
 |--:|--:|--:|--:|--:|--:|
-| 2048 | 1.3 | 0.9 | 1.3 | 1.3 | 1.3 |
-| 8192 | 5.8 | 2.0 | 5.8 | 5.8 | 5.8 |
-| 32768 | 22.8 | -0.1 | 22.9 | 22.9 | 22.9 |
-| 59968 | 42.9 | -0.5 | 42.3 | 42.3 | 42.2 |
+| 2048 | {acc}`2048 @ flexdsp q15` | {acc}`2048 @ CMSIS-DSP q15` | {acc}`2048 @ flexdsp q31` | {acc}`2048 @ CMSIS-DSP q31` | {acc}`2048 @ double` |
+| 8192 | {acc}`8192 @ flexdsp q15` | {acc}`8192 @ CMSIS-DSP q15` | {acc}`8192 @ flexdsp q31` | {acc}`8192 @ CMSIS-DSP q31` | {acc}`8192 @ double` |
+| 32768 | {acc}`32768 @ flexdsp q15` | {acc}`32768 @ CMSIS-DSP q15` | {acc}`32768 @ flexdsp q31` | {acc}`32768 @ CMSIS-DSP q31` | {acc}`32768 @ double` |
+| 59968 | {acc}`59968 @ flexdsp q15` | {acc}`59968 @ CMSIS-DSP q15` | {acc}`59968 @ flexdsp q31` | {acc}`59968 @ CMSIS-DSP q31` | {acc}`59968 @ double` |
 
 CMSIS-DSP's q15 LMS truncates its updates and drifts.
 

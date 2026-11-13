@@ -273,59 +273,59 @@ Blocks of 64 (complex multiply q31: 32), medians on an STM32F103 at 72 MHz,
 
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
-| `fd_add_q15` | 516 | 539 | exact | exact |
-| `fd_add_q31` | 595 | 1137 | exact | exact |
-| `fd_mul_q15` | 611 | 667 | 0.5 | 1 |
-| `fd_mul_q31` | 1331 | 843 | 0.5 | 2 |
-| `fd_scale_q15` | 590 | 510 | 0.5 | 1 |
-| `fd_scale_q31` | 1280 | 986 | 0.5 | 1 |
-| `fd_shift_q15`, right by 3 | 521 | 380 | 0.5 | truncates |
-| `fd_offset_q15` | 413 | 452 | exact | exact |
-| `fd_negate_q15` | 410 | 562 | exact | exact |
-| `fd_abs_q15` | 585 | 619 | exact | exact |
-| `fd_clip_q15` | 576 | 692 | exact | exact |
-| `fd_fill_q15` | 144 | 138 | | |
-| `fd_copy_q15` | 214 | 231 | | |
+| `fd_add_q15` | {cy}`fd_add_q15, 64` | {cy}`arm_add_q15, 64` | exact | exact |
+| `fd_add_q31` | {cy}`fd_add_q31, 64` | {cy}`arm_add_q31, 64` | exact | exact |
+| `fd_mul_q15` | {cy}`fd_mul_q15, 64` | {cy}`arm_mult_q15, 64` | 0.5 | 1 |
+| `fd_mul_q31` | {cy}`fd_mul_q31, 64` | {cy}`arm_mult_q31, 64` | 0.5 | 2 |
+| `fd_scale_q15` | {cy}`fd_scale_q15, 64` | {cy}`arm_scale_q15, 64` | {acc}`scale q15; flexdsp` | {acc}`scale q15; CMSIS-DSP` |
+| `fd_scale_q31` | {cy}`fd_scale_q31, 64` | {cy}`arm_scale_q31, 64` | 0.5 | 1 |
+| `fd_shift_q15`, right by 3 | {cy}`fd_shift_q15 -3, 64` | {cy}`arm_shift_q15 -3, 64` | 0.5 | truncates |
+| `fd_offset_q15` | {cy}`fd_offset_q15, 64` | {cy}`arm_offset_q15, 64` | exact | exact |
+| `fd_negate_q15` | {cy}`fd_negate_q15, 64` | {cy}`arm_negate_q15, 64` | exact | exact |
+| `fd_abs_q15` | {cy}`fd_abs_q15, 64` | {cy}`arm_abs_q15, 64` | exact | exact |
+| `fd_clip_q15` | {cy}`fd_clip_q15, 64` | {cy}`arm_clip_q15, 64` | exact | exact |
+| `fd_fill_q15` | {cy}`fd_fill_q15, 64` | {cy}`arm_fill_q15, 64` |  |  |
+| `fd_copy_q15` | {cy}`fd_copy_q15, 64` | {cy}`arm_copy_q15, 64` |  |  |
 
-`memcpy` of the same 128 bytes takes 918 cycles in newlib-nano.
+`memcpy` of the same 128 bytes takes {cy}`memcpy 128 B` cycles in newlib-nano.
 
 ### Conversions
 
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
-| `fd_q31_to_q15` | 431 | 365 | 0.5 | 1 |
-| `fd_q15_to_f32` | 1401 | 4051 | exact | |
-| `fd_f32_to_q15` | 2359 | 3283 | 0.5 | |
-| `fd_db_q15` | 3963 | | 0.54 | |
+| `fd_q31_to_q15` | {cy}`fd_q31_to_q15, 64` | {cy}`arm_q31_to_q15, 64` | {acc}`q31 to q15; flexdsp` | {acc}`q31 to q15; CMSIS-DSP` |
+| `fd_q15_to_f32` | {cy}`fd_q15_to_f32, 64` | {cy}`arm_q15_to_float, 64` | exact |  |
+| `fd_f32_to_q15` | {cy}`fd_f32_to_q15, 64` | {cy}`arm_float_to_q15, 64` | 0.5 |  |
+| `fd_db_q15` | {cy}`fd_db_q15, 64` |  | 0.54 |  |
 
 ### Statistics
 
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
-| `fd_sum_q15` | 318 | | exact | |
-| `fd_mean_q15` | 352 | 266 | 0.5 | |
-| `fd_dot_q15` | 654 | 670 | exact | exact |
-| `fd_dot_q31` | 1284 | 914 | 0.5 | 41.8 |
-| `fd_power_q15` | 546 | 517 | exact | exact |
-| `fd_power_q31` | 1205 | 817 | 0.5 | 41.1 |
-| `fd_rms_q15` | 865 | 708 | 0.5 | 179 |
-| `fd_rms_q31` | 1592 | 961 | 0.5 | |
-| `fd_var_q15` | 1362 | 838 | 0.5 | 1 |
-| `fd_std_q15` | 1411 | 916 | 0.5 | 178 |
-| `fd_std_q31` | 2291 | | 0.5 | |
-| `fd_max_q15` | 559 | 530 | exact | exact |
-| `fd_absmax_q15` | 850 | 1097 | exact | exact |
+| `fd_sum_q15` | {cy}`fd_sum_q15, 64` |  | exact |  |
+| `fd_mean_q15` | {cy}`fd_mean_q15, 64` | {cy}`arm_mean_q15, 64` | 0.5 |  |
+| `fd_dot_q15` | {cy}`fd_dot_q15, 64` | {cy}`arm_dot_prod_q15, 64` | exact | exact |
+| `fd_dot_q31` | {cy}`fd_dot_q31, 64` | {cy}`arm_dot_prod_q31, 64` | {acc}`dot q31, Q16.48 out; flexdsp` | {acc}`dot q31, Q16.48 out; CMSIS-DSP` |
+| `fd_power_q15` | {cy}`fd_power_q15, 64` | {cy}`arm_power_q15, 64` | exact | exact |
+| `fd_power_q31` | {cy}`fd_power_q31, 64` | {cy}`arm_power_q31, 64` | {acc}`power q31, Q16.48 out; flexdsp` | {acc}`power q31, Q16.48 out; CMSIS-DSP` |
+| `fd_rms_q15` | {cy}`fd_rms_q15, 64` | {cy}`arm_rms_q15, 64` | {acc}`rms q15; flexdsp` | {acc}`rms q15; CMSIS-DSP` |
+| `fd_rms_q31` | {cy}`fd_rms_q31, 64` | {cy}`arm_rms_q31, 64` | 0.5 |  |
+| `fd_var_q15` | {cy}`fd_var_q15, 64` | {cy}`arm_var_q15, 64` | {acc}`var q15; flexdsp` | {acc}`var q15; CMSIS-DSP` |
+| `fd_std_q15` | {cy}`fd_std_q15, 64` | {cy}`arm_std_q15, 64` | {acc}`std q15; flexdsp` | {acc}`std q15; CMSIS-DSP` |
+| `fd_std_q31` | {cy}`fd_std_q31, 64` |  | 0.5 |  |
+| `fd_max_q15` | {cy}`fd_max_q15, 64` | {cy}`arm_max_q15, 64` | exact | exact |
+| `fd_absmax_q15` | {cy}`fd_absmax_q15, 64` | {cy}`arm_absmax_q15, 64` | exact | exact |
 
 ### Complex vectors
 
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
-| `fd_cmul_q15` | 1712 | 1300 | 0.5 | 2 (Q3.13) |
-| `fd_cmul_q31` | 2150 | 1167 | 0.5 | |
-| `fd_cmag_q15` | 3331 | 8612 | 0.5 | 1 (Q2.14) |
-| `fd_cmag_q31` | 7384 | 8848 | 0.5 | |
-| `fd_cmag2_q15` | 718 | 958 | exact (UQ2.30) | Q3.13 |
-| `fd_cdot_q15` | 1806 | | exact | |
+| `fd_cmul_q15` | {cy}`fd_cmul_q15, 64` | {cy}`arm_cmplx_mult_cmplx_q15, 64` | {acc}`complex multiply q15, q15 out; flexdsp` | {acc}`complex multiply q15, Q3.13 out; CMSIS-DSP` (Q3.13) |
+| `fd_cmul_q31` | {cy}`fd_cmul_q31, 32` | {cy}`arm_cmplx_mult_cmplx_q31, 32` | 0.5 |  |
+| `fd_cmag_q15` | {cy}`fd_cmag_q15, 64` | {cy}`arm_cmplx_mag_q15, 64` | {acc}`complex magnitude q15, UQ1.15 out; flexdsp` | {acc}`complex magnitude q15, Q2.14 out; CMSIS-DSP` (Q2.14) |
+| `fd_cmag_q31` | {cy}`fd_cmag_q31, 64` | {cy}`arm_cmplx_mag_q31, 64` | 0.5 |  |
+| `fd_cmag2_q15` | {cy}`fd_cmag2_q15, 64` | {cy}`arm_cmplx_mag_squared_q15, 64` | exact (UQ2.30) | Q3.13 |
+| `fd_cdot_q15` | {cy}`fd_cdot_q15, 64` |  | exact |  |
 
 CMSIS-DSP errors are in its own output format.
 

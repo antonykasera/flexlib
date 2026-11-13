@@ -35,10 +35,10 @@ Checked
 
 | function | cycles | CMSIS-DSP | libgcc | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|--:|
-| `fm_div_q15` | 33 | 92 | | 0.5 | 1 |
-| `fm_div_q31` | 85 | 198 | | 0.5 | 1 |
-| `fm_div_q16` | 51 | | 133 | 0.5 | |
-| `fm_recip_q16` | 27 | | 129 | 0.5 | |
+| `fm_div_q15` | {cy}`fm_div_q15` | {cy}`arm_divide_q15` |  | {acc}`divide q15; flexmath` | {acc}`divide q15; CMSIS-DSP` |
+| `fm_div_q31` | {cy}`fm_div_q31` | {cy}`arm_divide_q31` |  | {acc}`divide q31; flexmath` | {acc}`divide q31; CMSIS-DSP` |
+| `fm_div_q16` | {cy}`fm_div_q16` |  | {cy}`(int64_t)a * 65536 / b, truncating` | 0.5 |  |
+| `fm_recip_q16` | {cy}`fm_recip_q16` |  | {cy}`2^32 / (int64_t)x, truncating` | 0.5 |  |
 
 Medians over 256 inputs on an STM32F103 at 72 MHz, `-O2`, warm cache.
 CMSIS-DSP: `arm_divide_q15` and `arm_divide_q31`. libgcc: the truncating

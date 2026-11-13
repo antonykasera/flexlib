@@ -54,12 +54,12 @@ Checked
 
 | function | cycles | byte loop | ratio |
 |---|--:|--:|--:|
-| `fu_cobs_encode`, 64 B random | 329 | 996 | 3.03 |
-| `fu_cobs_encode`, 256 B random | 1234 | 3886 | 3.15 |
-| `fu_cobs_encode`, 64 B, 1/4 zeros | 858 | 1115 | 1.30 |
-| `fu_cobs_decode`, 64 B random | 342 | 906 | 2.65 |
-| `fu_cobs_decode`, 64 B, 1/4 zeros | 981 | 1177 | 1.20 |
-| `fu_cobs_rx_byte`, 64 B frame and its 0 | 2217 | | |
+| `fu_cobs_encode`, 64 B random | {cy}`fu_cobs_encode, 64 B random` | {cy}`cobs encode byte loop, 64 B random` |  |
+| `fu_cobs_encode`, 256 B random | {cy}`fu_cobs_encode, 256 B random` | {cy}`cobs encode byte loop, 256 B random` |  |
+| `fu_cobs_encode`, 64 B, 1/4 zeros | {cy}`fu_cobs_encode, 64 B 1/4 zeros` | {cy}`cobs encode byte loop, 64 B 1/4 zeros` |  |
+| `fu_cobs_decode`, 64 B random | {cy}`fu_cobs_decode, 64 B random` | {cy}`cobs decode byte loop, 64 B random` |  |
+| `fu_cobs_decode`, 64 B, 1/4 zeros | {cy}`fu_cobs_decode, 64 B 1/4 zeros` | {cy}`cobs decode byte loop, 64 B 1/4 zeros` |  |
+| `fu_cobs_rx_byte`, 64 B frame and its 0 | {cy}`fu_cobs_rx_byte, 64 B frame + 0` |  |  |
 
 Medians on an STM32F103 at 72 MHz, `-O2`. Byte loop: the usual
 one-byte-at-a-time code. Random data has few zeros; a quarter zeros is the

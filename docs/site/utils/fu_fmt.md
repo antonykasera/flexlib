@@ -76,13 +76,13 @@ Checked
 
 | function | cycles | newlib | ratio |
 | --- | --: | --: | --: |
-| `fu_fmt_u32`, 10 digits | 116 | 1024 | 8.83 |
-| `fu_fmt_u32`, log | 83 | 887 | 10.69 |
-| `fu_fmt_i32`, log | 93 | | |
-| `fu_fmt_hex32`, 8 digits | 78 | | |
-| `fu_fmt_q16`, 4 digits, log | 154 | 4281 | 27.80 |
-| `fu_fmt_f32`, 2 digits | 182 | 4285 | 23.54 |
-| `fu_snprintf`, u32 + i32 + hex | 763 | 3279 | 4.30 |
+| `fu_fmt_u32`, 10 digits | {cy}`fu_fmt_u32, 10 digits` | {cy}`snprintf %lu, 10 digits` |  |
+| `fu_fmt_u32`, log | {cy}`fu_fmt_u32, log` | {cy}`snprintf %lu, log` |  |
+| `fu_fmt_i32`, log | {cy}`fu_fmt_i32, log` |  |  |
+| `fu_fmt_hex32`, 8 digits | {cy}`fu_fmt_hex32, 8 digits` |  |  |
+| `fu_fmt_q16`, 4 digits, log | {cy}`fu_fmt_q16, %.4f, log` | {cy}`snprintf %.4f of q16, log` |  |
+| `fu_fmt_f32`, 2 digits | {cy}`fu_fmt_f32, %.2f, 2^-7..2^13` | {cy}`snprintf %.2f, 2^-7..2^13` |  |
+| `fu_snprintf`, u32 + i32 + hex | {cy}`fu_snprintf u32 + i32 + hex line` | {cy}`snprintf u32 + i32 + hex line` |  |
 
 Medians on an STM32F103 at 72 MHz, `-O2`. newlib: `snprintf` with the
 matching format. log: inputs spread evenly on a log scale; floats between

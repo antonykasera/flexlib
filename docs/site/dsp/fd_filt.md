@@ -114,14 +114,14 @@ Blocks of 64, medians on an STM32F103 at 72 MHz, `-O2`, warm cache.
 
 | function | cycles |
 |---|--:|
-| `fd_dcblock_q15` | 1064 |
-| `fd_dcblock_q31` | 2027 |
-| `fd_onepole_q15` | 796 |
-| `fd_onepole_q31` | 1404 |
-| `fd_movavg_q15`, $n = 32$ | 1264 |
-| `fd_movavg_q15`, $n = 30$ | 2429 |
-| `fd_movavg_q31`, $n = 32$ | 2309 |
-| `fd_median5`, one call | 30 |
+| `fd_dcblock_q15` | {cy}`fd_dcblock_q15, 64` |
+| `fd_dcblock_q31` | {cy}`fd_dcblock_q31, 64` |
+| `fd_onepole_q15` | {cy}`fd_onepole_q15, 64` |
+| `fd_onepole_q31` | {cy}`fd_onepole_q31, 64` |
+| `fd_movavg_q15`, $n = 32$ | {cy}`fd_movavg_q15 n = 32, 64` |
+| `fd_movavg_q15`, $n = 30$ | {cy}`fd_movavg_q15 n = 30, 64` |
+| `fd_movavg_q31`, $n = 32$ | {cy}`fd_movavg_q31 n = 32, 64` |
+| `fd_median5`, one call | {cy}`fd_median5` |
 
 ## Example
 

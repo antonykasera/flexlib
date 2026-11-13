@@ -95,23 +95,24 @@ DFT, full-scale white noise, 40 blocks.
 
 | transform | cycles | CMSIS-DSP | SNR, dB | CMSIS-DSP, dB |
 |---|--:|--:|--:|--:|
-| `fd_cfft_q15`, 256 | 32433 | 32665 | 72.4 | 60.1 |
-| `fd_cfft_q15`, 1024 | 157075 | 159716 | 68.3 | 54.0 |
-| `fd_cfft_q31`, 256 | 59677 | 36223 | 167.8 | 152.6 |
-| `fd_cfft_q31`, 1024 | 295942 | 182148 | 164.4 | 147.5 |
-| `fd_rfft_q15`, 512 | 40107 | 109341 | 69.8 | 57.1 |
-| `fd_rfft_q31`, 512 | 81801 | | 166.7 | 150.8 |
-| `fd_icfft_q15`, 256 | 33849 | | | |
-| `fd_irfft_q15`, 512 | 39724 | | | |
-| `fd_fft_db_q15`, 128 bins | 15160 | | | |
+| `fd_cfft_q15`, 256 | {cy}`fd_cfft_q15, 256` | {cy}`arm_cfft_q15, 256` | {acc}`cfft q15; flexdsp; 256; white @ snr db` | {acc}`cfft q15; CMSIS-DSP; 256; white @ snr db` |
+| `fd_cfft_q15`, 1024 | {cy}`fd_cfft_q15, 1024` | {cy}`arm_cfft_q15, 1024` | {acc}`cfft q15; flexdsp; 1024; white @ snr db` | {acc}`cfft q15; CMSIS-DSP; 1024; white @ snr db` |
+| `fd_cfft_q31`, 256 | {cy}`fd_cfft_q31, 256` | {cy}`arm_cfft_q31, 256` | {acc}`cfft q31; flexdsp; 256; white @ snr db` | {acc}`cfft q31; CMSIS-DSP; 256; white @ snr db` |
+| `fd_cfft_q31`, 1024 | {cy}`fd_cfft_q31, 1024` | {cy}`arm_cfft_q31, 1024` | {acc}`cfft q31; flexdsp; 1024; white @ snr db` | {acc}`cfft q31; CMSIS-DSP; 1024; white @ snr db` |
+| `fd_rfft_q15`, 512 | {cy}`fd_rfft_q15, 512` | {cy}`arm_rfft_q15, 512` | {acc}`rfft q15; flexdsp; 512; white @ snr db` | {acc}`rfft q15; CMSIS-DSP; 512; white @ snr db` |
+| `fd_rfft_q31`, 512 | {cy}`fd_rfft_q31, 512` |  | {acc}`rfft q31; flexdsp; 512; white @ snr db` | {acc}`rfft q31; CMSIS-DSP; 512; white @ snr db` |
+| `fd_icfft_q15`, 256 | {cy}`fd_icfft_q15, 256` |  |  |  |
+| `fd_irfft_q15`, 512 | {cy}`fd_irfft_q15, 512` |  |  |  |
+| `fd_fft_db_q15`, 128 bins | {cy}`fd_fft_db_q15, 128 bins` |  |  |  |
 
 On white noise 40 dB below full scale, `fd_cfft_q15` at 256 points keeps
-70.4 dB (CMSIS-DSP 20.1) and `fd_cfft_q31` at 1024 keeps 164.9 dB (107.5).
+{acc}`cfft q15; flexdsp; 256; white, -40 dB @ snr db` dB (CMSIS-DSP {acc}`cfft q15; CMSIS-DSP; 256; white, -40 dB @ snr db`) and `fd_cfft_q31` at 1024 keeps {acc}`cfft q31; flexdsp; 1024; white, -40 dB @ snr db` dB ({acc}`cfft q31; CMSIS-DSP; 1024; white, -40 dB @ snr db`).
 CMSIS-DSP scales by a fixed 1/4 per stage, which drops a quiet signal's low
 bits. Its q31 butterflies keep the truncated high word of each product;
 these sum each output exactly in 64 bits, which costs the cycles. The
-rounding leaves a mean error of -1.1 LSB at DC at 256 points (-1.9 at 1024);
-CMSIS-DSP's truncation, -5 and -6 in its format.
+rounding leaves a mean error of {acc}`cfft q15; flexdsp; 256 @ dc, real part` LSB at DC at 256 points
+({acc}`cfft q15; flexdsp; 1024 @ dc, real part` at 1024); CMSIS-DSP's truncation, {acc}`cfft q15; CMSIS-DSP; 256 @ dc, real part` and
+{acc}`cfft q15; CMSIS-DSP; 1024 @ dc, real part` in its format.
 
 ## Example
 

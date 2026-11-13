@@ -103,14 +103,14 @@ Blocks of 64, medians on an STM32F103 at 72 MHz, `-O2`, warm cache.
 
 | function | cycles |
 |---|--:|
-| `fd_goertzel_q15` | 1374 |
-| `fd_goertzel_q31` | 1921 |
-| `fd_nco_q15`, sin | 5303 |
-| `fd_nco_q31`, sin and cos | 7067 |
-| `fd_osc_q15`, sin | 2694 |
-| `fd_osc_q31`, sin and cos | 3925 |
+| `fd_goertzel_q15` | {cy}`fd_goertzel_q15, 64` |
+| `fd_goertzel_q31` | {cy}`fd_goertzel_q31, 64` |
+| `fd_nco_q15`, sin | {cy}`fd_nco_q15 sin, 64` |
+| `fd_nco_q31`, sin and cos | {cy}`fd_nco_q31 sin + cos, 64` |
+| `fd_osc_q15`, sin | {cy}`fd_osc_q15 sin, 64` |
+| `fd_osc_q31`, sin and cos | {cy}`fd_osc_q31 sin + cos, 64` |
 
-A 16-bit phase into {c:func}`fm_sin_q15` takes 2400 cycles for the same 64
+A 16-bit phase into {c:func}`fm_sin_q15` takes {cy}`nco q15, 16-bit phase into fm_sin_q15` cycles for the same 64
 samples, with errors to 1.6 LSB.
 
 ## Example

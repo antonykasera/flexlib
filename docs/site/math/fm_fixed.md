@@ -117,17 +117,17 @@ Checked
 
 | function | cycles | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|
-| `fm_add_q31` | 3 | exact | |
-| `fm_mul_q15` | 6 | 0.5 | 1 |
-| `fm_mul_q31` | 17 | 0.5 | 2 |
-| `fm_mul_q16` | 18 | 0.5 | |
+| `fm_add_q31` | {cy}`fm_add_q31 (inline)` | exact |  |
+| `fm_mul_q15` | {cy}`fm_mul_q15 (inline)` | {acc}`multiply q15; flexmath` | {acc}`multiply q15; CMSIS-DSP` |
+| `fm_mul_q31` | {cy}`fm_mul_q31 (inline)` | {acc}`multiply q31; flexmath` | {acc}`multiply q31; CMSIS-DSP` |
+| `fm_mul_q16` | {cy}`fm_mul_q16 (inline)` | 0.5 |  |
 
 | function | cycles | soft-float | max error |
 |---|--:|--:|--:|
-| `fm_f32_to_q15` | 33 | 47 | 0.5 LSB |
-| `fm_f32_to_q31` | 26 | 309 | 0.5 LSB |
-| `fm_q15_to_f32` | 19 | 60 | exact |
-| `fm_q31_to_f32` | 24 | 59 | 0.5 ULP |
+| `fm_f32_to_q15` | {cy}`fm_f32_to_q15` | {cy}`(q15)(x * 32768.0f), saturated` | {acc}`float to q15; flexmath` LSB |
+| `fm_f32_to_q31` | {cy}`fm_f32_to_q31` | {cy}`(q31)(x * 2^31), saturated` | 0.5 LSB |
+| `fm_q15_to_f32` | {cy}`fm_q15_to_f32` | {cy}`(float)q * 2^-15` | exact |
+| `fm_q31_to_f32` | {cy}`fm_q31_to_f32` | {cy}`(float)q * 2^-31` | {acc}`q31 to float; flexmath` ULP |
 
 Medians over 256 inputs on an STM32F103 at 72 MHz, `-O2`, warm cache.
 CMSIS-DSP: `arm_mult_q15` and `arm_mult_q31`, which truncate. soft-float: the

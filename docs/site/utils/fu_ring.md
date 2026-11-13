@@ -93,11 +93,11 @@ Checked
 
 | function | cycles | newlib | ratio |
 |---|--:|--:|--:|
-| `fu_ring_write` + `fu_ring_read`, 64 B | 392 | 933 | 2.38 |
-| `fu_ring_write` + `fu_ring_read`, 8 B | 209 | 261 | 1.25 |
-| `fu_ring_put` + `fu_ring_get` | 33 | | |
-| `fu_queue_push` + `fu_queue_pop`, 12 B | 166 | | |
-| `fu_ring_from_dma` + `fu_ring_read`, 64 B | 480 | | |
+| `fu_ring_write` + `fu_ring_read`, 64 B | {cy}`fu_ring write + read, 64 B` | {cy}`ring, newlib memcpy, 64 B` |  |
+| `fu_ring_write` + `fu_ring_read`, 8 B | {cy}`fu_ring write + read, 8 B` | {cy}`ring, newlib memcpy, 8 B` |  |
+| `fu_ring_put` + `fu_ring_get` | {cy}`fu_ring_put + fu_ring_get (inline)` |  |  |
+| `fu_queue_push` + `fu_queue_pop`, 12 B | {cy}`fu_queue push + pop, 12 B` |  |  |
+| `fu_ring_from_dma` + `fu_ring_read`, 64 B | {cy}`fu_ring_from_dma + read, 64 B` |  |  |
 
 Medians on an STM32F103 at 72 MHz, `-O2`. newlib: the same ring copying
 with newlib-nano's `memcpy`, which moves one byte at a time.

@@ -97,22 +97,23 @@ Medians on an STM32F103 at 72 MHz, `-O2`, warm cache.
 
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
-| `fd_conv_q15`, 64 x 64 | 20270 | 123619 | 0.5 | 1 |
-| `fd_conv_q15`, 256 x 32 | 32765 | 516899 | 0.5 | 1 |
-| `fd_conv_q15`, 64 x 64, both full scale | 46388 | | 0.5 | |
-| `fd_conv_q31`, 64 x 64 | 47073 | 49642 | 0.5 | 1 |
-| `fd_corr_q15`, 256 x 256, all lags | 614396 | 1738429 | 0.5 | 1 |
-| `fd_corr_q15`, 256 x 256, lags 0 to 31 | 70614 | | 0.5 | |
-| `fd_corr_q15`, the same on 12-bit data | 32637 | | 0.5 | |
-| `fd_corr_q31`, 64 x 64, all lags | 46647 | 51009 | 0.5 | |
-| `fd_corr_fft_q15`, 256 x 256 in 512 | 131431 | | 41 dB SNR | |
-| `fd_autocorr_q15`, 256, 16 lags | 38605 | | 0.5 | |
-| `fd_autocorr_q15`, the same on 12-bit data | 16850 | | exact | |
-| `fd_autocorr_q31`, 128, 16 lags | 44395 | | 0.5 | |
-| `fd_peak_q15`, 128 | 1325 | | 0.5 (Q16.16) | |
-| `fd_levinson_q31`, order 10 | 4909 | 3779 | 7.7 | 82 |
+| `fd_conv_q15`, 64 x 64 | {cy}`fd_conv_q15, 64 x 64` | {cy}`arm_conv_q15, 64 x 64` | {acc}`conv q15, 64 x 64; flexdsp` | {acc}`conv q15, 64 x 64; CMSIS-DSP` |
+| `fd_conv_q15`, 256 x 32 | {cy}`fd_conv_q15, 256 x 32` | {cy}`arm_conv_q15, 256 x 32` | 0.5 | 1 |
+| `fd_conv_q15`, 64 x 64, both full scale | {cy}`fd_conv_q15, 64 x 64, both full scale (64-bit)` |  | 0.5 |  |
+| `fd_conv_q31`, 64 x 64 | {cy}`fd_conv_q31, 64 x 64` | {cy}`arm_conv_q31, 64 x 64` | {acc}`conv q31, 64 x 64; flexdsp` | {acc}`conv q31, 64 x 64; CMSIS-DSP` |
+| `fd_corr_q15`, 256 x 256, all lags | {cy}`fd_corr_q15, 256 x 256, all lags` | {cy}`arm_correlate_q15, 256 x 256` | 0.5 | 1 |
+| `fd_corr_q15`, 256 x 256, lags 0 to 31 | {cy}`fd_corr_q15, 256 x 256, lags 0..31` |  | 0.5 |  |
+| `fd_corr_q15`, the same on 12-bit data | {cy}`fd_corr_q15, 256 x 256, lags 0..31, 12-bit data` |  | 0.5 |  |
+| `fd_corr_q31`, 64 x 64, all lags | {cy}`fd_corr_q31, 64 x 64, all lags` | {cy}`arm_correlate_q31, 64 x 64` | 0.5 |  |
+| `fd_corr_fft_q15`, 256 x 256 in 512 | {cy}`fd_corr_fft_q15, 256 x 256 in 512` |  | {acc}`correlate q15 through FFT, 256 x 256 in 512; flexdsp @ worst pair dB` dB SNR |  |
+| `fd_autocorr_q15`, 256, 16 lags | {cy}`fd_autocorr_q15, 256, 16 lags` |  | 0.5 |  |
+| `fd_autocorr_q15`, the same on 12-bit data | {cy}`fd_autocorr_q15, 256, 16 lags, 12-bit data` |  | exact |  |
+| `fd_autocorr_q31`, 128, 16 lags | {cy}`fd_autocorr_q31, 128, 16 lags` |  | 0.5 |  |
+| `fd_peak_q15`, 128 | {cy}`fd_peak_q15, 128` |  | 0.5 (Q16.16) |  |
+| `fd_levinson_q31`, order 10 | {cy}`fd_levinson_q31, order 10` | {cy}`arm_levinson_durbin_q31, order 10` | {acc}`Levinson q31, order 10; flexdsp` | {acc}`Levinson q31, order 10; CMSIS-DSP` |
 
-`arm_conv_fast_q15` takes 42252 cycles for 64 x 64 (1 LSB). Levinson errors
+`arm_conv_fast_q15` takes {cy}`arm_conv_fast_q15, 64 x 64` cycles for 64 x 64
+({acc}`conv q15, 64 x 64 (fast); CMSIS-DSP` LSB). Levinson errors
 are against a `double` recursion on the same autocorrelation, 2000 AR(2)
 blocks of 1024 samples with poles from 0.3 to 0.7, in LSB of q31;
 CMSIS-DSP rounds every product and divides through a q15 reciprocal.

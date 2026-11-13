@@ -100,23 +100,24 @@ noise through a 4th-order Butterworth at 0.01 cycles per sample.
 
 | function | cycles | CMSIS-DSP | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|
-| `fd_biquad_q15` | 6120 | 13291 | 96 | 355 |
-| `fd_biquad_q15`, $sum \|c\| >= 4$ | 8336 | | | |
-| `fd_biquad_q31` | 14200 | 11883 | 80 | 349 |
-| `fd_biquad_q31`, error feedback | 18052 | 25739 | 5 | 1.7 |
+| `fd_biquad_q15` | {cy}`fd_biquad_q15, 4 sections x 64` | {cy}`arm_biquad_cascade_df1_q15, 4 x 64` | {acc}`biquad q15, Butterworth 4, fc 0.01; flexdsp` | {acc}`biquad q15, Butterworth 4, fc 0.01; CMSIS-DSP` |
+| `fd_biquad_q15`, $sum \|c\| >= 4$ | {cy}`fd_biquad_q15, sum of c >= 4 (64-bit)` | | | |
+| `fd_biquad_q31` | {cy}`fd_biquad_q31, 4 sections x 64` | {cy}`arm_biquad_cascade_df1_q31, 4 x 64` | {acc}`biquad q31, Butterworth 4, fc 0.01; flexdsp` | {acc}`biquad q31, Butterworth 4, fc 0.01; CMSIS-DSP` |
+| `fd_biquad_q31`, error feedback | {cy}`fd_biquad_q31 error feedback, 4 x 64` | {cy}`arm_biquad_cas_df1_32x64_q31, 4 x 64` | {acc}`biquad q31, Butterworth 4, fc 0.01; flexdsp error feedback` | {acc}`biquad q31, Butterworth 4, fc 0.01; CMSIS-DSP 32x64` |
 
 CMSIS-DSP: `arm_biquad_cascade_df1_q15` and `_q31`; error feedback against
 `arm_biquad_cas_df1_32x64_q31`, which keeps 64-bit state. The `fast` forms
-take 8778 (q15) and 16631 (q31) cycles. At a corner of 5 10^-4 the plain q31
-cascade reaches 8170 LSB and error feedback 115; CMSIS-DSP q31 110000, its
-32x64 form 1.6.
+take {cy}`arm_biquad_cascade_df1_fast_q15, 4 x 64` (q15) and {cy}`arm_biquad_cascade_df1_fast_q31, 4 x 64` (q31) cycles. At a corner of 5 10^-4 the plain q31
+cascade reaches {acc}`biquad q31, Butterworth 4, fc 5e-4; flexdsp` LSB and error feedback
+{acc}`biquad q31, Butterworth 4, fc 5e-4; flexdsp error feedback`; CMSIS-DSP q31 {acc}`biquad q31, Butterworth 4, fc 5e-4; CMSIS-DSP`, its 32x64 form
+{acc}`biquad q31, Butterworth 4, fc 5e-4; CMSIS-DSP 32x64`.
 
 A 48 kHz EQ of four sections (low shelf, two peaks, high shelf), blocks of 64:
 
 | bshift | q15 | q31 | q31, error feedback |
 |---|--:|--:|--:|
-| 0 | 8070 | 16815 | 17831 |
-| 1 (a +12 dB high shelf) | 9908 | 22818 | |
+| 0 | {cy}`fd_biquad_q15, 48 kHz EQ, 4 x 64` | {cy}`fd_biquad_q31, 48 kHz EQ, 4 x 64` | {cy}`fd_biquad_q31 error feedback, 48 kHz EQ, 4 x 64` |
+| 1 (a +12 dB high shelf) | {cy}`fd_biquad_q15, 48 kHz EQ, bshift 1, 4 x 64` | {cy}`fd_biquad_q31, 48 kHz EQ, bshift 1, 4 x 64` |  |
 
 ## Example
 

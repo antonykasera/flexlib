@@ -73,11 +73,11 @@ Checked
 
 | function | cycles | max error, LSB |
 |---|--:|--:|
-| `fd_window_q15`, Hann | 23464 | 0.5 |
-| `fd_window_q31`, Blackman-Harris | 54203 | 2.74 |
-| `fd_window_kaiser_q15`, beta 8 | 750638 | 0.52 |
+| `fd_window_q15`, Hann | {cy}`fd_window_q15 Hann, 256` | 0.5 |
+| `fd_window_q31`, Blackman-Harris | {cy}`fd_window_q31 Blackman-Harris, 256` | 2.74 |
+| `fd_window_kaiser_q15`, beta 8 | {cy}`fd_window_kaiser_q15 beta 8, 256` | 0.52 |
 
-CMSIS-DSP's `arm_hanning_f32` takes 396495 cycles for the same 256 points on
+CMSIS-DSP's `arm_hanning_f32` takes {cy}`arm_hanning_f32, 256` cycles for the same 256 points on
 the soft-float build.
 
 ## Example

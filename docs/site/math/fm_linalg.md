@@ -92,22 +92,24 @@ matrices in $[-1/4, 1/4)$ and 100000 random float matrices.
 
 | function | cycles | plain C | CMSIS-DSP | max error | CMSIS-DSP |
 |---|--:|--:|--:|--:|--:|
-| `fm_dot3_q31` | 66 | | | 0.5 LSB | |
-| `fm_cross3_q31` | 131 | | | 0.5 LSB | |
-| `fm_mat3_vec_q31` | 189 | | | 0.5 LSB | |
-| `fm_mat3_mul_q31` | 458 | | | 0.5 LSB | |
-| `fm_mat4_vec_q31` | 283 | | | 0.5 LSB | |
-| `fm_mat4_mul_q31` | 992 | | 1309 | 0.5 LSB | 1 LSB |
-| `fm_dot3_f32` | 207 | 264 | | 0.5 ULP | |
-| `fm_cross3_f32` | 425 | 461 | | 0.5 ULP | |
-| `fm_mat3_vec_f32` | 591 | | | 0.5 ULP | |
-| `fm_mat3_mul_f32` | 1428 | 2695 | | 0.5 ULP | |
-| `fm_mat4_vec_f32` | 982 | | | 0.5 ULP | |
-| `fm_mat4_mul_f32` | 2986 | 6411 | 6445 | 0.5 ULP | 8.05 10^5 ULP |
+| `fm_dot3_q31` | {cy}`fm_dot3_q31` |  |  | 0.5 LSB |  |
+| `fm_cross3_q31` | {cy}`fm_cross3_q31` |  |  | 0.5 LSB |  |
+| `fm_mat3_vec_q31` | {cy}`fm_mat3_vec_q31` |  |  | 0.5 LSB |  |
+| `fm_mat3_mul_q31` | {cy}`fm_mat3_mul_q31` |  |  | 0.5 LSB |  |
+| `fm_mat4_vec_q31` | {cy}`fm_mat4_vec_q31` |  |  | 0.5 LSB |  |
+| `fm_mat4_mul_q31` | {cy}`fm_mat4_mul_q31` |  | {cy}`arm_mat_mult_q31, 4x4` | {acc}`4x4 multiply q31; flexmath` LSB | {acc}`4x4 multiply q31; CMSIS-DSP` LSB |
+| `fm_dot3_f32` | {cy}`fm_dot3_f32` | {cy}`dot3, float loop` |  | 0.5 ULP |  |
+| `fm_cross3_f32` | {cy}`fm_cross3_f32` | {cy}`cross3, float` |  | 0.5 ULP |  |
+| `fm_mat3_vec_f32` | {cy}`fm_mat3_vec_f32` |  |  | 0.5 ULP |  |
+| `fm_mat3_mul_f32` | {cy}`fm_mat3_mul_f32` | {cy}`mat3 mul, float loop` |  | 0.5 ULP |  |
+| `fm_mat4_vec_f32` | {cy}`fm_mat4_vec_f32` |  |  | 0.5 ULP |  |
+| `fm_mat4_mul_f32` | {cy}`fm_mat4_mul_f32` | {cy}`mat4 mul, float loop` | {cy}`arm_mat_mult_f32, 4x4` | {acc}`4x4 multiply f32; flexmath; 100000 random matrices` ULP | {acc}`4x4 multiply f32; CMSIS-DSP; 100000 random matrices` ULP |
 
 CMSIS-DSP: `arm_mat_mult_q31`, which wraps past full scale, and
 `arm_mat_mult_f32`. With row 0 and column 0 nearly cancelling,
-`arm_mat_mult_f32` reaches 6.9 10^10 ULP; `fm_mat4_mul_f32` stays at 0.5.
+`arm_mat_mult_f32` reaches
+{acc}`4x4 multiply f32; CMSIS-DSP; 100000 with row 0 . column 0 nearly cancelling` ULP; `fm_mat4_mul_f32` stays at
+{acc}`4x4 multiply f32; flexmath; 100000 with row 0 . column 0 nearly cancelling`.
 
 ## Example
 

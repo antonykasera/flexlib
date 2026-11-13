@@ -89,25 +89,26 @@ the exhaustive run's.
 
 | function | cycles | newlib | max error, ULP |
 |---|--:|--:|--:|
-| `fm_sqrtf` | 63 | 595 | correctly rounded |
-| `fm_recipf` | 41 | `1.0f / x` 150 | correctly rounded |
-| `fm_rsqrtf` | 65 | `1.0f / sqrtf(x)` 746 | correctly rounded |
-| `fm_sinf` | 139 | 1348 | 0.5092 |
-| `fm_cosf` | 140 | 1220 | 0.5135 |
-| `fm_sincosf` | 204 | | 0.5135 |
-| `fm_atan2f` | 193 | 1839 | 0.5385 |
-| `fm_asinf` | 267 | 1342 | 0.5412 |
-| `fm_acosf` | 276 | 1463 | 0.5407 |
-| `fm_log2f` | 107 | 1701 | 0.5061 |
-| `fm_logf` | 121 | 1540 | 0.5078 |
-| `fm_exp2f` | 87 | 3546 | 0.5026 |
-| `fm_expf` | 112 | 1292 | 0.5028 |
+| `fm_sqrtf` | {cy}`fm_sqrtf` | {cy}`sqrtf, same inputs` | correctly rounded |
+| `fm_recipf` | {cy}`fm_recipf` | `1.0f / x` {cy}`1.0f / x` | correctly rounded |
+| `fm_rsqrtf` | {cy}`fm_rsqrtf` | `1.0f / sqrtf(x)` {cy}`1.0f / sqrtf(x)` | correctly rounded |
+| `fm_sinf` | {cy}`fm_sinf` | {cy}`sinf` | 0.5092 |
+| `fm_cosf` | {cy}`fm_cosf` | {cy}`cosf` | 0.5135 |
+| `fm_sincosf` | {cy}`fm_sincosf` |  | 0.5135 |
+| `fm_atan2f` | {cy}`fm_atan2f` | {cy}`atan2f` | 0.5385 |
+| `fm_asinf` | {cy}`fm_asinf` | {cy}`asinf` | 0.5412 |
+| `fm_acosf` | {cy}`fm_acosf` | {cy}`acosf` | 0.5407 |
+| `fm_log2f` | {cy}`fm_log2f` | {cy}`log2f, same inputs` | 0.5061 |
+| `fm_logf` | {cy}`fm_logf` | {cy}`logf, same inputs` | 0.5078 |
+| `fm_exp2f` | {cy}`fm_exp2f` | {cy}`exp2f, same inputs` | 0.5026 |
+| `fm_expf` | {cy}`fm_expf` | {cy}`expf, same inputs` | 0.5028 |
 
-For $pi/4 <= |x| <= 2^22$, {c:func}`fm_sinf` takes 150 cycles and newlib's
-`sinf` 15320. CMSIS-DSP's `arm_sin_f32` takes 573 cycles and reaches
-1.27 10^7 ULP on $[-pi, pi]$; `arm_atan2_f32` takes 1461 and reaches
-5.18 ULP. With the flash cache flushed before each call, {c:func}`fm_sinf`
-takes 1583 cycles and newlib's `sinf` 5512.
+For $pi/4 <= |x| <= 2^22$, {c:func}`fm_sinf` takes {cy}`fm_sinf, |x| pi/4 .. 2^22` cycles and
+newlib's `sinf` {cy}`sinf, |x| pi/4 .. 2^22`. CMSIS-DSP's `arm_sin_f32` takes {cy}`arm_sin_f32` cycles and reaches
+{acc}`sinf; CMSIS-DSP; 10^7 random, x in [-pi, pi]` ULP on $[-pi, pi]$; `arm_atan2_f32` takes {cy}`arm_atan2_f32` and reaches
+{acc}`atan2f; CMSIS-DSP; 10^7 random pairs in [-1, 1]` ULP. With the flash cache flushed before each call, {c:func}`fm_sinf`
+takes {cy}`fm_sinf @ cold` cycles and newlib's `sinf`
+{cy}`sinf @ cold`.
 
 ## Example
 

@@ -90,14 +90,14 @@ Checked
 
 | function | cycles | libgcc | ratio |
 |---|--:|--:|--:|
-| `fu_popcount` | 13 | 17 | 1.31 |
-| `fu_clz64`, high half 0 | 9 | | |
-| `fu_clz64`, high half not 0 | 3 | | |
-| `fu_ctz64`, low half 0 | 11 | | |
-| `fu_load_be32`, aligned | 4 | | |
-| `fu_load_be32`, address + 1 | 6 | | |
-| `fu_sext`, constant width | 2 | | |
-| `fu_sext`, variable width | 7 | | |
+| `fu_popcount` | {cy}`fu_popcount` | {cy}`popcount __builtin` |  |
+| `fu_clz64`, high half 0 | {cy}`fu_clz64, half hi = 0` |  |  |
+| `fu_clz64`, high half not 0 | {cy}`fu_clz64, hi != 0` |  |  |
+| `fu_ctz64`, low half 0 | {cy}`fu_ctz64, half lo = 0` |  |  |
+| `fu_load_be32`, aligned | {cy}`fu_load_be32, aligned` |  |  |
+| `fu_load_be32`, address + 1 | {cy}`fu_load_be32, +1` |  |  |
+| `fu_sext`, constant width | {cy}`fu_sext(x, 12)` |  |  |
+| `fu_sext`, variable width | {cy}`fu_sext(x, n)` |  |  |
 
 Medians on an STM32F103 at 72 MHz, `-O2`, inlined. libgcc:
 `__builtin_popcount`. `fu_clz`, `fu_ctz`, `fu_rbit` and `fu_bswap32` are one

@@ -43,12 +43,12 @@ Checked
 
 | function | cycles | CMSIS-DSP | soft-float | max error, LSB | CMSIS-DSP, LSB |
 |---|--:|--:|--:|--:|--:|
-| `fm_isqrt32` | 33 | | 643 | exact | |
-| `fm_isqrt64` | 39 | | | exact | |
-| `fm_sqrt_q15` | 42 | 65 | | 0.5 | 7.15 |
-| `fm_sqrt_q31` | 101 | 122 | | 0.5 | 9 |
-| `fm_sqrt_q16` | 100 | | 699 | 0.5 | |
-| `fm_rsqrt_q16` | 115 | | 823 | 0.5 | |
+| `fm_isqrt32` | {cy}`fm_isqrt32` |  | {cy}`(uint32_t)sqrtf((float)x)` | exact |  |
+| `fm_isqrt64` | {cy}`fm_isqrt64` |  |  | exact |  |
+| `fm_sqrt_q15` | {cy}`fm_sqrt_q15` | {cy}`arm_sqrt_q15` |  | {acc}`sqrt q15; flexmath` | {acc}`sqrt q15; CMSIS-DSP` |
+| `fm_sqrt_q31` | {cy}`fm_sqrt_q31` | {cy}`arm_sqrt_q31` |  | {acc}`sqrt q31; flexmath` | {acc}`sqrt q31; CMSIS-DSP` |
+| `fm_sqrt_q16` | {cy}`fm_sqrt_q16` |  | {cy}`sqrtf on Q16.16 via float` | 0.5 |  |
+| `fm_rsqrt_q16` | {cy}`fm_rsqrt_q16` |  | {cy}`1/sqrtf on Q16.16 via float` | 0.5 |  |
 
 Medians over 256 inputs on an STM32F103 at 72 MHz, `-O2`, warm cache.
 soft-float: conversion to `float`, newlib's `sqrtf` (and a divide for

@@ -46,11 +46,11 @@ Blocks of 64, medians on an STM32F103 at 72 MHz, `-O2`, warm cache.
 
 | function | cycles |
 |---|--:|
-| `fd_noise_uniform_q15` | 631 |
-| `fd_noise_gauss_q15` | 14112 |
-| `fd_noise_tpdf_q15` | 1203 |
+| `fd_noise_uniform_q15` | {cy}`fd_noise_uniform_q15, 64` |
+| `fd_noise_gauss_q15` | {cy}`fd_noise_gauss_q15 (Box-Muller), 64` |
+| `fd_noise_tpdf_q15` | {cy}`fd_noise_tpdf_q15, 64` |
 
-A sum of 12 uniforms takes 7760 cycles for 64 Gaussian samples but cuts the
+A sum of 12 uniforms takes {cy}`gauss q15, sum of 12 uniforms` cycles for 64 Gaussian samples but cuts the
 tails at 6 sigma.
 
 ## Example

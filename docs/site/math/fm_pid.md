@@ -64,8 +64,8 @@ Medians on an STM32F103 at 72 MHz, `-O2`, warm cache.
 
 | function | cycles | plain C | CMSIS-DSP |
 |---|--:|--:|--:|
-| `fm_pid_q16` | 171 | | 39 |
-| `fm_pid_f32` | 501 | 695 | 192 |
+| `fm_pid_q16` | {cy}`fm_pid_q16` |  | {cy}`arm_pid_q31 (no clamps, no anti-windup)` |
+| `fm_pid_f32` | {cy}`fm_pid_f32` | {cy}`pid f32, the same in plain float` | {cy}`arm_pid_f32 (no clamps, no anti-windup)` |
 
 CMSIS-DSP's `arm_pid_q31` and `arm_pid_f32` are the velocity form with no
 output limits, no anti-windup and the derivative on the error: a smaller

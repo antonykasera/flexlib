@@ -51,11 +51,11 @@ Checked
 
 | function | cycles | newlib | ratio |
 | --- | --: | --: | --: |
-| `fu_parse_u32`, 10 digits | 153 | 327 | 2.14 |
-| `fu_parse_u32`, log | 111 | 217 | 1.95 |
-| `fu_parse_i32`, log | 133 | 228 | 1.71 |
-| `fu_parse_hex32`, 8 digits | 196 | 314 | 1.60 |
-| `fu_parse_q16`, 4 decimals | 275 | 1332 | 4.84 |
+| `fu_parse_u32`, 10 digits | {cy}`fu_parse_u32, 10 digits` | {cy}`strtoul, 10 digits` |  |
+| `fu_parse_u32`, log | {cy}`fu_parse_u32, log` | {cy}`strtoul, log` |  |
+| `fu_parse_i32`, log | {cy}`fu_parse_i32, log` | {cy}`strtol, log` |  |
+| `fu_parse_hex32`, 8 digits | {cy}`fu_parse_hex32, 8 digits` | {cy}`strtoul base 16, 8 digits` |  |
+| `fu_parse_q16`, 4 decimals | {cy}`fu_parse_q16, 4 decimals` | {cy}`strtod * 65536 + lrint, 4 decimals` |  |
 
 Medians on an STM32F103 at 72 MHz, `-O2`. newlib: `strtoul`, `strtol`,
 `strtoul` base 16; for Q16.16, `strtod`, then `* 65536` and `lrint`. log:
