@@ -41,7 +41,7 @@ size_t fu_fmt_i32(char *buf, int32_t v);
 /**
  * v in hex, no prefix.
  *
- * @param buf        FU_FMT_HEX32_SIZE bytes
+ * @param buf        `FU_FMT_HEX32_SIZE` bytes
  * @param v          value
  * @param min_digits pad with zeros to this many digits, 0 to 8
  * @param upper      `A-F` rather than `a-f`
@@ -52,9 +52,9 @@ size_t fu_fmt_hex32(char *buf, uint32_t v, uint32_t min_digits, bool upper);
  * A Q16.16 value exactly as `printf("%.*f", frac_digits, v / 65536.0)`
  * prints it.
  *
- * @param buf         FU_FMT_Q16_SIZE bytes
+ * @param buf         `FU_FMT_Q16_SIZE` bytes
  * @param v           Q16.16
- * @param frac_digits 0 to FU_FMT_FRAC_MAX
+ * @param frac_digits 0 to `FU_FMT_FRAC_MAX`
  */
 size_t fu_fmt_q16(char *buf, int32_t v, uint32_t frac_digits);
 
@@ -62,22 +62,22 @@ size_t fu_fmt_q16(char *buf, int32_t v, uint32_t frac_digits);
  * x exactly as `printf("%.*f", frac_digits, (double)x)` prints it, except
  * that every NaN prints `nan`.
  *
- * @param buf         FU_FMT_F32_SIZE bytes
+ * @param buf         `FU_FMT_F32_SIZE` bytes
  * @param x           any float
- * @param frac_digits 0 to FU_FMT_FRAC_MAX
+ * @param frac_digits 0 to `FU_FMT_FRAC_MAX`
  */
 size_t fu_fmt_f32(char *buf, float x, uint32_t frac_digits);
 
 /**
  * A small snprintf; an unknown conversion asserts.
  *
- * ```
+ * ```text
  * conversions  %d %i %u %x %X %c %s %%, and %q for Q16.16
  * flags        - 0, width, *, l
  * precision    %s; %q fraction digits, 4 by default, 9 at most
  * ```
  *
- * @param buf  size bytes; may be NULL when size is 0
+ * @param buf  size bytes; may be `NULL` when size is 0
  * @param size the text is cut to size - 1 bytes and NUL-terminated
  * @param fmt  format
  * @return the full length, as if buf were large enough

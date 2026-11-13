@@ -2,6 +2,9 @@
  * @file fm_trig.h
  * @brief Sine and cosine of binary angles in Q15 and Q31
  *
+ * A full turn is 2^16 for the Q15 functions and 2^32 for Q31, so angle sums
+ * wrap the way angles do. A result of 1 saturates to the largest value.
+ *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -11,18 +14,22 @@
 
 #include "fm_fixed.h"
 
-/* angle: a turn is 2^16 (q15) or 2^32 (q31); within 0.66 LSB */
+/** sin, within 0.66 LSB. */
 fm_q15 fm_sin_q15(uint16_t angle);
+/** cos, within 0.66 LSB. */
 fm_q15 fm_cos_q15(uint16_t angle);
 
+/** fm_sin_q15() and fm_cos_q15() single call. */
 FX_INLINE void fm_sincos_q15(uint16_t angle, fm_q15 *s, fm_q15 *c) {
   *s = fm_sin_q15(angle);
   *c = fm_cos_q15(angle);
 }
 
-/* within 1.11 LSB */
+/** sin, within 1.11 LSB. */
 fm_q31 fm_sin_q31(uint32_t angle);
+/** cos, within 1.11 LSB. */
 fm_q31 fm_cos_q31(uint32_t angle);
+/** fm_sin_q31() and fm_cos_q31() single call, the same bits. */
 void fm_sincos_q31(uint32_t angle, fm_q31 *s, fm_q31 *c);
 
 #endif /* FM_TRIG_H */

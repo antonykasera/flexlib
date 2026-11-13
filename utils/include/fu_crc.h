@@ -4,7 +4,7 @@
  *
  * Each function takes the running CRC: the matching `_INIT` value for the
  * first piece of a message, the previous result for the rest. `data` may be
- * NULL when `len` is 0. `FU_CRC_SMALL` selects 16-entry tables.
+ * `NULL` when `len` is 0. `FU_CRC_SMALL` selects 16-entry tables.
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0
