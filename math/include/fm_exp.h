@@ -41,8 +41,9 @@ fm_q16 fm_exp_q16(fm_q16 x);
 
 /** @} */
 
-/** x^y, within 0.65 LSB + |y| 2^-32. y = 0 gives 1, 0^0 included; otherwise
- * x < 0 gives 0, and 0^y gives 0, or `INT32_MAX` for y < 0. */
+/** x^y, within 0.65 LSB plus |y| 2^-32 of the result. y = 0 gives 1, 0^0
+ * included; otherwise x < 0 gives 0, and 0^y gives 0, or `INT32_MAX` for
+ * y < 0. */
 fm_q16 fm_pow_q16(fm_q16 x, fm_q16 y);
 
 #endif /* FM_EXP_H */
