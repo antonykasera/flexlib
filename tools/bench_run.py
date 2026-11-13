@@ -70,7 +70,8 @@ def main():
     start = buf.find(BEGIN)
     if start < 0:
         sys.exit(f"bench_run: '{END}' without '{BEGIN}'")
-    block = buf[start:buf.find(END, start) + len(END)].replace("\r", "")
+    block = escape_pipes(buf[start:buf.find(END, start) + len(END)]
+                         .replace("\r", ""))
 
     today = datetime.date.today().isoformat()
     with open(args.out, "a" if args.append else "w") as f:
@@ -85,6 +86,23 @@ def main():
 
     if "**FAIL**" in block:
         sys.exit("bench_run: golden mismatch, see the table")
+
+
+def escape_pipes(block):
+    """A case name with | in it (|x|) as \\| so the row keeps its columns."""
+    out, width = [], None
+    for line in block.split("\n"):
+        if not line.startswith("|"):
+            width = None
+        else:
+            cells = line[1:-1].split("|")
+            if width is None:
+                width = len(cells)
+            elif len(cells) > width:
+                k = len(cells) - width + 1
+                line = "|" + "\\|".join(cells[:k]) + "|" + "|".join(cells[k:]) + "|"
+        out.append(line)
+    return "\n".join(out)
 
 
 if __name__ == "__main__":
