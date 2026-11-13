@@ -25,7 +25,8 @@ copyright = "2026 Antony Kasera"
 
 extensions = ["breathe", "myst_parser", "sphinx_design", "sphinx_copybutton",
               "flexlib_site"]
-exclude_patterns = ["examples", "_ext"]
+exclude_patterns = ["examples", "_ext", "get-started.md", "results.md",
+                    "design.md", "dsp"]
 myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "attrs_inline"]
 myst_heading_anchors = 3
 

@@ -22,6 +22,31 @@ Range
 Asserts
 : `out` is NULL, or `s` is NULL while `len` is not 0.
 
+Checked
+: - Every 32-bit value printed by `fu_fmt` and read back: u32, i32, hex and
+    Q16.16.
+  - `fu_parse_q16` against an exact decimal reference, and on every exact
+    midpoint between two Q16.16 values.
+  - Edge cases: empty input, a sign alone, overflow by one, trailing text with
+    and without `used`.
+
+## API
+
+```{doxygenenum} FU_ParseStatus
+```
+
+```{doxygenfunction} fu_parse_u32
+```
+
+```{doxygenfunction} fu_parse_i32
+```
+
+```{doxygenfunction} fu_parse_hex32
+```
+
+```{doxygenfunction} fu_parse_q16
+```
+
 ## Numbers
 
 | function | cycles | newlib | ratio |
@@ -41,29 +66,3 @@ inputs spread evenly on a log scale.
 ```{literalinclude} ../examples/fu_parse.c
 :language: c
 ```
-
-## API
-
-```{doxygenenum} FU_ParseStatus
-```
-
-```{doxygenfunction} fu_parse_u32
-```
-
-```{doxygenfunction} fu_parse_i32
-```
-
-```{doxygenfunction} fu_parse_hex32
-```
-
-```{doxygenfunction} fu_parse_q16
-```
-
-## Verification
-
-- Every 32-bit value printed by `fu_fmt` and read back: u32, i32, hex and
-  Q16.16.
-- `fu_parse_q16` against an exact decimal reference, and on every exact
-  midpoint between two Q16.16 values.
-- Edge cases: empty input, a sign alone, overflow by one, trailing text with
-  and without `used`.

@@ -18,21 +18,9 @@ One input
 Asserts
 : `samples` is 0.
 
-## Numbers
-
-| function | cycles |
-|---|--:|
-| `fu_debounce32`, 32 inputs | 20 |
-| `fu_debounce`, 1 input | 18 |
-
-Medians per tick on an STM32F103 at 72 MHz, `-O2`, inlined. 16 inputs
-through `fu_debounce` take 379.
-
-## Example
-
-```{literalinclude} ../examples/fu_debounce.c
-:language: c
-```
+Checked
+: - Both against reference counters on inputs that bounce after each change.
+  - A glitch shorter than `samples` never changes a settled input.
 
 ## API
 
@@ -56,7 +44,18 @@ through `fu_debounce` take 379.
 ```{doxygenfunction} fu_debounce32
 ```
 
-## Verification
+## Numbers
 
-- Both against reference counters on inputs that bounce after each change.
-- A glitch shorter than `samples` never changes a settled input.
+| function | cycles |
+|---|--:|
+| `fu_debounce32`, 32 inputs | 20 |
+| `fu_debounce`, 1 input | 18 |
+
+Medians per tick on an STM32F103 at 72 MHz, `-O2`, inlined. 16 inputs
+through `fu_debounce` take 379.
+
+## Example
+
+```{literalinclude} ../examples/fu_debounce.c
+:language: c
+```

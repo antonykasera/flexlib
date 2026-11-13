@@ -15,28 +15,12 @@ Alignment
 Asserts
 : `fu_sext` with `bits` outside 1 to 32.
 
-## Numbers
-
-| function | cycles | libgcc | ratio |
-|---|--:|--:|--:|
-| `fu_popcount` | 13 | 17 | 1.31 |
-| `fu_clz64`, high half 0 | 9 | | |
-| `fu_clz64`, high half not 0 | 3 | | |
-| `fu_ctz64`, low half 0 | 11 | | |
-| `fu_load_be32`, aligned | 4 | | |
-| `fu_load_be32`, address + 1 | 6 | | |
-| `fu_sext`, constant width | 2 | | |
-| `fu_sext`, variable width | 7 | | |
-
-Medians on an STM32F103 at 72 MHz, `-O2`, inlined. libgcc:
-`__builtin_popcount`. `fu_clz`, `fu_ctz`, `fu_rbit` and `fu_bswap32` are one
-instruction each.
-
-## Example
-
-```{literalinclude} ../examples/fu_bits.c
-:language: c
-```
+Checked
+: - Counts at 0, all ones and every single bit, then random inputs, against
+    plain loops.
+  - Loads and stores at offsets 0 to 7 against byte-by-byte references.
+  - `fu_sext` on every 12-bit value, then 100000 random values at random
+    widths from 1 to 32, against a reference.
 
 ## API
 
@@ -102,10 +86,25 @@ instruction each.
 ```{doxygenfunction} fu_sext
 ```
 
-## Verification
+## Numbers
 
-- Counts at 0, all ones and every single bit, then random inputs, against
-  plain loops.
-- Loads and stores at offsets 0 to 7 against byte-by-byte references.
-- `fu_sext` on every 12-bit value, then 100000 random values at random
-  widths from 1 to 32, against a reference.
+| function | cycles | libgcc | ratio |
+|---|--:|--:|--:|
+| `fu_popcount` | 13 | 17 | 1.31 |
+| `fu_clz64`, high half 0 | 9 | | |
+| `fu_clz64`, high half not 0 | 3 | | |
+| `fu_ctz64`, low half 0 | 11 | | |
+| `fu_load_be32`, aligned | 4 | | |
+| `fu_load_be32`, address + 1 | 6 | | |
+| `fu_sext`, constant width | 2 | | |
+| `fu_sext`, variable width | 7 | | |
+
+Medians on an STM32F103 at 72 MHz, `-O2`, inlined. libgcc:
+`__builtin_popcount`. `fu_clz`, `fu_ctz`, `fu_rbit` and `fu_bswap32` are one
+instruction each.
+
+## Example
+
+```{literalinclude} ../examples/fu_bits.c
+:language: c
+```

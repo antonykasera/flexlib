@@ -1,53 +1,46 @@
 # flexlib
 
-Compute libraries for Cortex-M. Every function states its error bound and
-its cycle count, measured on an STM32F103.
+C11 libraries for Cortex-M, without allocation or dependencies. Each
+function's header states its error bound; the module pages give cycle counts
+measured on an STM32F103 (Cortex-M3, 72 MHz) next to newlib and CMSIS-DSP.
 
-::::{grid} 1 1 3 3
-:gutter: 3
+| library | prefix | contents |
+|---|---|---|
+| [flexutils](utils/index.md) | `fu_` | bits, formatting, parsing, CRCs, rings, COBS, debouncing, PRNGs |
+| [flexmath](math/index.md) | `fm_` | fixed point, float functions without an FPU, vectors, matrices, quaternions, PID |
+| [flexdsp](https://github.com/antonykasera/flexlib/tree/master/dsp) | `fd_` | FIR and biquad filters, windows, tones, noise, FFTs, correlation, LMS, resampling |
 
-:::{grid-item-card} flexutils
-:link: utils/index
-:link-type: doc
+## Install
 
-Bits, text, CRCs, rings, COBS, PRNGs
+Put flexlib in `lib/flexlib`, as a submodule pinned to a release or from the
+release archive:
 
-```{card-footer}
-CRC-32: 6.2 cycles per byte
+```sh
+git submodule add https://github.com/antonykasera/flexlib.git lib/flexlib
+git -C lib/flexlib checkout v0.5.0
 ```
-:::
 
-:::{grid-item-card} flexmath
-:link: math/index
-:link-type: doc
+Include the fragment; it only sets variables:
 
-Fixed point, fast float, vectors, quaternions, PID
-
-```{card-footer}
-`fm_sqrtf`: 63 cycles, correctly rounded
+```make
+include lib/flexlib/flexlib.mk    # FLEXLIB_LIBS ?= utils math dsp
+CFLAGS += $(FLEXLIB_CFLAGS)
+SRCS   += $(FLEXLIB_SRCS)
 ```
-:::
 
-:::{grid-item-card} flexdsp
-:link: dsp/index
-:link-type: doc
+In a [flex](https://github.com/antonykasera/STM32F1-HAL) project,
+`FLEXLIB_LIBS := math` in the Makefile does the same. Build with
+`-ffunction-sections -fdata-sections` and link with `--gc-sections`.
 
-FIR, biquads, FFT, correlation, LMS, resampling
+## Example
 
-```{card-footer}
-`fd_fir_q15`: 8078 cycles, CMSIS-DSP 19863
+```{literalinclude} examples/flexlib.c
+:language: c
 ```
-:::
-
-::::
 
 ```{toctree}
 :hidden:
 
-get-started
 utils/index
 math/index
-dsp/index
-results
-design
 ```

@@ -17,7 +17,7 @@ site-examples:
 	  b=build/site-examples/$$(basename $$f .c); \
 	  $(HOST_CC) -std=c11 -Wall -Wextra -Wconversion -Wsign-conversion -Werror \
 	    -Iarch -Iutils/include -Imath/include -Idsp/include $$f \
-	    $(FU_SRCS) -o $$b -lm && $$b > /dev/null || exit 1; \
+	    $(FU_SRCS) $(FM_SRCS) -o $$b -lm && $$b > /dev/null || exit 1; \
 	done
 	@echo "Site examples: $(words $(SITE_EXAMPLES)) ok"
 

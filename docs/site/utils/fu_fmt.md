@@ -20,27 +20,13 @@ Truncation
 Asserts
 : More than 9 fraction digits, `min_digits` above 8, an unknown conversion.
 
-## Numbers
-
-| function | cycles | newlib | ratio |
-| --- | --: | --: | --: |
-| `fu_fmt_u32`, 10 digits | 116 | 1024 | 8.83 |
-| `fu_fmt_u32`, log | 83 | 887 | 10.69 |
-| `fu_fmt_i32`, log | 93 | | |
-| `fu_fmt_hex32`, 8 digits | 78 | | |
-| `fu_fmt_q16`, 4 digits, log | 154 | 4281 | 27.80 |
-| `fu_fmt_f32`, 2 digits | 182 | 4285 | 23.54 |
-| `fu_snprintf`, u32 + i32 + hex | 763 | 3279 | 4.30 |
-
-Medians on an STM32F103 at 72 MHz, `-O2`. newlib: `snprintf` with the
-matching format. log: inputs spread evenly on a log scale; floats between
-2^-7 and 2^13.
-
-## Example
-
-```{literalinclude} ../examples/fu_fmt.c
-:language: c
-```
+Checked
+: - `fu_fmt_u32` and `fu_fmt_hex32` on all 2^32 inputs against a plain
+    reference.
+  - `fu_fmt_q16` on all 2^32 values and `fu_fmt_f32` on all 2^32 bit patterns
+    against glibc's `%.*f`, every fraction count from 0 to 9.
+  - `fu_snprintf` at every buffer size from 0 to the length + 2: the right
+    prefix, a NUL, no write past `size`.
 
 ## API
 
@@ -86,11 +72,24 @@ matching format. log: inputs spread evenly on a log scale; floats between
 ```{doxygenfunction} fu_vsnprintf
 ```
 
-## Verification
+## Numbers
 
-- `fu_fmt_u32` and `fu_fmt_hex32` on all 2^32 inputs against a plain
-  reference.
-- `fu_fmt_q16` on all 2^32 values and `fu_fmt_f32` on all 2^32 bit patterns
-  against glibc's `%.*f`, every fraction count from 0 to 9.
-- `fu_snprintf` at every buffer size from 0 to the length + 2: the right
-  prefix, a NUL, no write past `size`.
+| function | cycles | newlib | ratio |
+| --- | --: | --: | --: |
+| `fu_fmt_u32`, 10 digits | 116 | 1024 | 8.83 |
+| `fu_fmt_u32`, log | 83 | 887 | 10.69 |
+| `fu_fmt_i32`, log | 93 | | |
+| `fu_fmt_hex32`, 8 digits | 78 | | |
+| `fu_fmt_q16`, 4 digits, log | 154 | 4281 | 27.80 |
+| `fu_fmt_f32`, 2 digits | 182 | 4285 | 23.54 |
+| `fu_snprintf`, u32 + i32 + hex | 763 | 3279 | 4.30 |
+
+Medians on an STM32F103 at 72 MHz, `-O2`. newlib: `snprintf` with the
+matching format. log: inputs spread evenly on a log scale; floats between
+2^-7 and 2^13.
+
+## Example
+
+```{literalinclude} ../examples/fu_fmt.c
+:language: c
+```

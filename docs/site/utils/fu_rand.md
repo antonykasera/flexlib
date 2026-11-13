@@ -22,23 +22,10 @@ Streams
 Asserts
 : `n` is 0.
 
-## Numbers
-
-| function | cycles | newlib | ratio |
-| --- | --: | --: | --: |
-| `fu_xorshift32` | 8 | | |
-| `fu_xoshiro128ss` | 22 | 44 | 2.00 |
-| `fu_xoshiro128_below`, n = 100 | 33 | | |
-| `fu_xoshiro128_jump` | 3268 | | |
-
-Medians on an STM32F103 at 72 MHz, `-O2`, inlined. newlib: `rand()`, 31
-bits per call. A plain `% 100` on xoshiro128** takes 38 and is biased.
-
-## Example
-
-```{literalinclude} ../examples/fu_rand.c
-:language: c
-```
+Checked
+: - Known-answer sequences from the reference code for both generators and
+    for the jump.
+  - Chi-square tests of the bounded draws.
 
 ## API
 
@@ -73,8 +60,20 @@ bits per call. A plain `% 100` on xoshiro128** takes 38 and is biased.
 ```{doxygenfunction} fu_xoshiro128_jump
 ```
 
-## Verification
+## Numbers
 
-- Known-answer sequences from the reference code for both generators and
-  for the jump.
-- Chi-square tests of the bounded draws.
+| function | cycles | newlib | ratio |
+| --- | --: | --: | --: |
+| `fu_xorshift32` | 8 | | |
+| `fu_xoshiro128ss` | 22 | 44 | 2.00 |
+| `fu_xoshiro128_below`, n = 100 | 33 | | |
+| `fu_xoshiro128_jump` | 3268 | | |
+
+Medians on an STM32F103 at 72 MHz, `-O2`, inlined. newlib: `rand()`, 31
+bits per call. A plain `% 100` on xoshiro128** takes 38 and is biased.
+
+## Example
+
+```{literalinclude} ../examples/fu_rand.c
+:language: c
+```
