@@ -18,7 +18,8 @@ C_TYPES = {
     "double", "bool", "_Bool", "size_t", "uintptr_t", "ptrdiff_t",
 }
 
-_TYPE = re.compile(r"u?int(8|16|32|64)_t|fm_q(15|31|16)|F[UMDX]_[A-Z][a-z]\w*")
+_TYPE = re.compile(r"u?int(8|16|32|64)_t|fm_q(15|31|16)|fd_c(q15|q31|f32)|"
+                   r"F[UMDX]_[A-Z][a-z]\w*")
 _STRING = re.compile(r'"[^"]*"|\'.\'')
 _NUMBER = re.compile(r"-?(0[xX][0-9A-Fa-f]+|\d+(\.\d+)?)[uUlLfF]*")
 _MACRO = re.compile(r"_?[A-Z][A-Z0-9_]*(\(.*\))?")

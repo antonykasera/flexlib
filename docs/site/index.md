@@ -8,7 +8,7 @@ measured on an STM32F103 (Cortex-M3, 72 MHz) next to newlib and CMSIS-DSP.
 |---|---|---|
 | [flexutils](utils/index.md) | `fu_` | bits, formatting, parsing, CRCs, rings, COBS, debouncing, PRNGs |
 | [flexmath](math/index.md) | `fm_` | fixed point, float functions without an FPU, vectors, matrices, quaternions, PID |
-| [flexdsp](https://github.com/antonykasera/flexlib/tree/master/dsp) | `fd_` | FIR and biquad filters, windows, tones, noise, FFTs, correlation, LMS, resampling |
+| [flexdsp](dsp/index.md) | `fd_` | FIR and biquad filters, windows, tones, noise, FFTs, correlation, LMS, resampling |
 
 ## Install
 
@@ -43,4 +43,5 @@ In a [flex](https://github.com/antonykasera/STM32F1-HAL) project,
 
 utils/index
 math/index
+dsp/index
 ```
