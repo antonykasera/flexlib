@@ -1,14 +1,15 @@
 # flexmath
 
-Fixed-point arithmetic and functions in Q15, Q31 and Q16.16 for Cortex-M
-parts without an FPU. C11, no allocation; `flexmath.mk` brings flexutils
+Fixed-point arithmetic and functions in Q15, Q31 and Q16.16, and float
+functions on integer internals, for Cortex-M parts without an FPU. C11, no
+allocation; `flexmath.mk` brings flexutils
 with it.
 
 ## Conventions
 
-- Results saturate instead of wrapping.
-- Errors are in LSBs of the output format, against a `long double` or exact
-  reference. Each function's bound is in its header.
+- Fixed-point results saturate instead of wrapping.
+- Errors are in LSBs of the output format (float: ULP), against a
+  `long double`, `double` or exact reference. Each function's bound is in its header.
 - Angles are binary: a full turn is 2^16 for Q15 functions and 2^32 for Q31.
 
 ## Modules
@@ -21,6 +22,10 @@ with it.
 | [`fm_trig.h`](fm_trig.md) | sine and cosine of binary angles |
 | [`fm_atan.h`](fm_atan.md) | atan2, asin, acos |
 | [`fm_exp.h`](fm_exp.md) | log2, ln, log10, dB, 2^x, e^x, x^y in Q16.16 |
+| [`fm_float.h`](fm_float.md) | sqrt, 1/x, 1/sqrt, sin, cos, atan2, asin, acos, log, exp in float |
+| [`fm_linalg.h`](fm_linalg.md) | dot and cross products, 3x3 and 4x4 matrices in q31 and float |
+| [`fm_quat.h`](fm_quat.md) | quaternion product, normalise, rotate, integrate body rates |
+| [`fm_pid.h`](fm_pid.md) | PID in Q16.16 and float with output limits and anti-windup |
 
 ## Options
 
@@ -40,4 +45,8 @@ fm_div
 fm_trig
 fm_atan
 fm_exp
+fm_float
+fm_linalg
+fm_quat
+fm_pid
 ```
