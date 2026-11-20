@@ -42,17 +42,23 @@ golden:
 BENCH_SETS     = utils math struct dsp dsp2 dsp3 dsp4 dsp5
 BENCH_SET     ?=
 BENCH_OPT     ?= -O2
-BENCH_BUILD    = $(BUILD)/bench$(BENCH_OPT)-$(BENCH_SET)
+# usb: flex's CDC on BENCH_PORT; rtt: SEGGER RTT over SWD, read by OpenOCD
+BENCH_REPORT  ?= usb
+BENCH_BUILD    = $(BUILD)/bench$(BENCH_OPT)-$(BENCH_SET)$(filter-out -usb,-$(BENCH_REPORT))
 BENCH_PORT    ?= /dev/ttyACM0
+BENCH_OPENOCD ?= -f interface/stlink.cfg -f target/stm32f1x.cfg
+ARM_NM        ?= arm-none-eabi-nm
 BENCH_RESULTS ?= docs/results/f103$(filter-out -O2,$(BENCH_OPT)).md
 BENCH_PORTDIR  = bench/port/f103
 
 ifneq ($(wildcard $(FLEX_DIR)/flex.mk),)
-FLEX_MODULES := clock gpio usb
+FLEX_MODULES := clock $(if $(filter usb,$(BENCH_REPORT)),gpio usb)
 include $(FLEX_DIR)/flex.mk
 endif
 
-BENCH_SRCS = bench/core/bench_main.c $(BENCH_PORTDIR)/report_usb.c \
+BENCH_REPORT_usb = $(BENCH_PORTDIR)/report_usb.c
+BENCH_REPORT_rtt = bench/core/report_rtt.c
+BENCH_SRCS = bench/core/bench_main.c $(BENCH_REPORT_$(BENCH_REPORT)) \
              $(BENCH_PORTDIR)/port.c $(BENCH_PORTDIR)/cache_probe.c \
              bench/core/bench_core.c $(BENCH_CASES_$(BENCH_SET)) \
              bench/core/golden.c $(LIB_SRCS)
@@ -204,11 +210,18 @@ bench-run:
 else
 bench: $(BENCH_BUILD)/bench.bin
 
+ifeq ($(BENCH_REPORT),rtt)
+# OpenOCD flashes, resets and serves the RTT buffer; bench_run reads it
+bench-run: $(BENCH_BUILD)/bench.elf
+	$(PYTHON) tools/bench_run.py --rtt $< --openocd "$(BENCH_OPENOCD)" \
+		--nm $(ARM_NM) --out $(BENCH_RESULTS) $(BENCH_APPEND)
+else
 # --reset: without it the old program's peripherals keep running
 bench-run: $(BENCH_BUILD)/bench.bin
 	st-flash --reset write $< 0x8000000
 	$(PYTHON) tools/bench_run.py --port $(BENCH_PORT) --out $(BENCH_RESULTS) \
 		$(BENCH_APPEND)
+endif
 
 # what each case times: the instructions between its two CYCCNT reads
 bench-windows: $(BENCH_BUILD)/bench.elf

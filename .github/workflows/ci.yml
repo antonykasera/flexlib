@@ -63,10 +63,11 @@ jobs:
           make golden
           git diff --exit-code bench/core/golden.c
 
-      - name: Bench firmware (-O2, -Os)
+      - name: Bench firmware (-O2, -Os; USB and RTT report)
         run: |
           make bench
           make bench BENCH_OPT=-Os
+          make bench BENCH_REPORT=rtt
 
       - name: Bench timed windows
         run: make bench-windows
