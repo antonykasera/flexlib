@@ -179,8 +179,9 @@ $(BENCH_BUILD)/startup.o: $(FLEX_STARTUP)
 	@mkdir -p $(dir $@)
 	$(ARM_CC) $(M3_FLAGS) -c $< -o $@
 
-$(BENCH_BUILD)/bench.elf: $(BENCH_OBJS) $(FLEX_OBJS) $(CMSIS_OBJS) $(BENCH_BUILD)/startup.o
-	$(ARM_CC) $(BENCH_LDFLAGS) $^ -lm -o $@
+$(BENCH_BUILD)/bench.elf: $(BENCH_OBJS) $(FLEX_OBJS) $(CMSIS_OBJS) $(BENCH_BUILD)/startup.o \
+                          $(BENCH_PORTDIR)/linker.ld
+	$(ARM_CC) $(BENCH_LDFLAGS) $(filter %.o,$^) -lm -o $@
 	$(ARM_SIZE) $@
 
 $(BENCH_BUILD)/bench.bin: $(BENCH_BUILD)/bench.elf

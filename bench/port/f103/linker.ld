@@ -28,8 +28,9 @@ SECTIONS
     /* the bench harness: the cold flush reads its first 32 KB */
     EXCLUDE_FILE(*/utils/src/*.o */math/src/*.o */dsp/src/*.o *cmsis-dsp/*.o *libc_nano.a:*
                  *libc.a:* *libm.a:* *libgcc.a:*) *(.text .text* .rodata .rodata*)
-    /* what cases time: padded to the 32 KB the cold flush reads */
-    . = MAX(ALIGN(32), ORIGIN(FLASH) + 0x8000);
+    /* what cases time: past the 32 KB the cold flush reads, on a 4 KB step so
+       that the harness's size (USB or RTT report) does not move it */
+    . = MAX(ALIGN(4096), ORIGIN(FLASH) + 0x8000);
     _bench_measured = .;
     *(.bench_measured.text .bench_measured.rodata)
     *(.text .text* .rodata .rodata*)
