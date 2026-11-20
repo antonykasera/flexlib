@@ -123,10 +123,8 @@ static void run_cold(uint32_t overhead, const char *const golden_str[]) {
   uint32_t cold_overhead = bench_overhead(cyc, true);
   __enable_irq();
   bench_print("\r\n### Cold calls\r\n\r\n");
-  bench_print("Each sample follows a flush of the flash cache (32 KB read from SRAM "
-        "code), so the function's code and tables come from flash; the case's "
-        "own loop is read back first. Same inputs and overhead as above; the "
-        "empty case cold reads ");
+  bench_print(BENCH_COLD_NOTE " Same inputs and overhead as above; the empty "
+              "case cold reads ");
   bench_print_u32(cold_overhead);
   bench_print(".\r\n\r\n");
   bench_print("| case | impl | warm median | min | median | max | golden |\r\n");

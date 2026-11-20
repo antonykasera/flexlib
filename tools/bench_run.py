@@ -149,6 +149,8 @@ def main():
                     "-f target/stm32f1x.cfg", help="OpenOCD board arguments")
     ap.add_argument("--nm", default="arm-none-eabi-nm")
     ap.add_argument("--rtt-port", type=int, default=9090)
+    ap.add_argument("--title", default="STM32F103C8 (Blue Pill clone)",
+                    help="the board, for the file's heading")
     args = ap.parse_args()
 
     buf = read_rtt(args) if args.rtt else read_usb(args)
@@ -162,7 +164,7 @@ def main():
     today = datetime.date.today().isoformat()
     with open(args.out, "a" if args.append else "w") as f:
         if not args.append:
-            f.write("# Bench results: STM32F103C8 (Blue Pill clone)\n\n")
+            f.write(f"# Bench results: {args.title}\n\n")
             f.write(f"Written by `make bench-run` on {today}. Do not edit by "
                     "hand;\nrerun it. Method: [bench/README.md](https://github.com/antonykasera/flexlib/blob/master/bench/README.md).\n\n")
         else:
