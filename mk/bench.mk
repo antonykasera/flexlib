@@ -19,11 +19,12 @@ BENCH_CASES_dsp2   = $(addprefix bench/cases/,cases_fd_biquad.c cases_fd_tone.c)
 BENCH_CASES_dsp3   = bench/cases/cases_fd_fft.c
 BENCH_CASES_dsp4   = bench/cases/cases_fd_corr.c
 BENCH_CASES_dsp5   = bench/cases/cases_fd_resample.c
+BENCH_CASES_dsp6   = bench/cases/cases_fd_f32.c
 # everything that also builds on the host (golden, lint)
 BENCH_PORTABLE = bench/core/bench_core.c $(BENCH_CASES_utils) \
                  $(BENCH_CASES_math) $(BENCH_CASES_struct) $(BENCH_CASES_dsp) \
                  $(BENCH_CASES_dsp2) $(BENCH_CASES_dsp3) $(BENCH_CASES_dsp4) \
-                 $(BENCH_CASES_dsp5)
+                 $(BENCH_CASES_dsp5) $(BENCH_CASES_dsp6)
 
 GOLDEN_BUILD = $(BUILD)/golden
 
@@ -38,8 +39,17 @@ golden:
 		$(BENCH_INC) bench/core/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS) -lm \
 		-o $(GOLDEN_BUILD)/golden_gen_dsp
 	./$(GOLDEN_BUILD)/golden_gen_dsp | cmp - bench/core/golden.c
+	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST -DFX_EMULATE_FPU $(LIB_INC) \
+		$(BENCH_INC) bench/core/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS) -lm \
+		-o $(GOLDEN_BUILD)/golden_gen_fpu
+	./$(GOLDEN_BUILD)/golden_gen_fpu > $(GOLDEN_BUILD)/golden_fpu.c
+	mv $(GOLDEN_BUILD)/golden_fpu.c bench/core/golden_fpu.c
+	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST -DFX_EMULATE_FPU -DFX_EMULATE_DSP \
+		$(LIB_INC) $(BENCH_INC) bench/core/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS) -lm \
+		-o $(GOLDEN_BUILD)/golden_gen_fpu_dsp
+	./$(GOLDEN_BUILD)/golden_gen_fpu_dsp | cmp - bench/core/golden_fpu.c
 
-BENCH_SETS     = utils math struct dsp dsp2 dsp3 dsp4 dsp5
+BENCH_SETS     = utils math struct dsp dsp2 dsp3 dsp4 dsp5 dsp6
 BENCH_SET     ?=
 BENCH_OPT     ?= -O2
 # the board: bench/port/<target>, its port.mk sets the CPU, report and probe
@@ -55,18 +65,18 @@ BENCH_RESULTS ?= docs/results/$(BENCH_TARGET)$(filter-out -O2,$(BENCH_OPT)).md
 BENCH_REPORT_SRC = $(if $(filter rtt,$(BENCH_REPORT)),bench/core/report_rtt.c,$(BENCH_PORTDIR)/report_$(BENCH_REPORT).c)
 BENCH_SRCS = bench/core/bench_main.c $(BENCH_REPORT_SRC) $(BENCH_PORT_SRCS) \
              bench/core/bench_core.c $(BENCH_CASES_$(BENCH_SET)) \
-             bench/core/golden.c $(LIB_SRCS)
+             $(BENCH_GOLDEN) $(LIB_SRCS)
 BENCH_DEFS = $(BENCH_PORT_DEFS) -DBENCH_OPT_NAME='"$(BENCH_OPT)"' \
              -DBENCH_SET_$(BENCH_SET) -DBENCH_SET_NAME='"$(BENCH_SET)"'
 
-ifneq ($(filter math struct dsp dsp2 dsp3 dsp4 dsp5,$(BENCH_SET)),)
+ifneq ($(filter math struct dsp dsp2 dsp3 dsp4 dsp5 dsp6,$(BENCH_SET)),)
 ifneq ($(wildcard $(CMSIS_DSP_DIR)/Include/arm_math.h),)
 BENCH_SRCS    += $(if $(filter math,$(BENCH_SET)),bench/cases/cases_cmsis.c)
 BENCH_DEFS    += -DBENCH_HAVE_CMSIS_DSP
 CMSIS_DSP_INC  = -isystem $(CMSIS_DSP_DIR)/Include -isystem $(CMSIS_DSP_DIR)/PrivateInclude
 CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/,$(CMSIS_SRCS_$(BENCH_SET)))
 # the dsp image's baselines unroll their loops, as CMSIS-DSP's own build does
-CMSIS_DSP_DEFS = $(if $(filter dsp dsp2 dsp3 dsp4 dsp5,$(BENCH_SET)),-DARM_MATH_LOOPUNROLL)
+CMSIS_DSP_DEFS = $(if $(filter dsp dsp2 dsp3 dsp4 dsp5 dsp6,$(BENCH_SET)),-DARM_MATH_LOOPUNROLL)
 endif
 endif
 
@@ -136,6 +146,13 @@ CMSIS_SRCS_dsp4   = $(addprefix FilteringFunctions/,arm_conv_q15.c arm_conv_fast
 CMSIS_SRCS_dsp5   = $(addprefix FilteringFunctions/,arm_fir_interpolate_q15.c \
                       arm_fir_interpolate_init_q15.c arm_fir_interpolate_q31.c \
                       arm_fir_interpolate_init_q31.c)
+CMSIS_SRCS_dsp6   = $(addprefix FilteringFunctions/,arm_fir_f32.c arm_fir_init_f32.c \
+                      arm_biquad_cascade_df2T_f32.c arm_biquad_cascade_df2T_init_f32.c) \
+                    $(addprefix TransformFunctions/,arm_cfft_f32.c arm_cfft_radix8_f32.c \
+                      arm_cfft_init_f32.c arm_rfft_fast_f32.c arm_rfft_fast_init_f32.c \
+                      arm_bitreversal2.c) \
+                    BasicMathFunctions/arm_dot_prod_f32.c StatisticsFunctions/arm_power_f32.c \
+                    CommonTables/arm_common_tables.c CommonTables/arm_const_structs.c
 
 BENCH_BASE_CFLAGS = $(BENCH_CPU) $(STD) $(BENCH_OPT) -g3 \
                     -ffunction-sections -fdata-sections $(BENCH_DEFS) \

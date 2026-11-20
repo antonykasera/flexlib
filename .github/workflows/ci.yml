@@ -61,7 +61,7 @@ jobs:
       - name: Golden hashes are up to date
         run: |
           make golden
-          git diff --exit-code bench/core/golden.c
+          git diff --exit-code bench/core/golden.c bench/core/golden_fpu.c
 
       - name: Bench firmware (F103 -O2, -Os, USB and RTT report; F405)
         run: |

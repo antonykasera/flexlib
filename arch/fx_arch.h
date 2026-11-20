@@ -2,9 +2,8 @@
  * @file fx_arch.h
  * @brief Single-instruction wrappers (Arm on target, plain C on host)
  *
- * Each wrapper is one instruction on a Cortex-M3 or later, and the same
- * result in plain C elsewhere. Also the attribute macros and the assert that
- * the libraries use.
+ * Each wrapper is one instruction on a Cortex-M3 or later. Also the attribute
+ * macros and the assert that the libraries use.
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0
@@ -56,6 +55,15 @@
 #endif
 
 /** @} */
+
+/** @cond */
+/* the FPU paths; FX_EMULATE_FPU runs them on the host's float arithmetic */
+#if FX_HAVE_FPU || defined(FX_EMULATE_FPU)
+#define FX_FPU_PATH 1
+#else
+#define FX_FPU_PATH 0
+#endif
+/** @endcond */
 
 /** @cond */
 /* GCC 13: no ACLE bit intrinsics, and a zero check before every CLZ */
@@ -422,6 +430,21 @@ FX_INLINE int32_t fx_smlawb(int32_t acc, int32_t a, int32_t b) {
 }
 
 /** @} */
+
+#if FX_FPU_PATH
+/**
+ * @name Float
+ * With an FPU, or on the host under `FX_EMULATE_FPU`.
+ * @{
+ */
+
+/** $a b + c$ rounded once: VFMA on the FPU, libm's `fmaf` on the host. */
+FX_INLINE float fx_fmaf(float a, float b, float c) {
+  return __builtin_fmaf(a, b, c);
+}
+
+/** @} */
+#endif
 
 /**
  * @name Barriers

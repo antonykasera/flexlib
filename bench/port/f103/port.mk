@@ -6,6 +6,7 @@ BENCH_REPORT   ?= usb
 BENCH_OPENOCD  ?= -f interface/stlink.cfg -f target/stm32f1x.cfg
 BENCH_PORT_DEFS = -DSTM32F103xB
 BENCH_PORT_SRCS = $(BENCH_PORTDIR)/port.c $(BENCH_PORTDIR)/cache_probe.c
+BENCH_GOLDEN    = bench/core/golden.c
 
 ifneq ($(wildcard $(FLEX_DIR)/flex.mk),)
 FLEX_MODULES := clock $(if $(filter usb,$(BENCH_REPORT)),gpio usb)

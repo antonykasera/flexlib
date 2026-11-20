@@ -24,7 +24,7 @@ port/f405/   report over RTT only; ST's device headers and CMSIS 6
 make deps                            # the submodules in third_party/
 make bench-run                       # flash and read each image, write the results
 make bench-windows                   # the instructions each case times
-make bench BENCH_SET=math            # one image: utils | math | struct | dsp .. dsp5
+make bench BENCH_SET=math            # one image: utils | math | struct | dsp .. dsp6
 ```
 
 `make bench-run` flashes over ST-Link, reads the report from the board's USB
@@ -63,9 +63,9 @@ caches before each sample.
   measures it.
 - Samples above 2 x median + 4 are counted and listed by input index.
 - "Flash read cost" measures the board's flash per load, cold and warm.
-- Eight images: flexutils, flexmath's scalar functions, its structures, and
-  flexdsp in five (block functions; filters and tones; transforms; correlation
-  and adaptive filters; sample-rate conversion).
+- Nine images: flexutils, flexmath's scalar functions, its structures, and
+  flexdsp in six (block functions; filters and tones; transforms; correlation
+  and adaptive filters; sample-rate conversion; float blocks).
   The largest needs about 105 KB of flash (`st-info --probe` shows yours).
 
 ## Adding a case

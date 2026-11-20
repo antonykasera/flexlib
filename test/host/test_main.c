@@ -113,6 +113,11 @@ void test_fd_resample_cic(void);
 void test_fd_resample_cic_edges(void);
 void test_fd_resample_cic_comp(void);
 
+/* --- fd_bfp (test_fd_bfp.c) --- */
+void test_fd_bfp_blocks(void);
+void test_fd_bfp_edges(void);
+void test_fd_bfp_sampled(void);
+
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
 void test_fx_rbit_rev(void);
@@ -291,6 +296,9 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_resample_cic);
   TEST_RUN(test_fd_resample_cic_edges);
   TEST_RUN(test_fd_resample_cic_comp);
+  TEST_RUN(test_fd_bfp_blocks);
+  TEST_RUN(test_fd_bfp_edges);
+  TEST_RUN(test_fd_bfp_sampled);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

@@ -134,7 +134,7 @@ examples/        flexmeter: a USB bench instrument on flex
 tools/           asm_audit.py, bench_run.py, bench_windows.py; gen/ table generators
 docs/            results/ (bench results), accuracy.md
 mk/              the Makefile's rules, one file per area
-third_party/     flex and CMSIS-DSP (submodules, for the bench only)
+third_party/     flex, CMSIS-DSP, CMSIS 6 core, ST F4 headers (submodules, bench only)
 ```
 
 ## Building and testing

@@ -443,6 +443,9 @@ const BenchGolden bench_golden[] = {
     {"resample q15 64/63 one by one", 0x9C8C882DU},
     {"resample q15 160/159 by residue", 0xDF183929U},
     {"resample q15 160/159 one by one", 0xDF183929U},
+    {"fd_bfp_exp, 256 floats", 0x1F116DC5U},
+    {"fd_bfp_to_q31, 256 floats", 0xC7B63B6BU},
+    {"fd_bfp_to_f32, 256 floats", 0xB8F7B4C5U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

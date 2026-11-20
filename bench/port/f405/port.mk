@@ -10,6 +10,8 @@ BENCH_REPORT   ?= rtt
 BENCH_OPENOCD  ?= -f interface/stlink.cfg -f target/stm32f4x.cfg
 BENCH_PORT_DEFS = -DSTM32F405xx
 BENCH_PORT_SRCS = $(BENCH_PORTDIR)/port.c
+# the FPU paths' hashes (make golden, FX_EMULATE_FPU)
+BENCH_GOLDEN    = bench/core/golden_fpu.c
 BENCH_PORT_INC  = -isystem $(CMSIS_CORE_DIR)/CMSIS/Core/Include \
                   -isystem $(CMSIS_F4_DIR)/Include
 BENCH_STARTUP   = $(CMSIS_F4_DIR)/Source/Templates/gcc/startup_stm32f405xx.s
