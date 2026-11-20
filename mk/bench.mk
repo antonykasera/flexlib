@@ -52,7 +52,8 @@ FLEX_MODULES := clock gpio usb
 include $(FLEX_DIR)/flex.mk
 endif
 
-BENCH_SRCS = $(BENCH_PORTDIR)/main.c $(BENCH_PORTDIR)/cache_probe.c \
+BENCH_SRCS = bench/core/bench_main.c $(BENCH_PORTDIR)/report_usb.c \
+             $(BENCH_PORTDIR)/port.c $(BENCH_PORTDIR)/cache_probe.c \
              bench/core/bench_core.c $(BENCH_CASES_$(BENCH_SET)) \
              bench/core/golden.c $(LIB_SRCS)
 BENCH_DEFS = -DSTM32F103xB -DBENCH_OPT_NAME='"$(BENCH_OPT)"' \
@@ -138,7 +139,8 @@ CMSIS_SRCS_dsp5   = $(addprefix FilteringFunctions/,arm_fir_interpolate_q15.c \
 
 BENCH_BASE_CFLAGS = $(M3_FLAGS) $(STD) $(BENCH_OPT) -g3 \
                     -ffunction-sections -fdata-sections $(BENCH_DEFS) \
-                    $(LIB_INC) $(BENCH_INC) $(FLEX_INC) $(CMSIS_DSP_INC)
+                    $(LIB_INC) $(BENCH_INC) -I$(BENCH_PORTDIR) $(FLEX_INC) \
+                    $(CMSIS_DSP_INC)
 # _printf_float: newlib-nano's %f, for the fu_fmt_f32 baseline
 BENCH_LDFLAGS = $(M3_FLAGS) -T$(BENCH_PORTDIR)/linker.ld -Wl,--gc-sections \
                 -Wl,--no-warn-rwx-segments --specs=nano.specs --specs=nosys.specs \
