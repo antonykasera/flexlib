@@ -8,3 +8,13 @@
 	url = https://github.com/ARM-software/CMSIS-DSP.git
 	update = none
 	shallow = true
+[submodule "cmsis-core"]
+	path = third_party/cmsis-core
+	url = https://github.com/ARM-software/CMSIS_6.git
+	update = none
+	shallow = true
+[submodule "cmsis-device-f4"]
+	path = third_party/cmsis-device-f4
+	url = https://github.com/STMicroelectronics/cmsis_device_f4.git
+	update = none
+	shallow = true

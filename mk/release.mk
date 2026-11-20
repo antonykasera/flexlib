@@ -14,7 +14,8 @@ DIST_FILES = LICENSE NOTICE README.md CHANGELOG.md flexlib.mk flexutils.mk flexm
 CONSUMER = $(BUILD)/consumer
 
 deps:
-	git submodule update --init --checkout third_party/flex third_party/cmsis-dsp
+	git submodule update --init --checkout third_party/flex third_party/cmsis-dsp \
+		third_party/cmsis-core third_party/cmsis-device-f4
 
 dist:
 	@mkdir -p $(BUILD)/dist
