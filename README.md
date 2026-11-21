@@ -65,9 +65,9 @@ release archive:
 
 ```sh
 git submodule add https://github.com/antonykasera/flexlib.git lib/flexlib
-git -C lib/flexlib checkout v0.6.0
+git -C lib/flexlib checkout v0.7.0
 # or
-tar xf flexlib-0.6.0.tar.gz -C lib
+tar xf flexlib-0.7.0.tar.gz -C lib
 ```
 
 With [flex](https://github.com/antonykasera/STM32F1-HAL) v1.1.2 or later,
@@ -91,14 +91,26 @@ brings the ones it depends on, and your toolchain and MCU flags apply to
 flexlib as to the rest of your code:
 
 ```cmake
-set(FLEXLIB_REQUIRE 0.6.0)                   # optional: stop if lib/flexlib is older
+set(FLEXLIB_REQUIRE 0.7.0)                   # optional: stop if lib/flexlib is older
 set(FLEXLIB_DEFINES "FU_CRC_SMALL")          # optional: the build options
 add_subdirectory(lib/flexlib)
 target_link_libraries(app PRIVATE flexlib::dsp)   # or flexlib::math, flexlib::utils
 ```
 
-CMake support is on master and comes with the next release. The v0.6.0
-archive does not include `CMakeLists.txt` yet.
+CMake can also fetch the release archive itself. Set `FLEXLIB_REQUIRE` and
+`FLEXLIB_DEFINES` before `FetchContent_MakeAvailable`, which adds the
+directory:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(flexlib
+  URL https://github.com/antonykasera/flexlib/releases/download/v0.7.0/flexlib-0.7.0.tar.gz
+  URL_HASH SHA256=...)   # the hash in the release's flexlib-0.7.0.tar.gz.sha256
+FetchContent_MakeAvailable(flexlib)
+target_link_libraries(app PRIVATE flexlib::dsp)
+```
+
+CMake support starts with v0.7.0.
 
 Build with `-ffunction-sections -fdata-sections` and link with
 `--gc-sections`, so the functions you don't call stay out of the image. A
@@ -106,7 +118,7 @@ failed argument check traps by default. Define `FX_ASSERT_FAIL(file, line)`
 to report it your own way, or `FX_DISABLE_ASSERT` to remove the checks. Each
 library's README lists its other options.
 
-If you set `FLEXLIB_REQUIRE := 0.6.0` before the include, the build stops
+If you set `FLEXLIB_REQUIRE := 0.7.0` before the include, the build stops
 when `lib/flexlib` is older than that.
 
 To upgrade, read the CHANGELOGs, then check out the new tag or unpack the new
@@ -115,9 +127,9 @@ not.
 
 ## Versions
 
-Each library has its own version and tags (`flexdsp-v0.4.0`). A repository
-release (`v0.6.0`) bundles one of each: flexutils 0.1.2, flexmath 0.2.5,
-flexdsp 0.4.0. The `fx_` prefix is the shared layer under all three.
+Each library has its own version and tags (`flexdsp-v0.5.0`). A repository
+release (`v0.7.0`) bundles one of each: flexutils 0.1.2, flexmath 0.2.5,
+flexdsp 0.5.0. The `fx_` prefix is the shared layer under all three.
 
 Planned: flexctrl (`fct_`, control), flexcomm (`fco_`, protocols), flexnn
 (`fnn_`, int8 inference), flextrace (`ftr_`, logging).

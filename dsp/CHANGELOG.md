@@ -1,6 +1,6 @@
 # flexdsp changelog
 
-## Unreleased
+## 0.5.0 (2026-11-21)
 
 - `fd_conv_f32`, `fd_conv_part_f32`, `fd_corr_f32`: float convolution and correlation on the q31 kernels (block floating point, one rounding per output). 7.7-8.2x faster than `arm_conv_f32` / `arm_correlate_f32` in soft float on the Cortex-M3. More accurate than soft float on white noise, less on inputs that span more than about 40 dB.
 

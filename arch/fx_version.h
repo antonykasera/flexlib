@@ -12,11 +12,11 @@
 /** Major version. */
 #define FLEXLIB_VERSION_MAJOR 0
 /** Minor version. */
-#define FLEXLIB_VERSION_MINOR 6
+#define FLEXLIB_VERSION_MINOR 7
 /** Patch version. */
 #define FLEXLIB_VERSION_PATCH 0
 
-/** The version as one number: 0.2.1 is 201. */
+/** The version as one number */
 #define FLEXLIB_VERSION_NUM                                                    \
   (FLEXLIB_VERSION_MAJOR * 10000 + FLEXLIB_VERSION_MINOR * 100 +               \
    FLEXLIB_VERSION_PATCH)
