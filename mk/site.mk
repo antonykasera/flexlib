@@ -10,14 +10,18 @@ $(SITE_PY): $(SITE_DIR)/requirements.txt
 	VIRTUAL_ENV=$(SITE_VENV) uv pip install -q -r $<
 	@touch $@
 
-# every example compiles -Werror against the library sources and runs
+# every example compiles -Werror against the library sources and runs; its
+# output must match the .out file next to it, which the pages show
 site-examples:
 	@mkdir -p build/site-examples
 	@for f in $(SITE_EXAMPLES); do \
 	  b=build/site-examples/$$(basename $$f .c); \
 	  $(HOST_CC) -std=c11 -Wall -Wextra -Wconversion -Wsign-conversion -Werror \
 	    -Iarch -Iutils/include -Imath/include -Idsp/include $$f \
-	    $(FU_SRCS) $(FM_SRCS) $(FD_SRCS) -o $$b -lm && $$b > /dev/null || exit 1; \
+	    $(FU_SRCS) $(FM_SRCS) $(FD_SRCS) -o $$b -lm && $$b > $$b.txt || exit 1; \
+	  if [ -f $${f%.c}.out ]; then \
+	    diff -u $${f%.c}.out $$b.txt || { echo "$$f: output differs"; exit 1; }; \
+	  fi; \
 	done
 	@echo "Site examples: $(words $(SITE_EXAMPLES)) ok"
 
