@@ -1,6 +1,9 @@
 # Design
 
-This section describes conventions shared by several modules.
+These pages explain the choices that run through several modules: how sums
+of products stay exact, how the FFTs scale themselves, and how every number
+on this site was measured. Read them when a module page refers to them, or
+when you want to know why a result comes out the way it does.
 
 | page | contents |
 |---|---|

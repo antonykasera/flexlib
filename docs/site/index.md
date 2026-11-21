@@ -1,8 +1,11 @@
 # flexlib
 
-C11 libraries for Cortex-M, without allocation or dependencies. Each
-function's header states its error bound; the module pages give cycle counts
-measured on an STM32F103 (Cortex-M3, 72 MHz) next to newlib and CMSIS-DSP.
+flexlib is a set of C11 libraries for Cortex-M microcontrollers: the
+utilities most firmware writes for itself, fixed-point and float math for
+parts without an FPU, and signal processing. They need no dynamic memory and
+no other library. Every function states how accurate it is, and every page
+shows how many cycles it takes on an STM32F103 (Cortex-M3, 72 MHz), next to
+newlib and CMSIS-DSP measured the same way.
 
 | library | prefix | contents |
 |---|---|---|
@@ -32,11 +35,21 @@ In a [flex](https://github.com/antonykasera/STM32F1-HAL) project,
 `FLEXLIB_LIBS := math` in the Makefile does the same. Build with
 `-ffunction-sections -fdata-sections` and link with `--gc-sections`.
 
-## Example
+## A first program
+
+This computes $sqrt 2$ in Q16.16 and prints it with five decimals:
 
 ```{literalinclude} examples/flexlib.c
 :language: c
 ```
+
+Which prints
+
+```{literalinclude} examples/flexlib.out
+:language: text
+```
+
+[Get started](get-started.md) shows how to build it, and the options.
 
 ```{toctree}
 :hidden:
