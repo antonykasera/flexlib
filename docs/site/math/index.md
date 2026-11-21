@@ -1,40 +1,51 @@
 # flexmath
 
-Fixed-point arithmetic and functions in Q15, Q31 and Q16.16, and float
-functions on integer internals, for Cortex-M parts without an FPU. C11, no
-allocation; `flexmath.mk` brings flexutils
-with it.
+A Cortex-M3 has no floating-point unit. Every float operation becomes a call
+into libgcc: a multiply takes {cy}`float multiply` cycles and a divide
+{cy}`float divide`, and newlib's `sinf` takes {cy}`sinf`. flexmath gives you
+two ways around that. The fixed-point functions work on fractions held in
+integers, in Q15, Q31 and Q16.16. The float functions take and return
+`float` as usual, but compute with integer operations inside, so code
+written with floats runs several times faster without changing its types.
 
 ## Conventions
 
-- Fixed-point results saturate instead of wrapping.
-- Errors are in LSBs of the output format (float: ULP), against a
-  `long double`, `double` or exact reference. Each function's bound is in its header.
-- Angles are binary: a full turn is 2^16 for Q15 functions and 2^32 for Q31.
+Fixed-point results saturate: a result past the largest value comes back as
+the largest value, never wrapped round to a negative one. Errors are given in
+LSBs of the output format, or in ULPs for float, against a `long double`,
+`double` or exact reference. Each function's header states its bound, and
+the module pages show how it was measured.
 
-## Modules
+Angles are binary: a full turn is 2^16 for the Q15 functions and 2^32 for
+the Q31 ones. An angle held in an unsigned integer then wraps round by
+itself, which is what a phase accumulator needs.
 
-| header | contents |
+| header | what it is for |
 |---|---|
-| [`fm_fixed.h`](fm_fixed.md) | Q formats, saturating add, subtract, multiply, Q62 accumulator, float conversion |
-| [`fm_sqrt.h`](fm_sqrt.md) | integer square roots, sqrt in Q15 / Q31 / Q16.16, 1/sqrt in Q16.16 |
-| [`fm_div.h`](fm_div.md) | division in Q15 / Q31 / Q16.16, 1/x in Q16.16 |
+| [`fm_fixed.h`](fm_fixed.md) | the Q formats, saturating arithmetic, a Q62 accumulator, float conversion |
+| [`fm_sqrt.h`](fm_sqrt.md) | integer square roots, roots in Q15, Q31 and Q16.16, 1/sqrt in Q16.16 |
+| [`fm_div.h`](fm_div.md) | division in Q15, Q31 and Q16.16, and 1/x |
 | [`fm_trig.h`](fm_trig.md) | sine and cosine of binary angles |
-| [`fm_atan.h`](fm_atan.md) | atan2, asin, acos |
-| [`fm_exp.h`](fm_exp.md) | log2, ln, log10, dB, 2^x, e^x, x^y in Q16.16 |
-| [`fm_float.h`](fm_float.md) | sqrt, 1/x, 1/sqrt, sin, cos, atan2, asin, acos, log, exp in float |
-| [`fm_linalg.h`](fm_linalg.md) | dot and cross products, 3x3 and 4x4 matrices in q31 and float |
-| [`fm_quat.h`](fm_quat.md) | quaternion product, normalise, rotate, integrate body rates |
-| [`fm_pid.h`](fm_pid.md) | PID in Q16.16 and float with output limits and anti-windup |
+| [`fm_atan.h`](fm_atan.md) | atan2, asin and acos |
+| [`fm_exp.h`](fm_exp.md) | logarithms, dB, exponentials and powers in Q16.16 |
+| [`fm_float.h`](fm_float.md) | sqrt, reciprocals, trigonometry, logarithms and exponentials on `float`, without an FPU |
+| [`fm_linalg.h`](fm_linalg.md) | dot and cross products, 3x3 and 4x4 matrices, in q31 and float |
+| [`fm_quat.h`](fm_quat.md) | quaternions for attitude: product, normalise, rotate, integrate gyro rates |
+| [`fm_pid.h`](fm_pid.md) | PID controllers with output limits and anti-windup |
+
+flexmath brings flexutils with it. Set `FLEXLIB_LIBS := math`, as
+[Get started](../get-started.md) shows.
 
 ## Options
 
 `FM_LUT_IN_RAM`
-: Puts the tables (2.8 KB) in `.data`. After a flash cache flush,
-  {c:func}`fm_sin_q15` takes 368 cycles instead of 480.
+: Puts flexmath's tables (2.8 KB) in RAM. A call whose table is not in the
+  flash cache is then faster: {c:func}`fm_sin_q15` takes 368 cycles instead
+  of 480.
 
 `FX_ASSERT_FAIL(file, line)`, `FX_DISABLE_ASSERT`
-: Argument checks trap by default.
+: By default a failed argument check traps. Define the first to report it
+  your own way, or the second to remove the checks.
 
 ```{toctree}
 :hidden:
