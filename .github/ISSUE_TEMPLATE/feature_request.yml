@@ -1,0 +1,28 @@
+name: Feature request
+description: A new function, a new form of an existing one, or a change to an API
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you are trying to do
+      description: The problem in your firmware, not only the function you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like flexlib to provide
+      description: The function or change, with the formats (q15, q31, Q16.16, float) you need.
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Accuracy and speed
+      description: The error you can accept, and the time budget, for example cycles per sample at your rate.
+  - type: textarea
+    id: today
+    attributes:
+      label: What you use today
+      description: CMSIS-DSP, newlib, your own code? Its numbers help set the target.

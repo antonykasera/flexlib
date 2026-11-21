@@ -1,0 +1,51 @@
+name: Accuracy or speed finding
+description: A result outside its stated error bound, or a cycle count far from the published one
+labels: [measurement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every function states an error bound in its header, and the results
+        pages give its cycle counts on an STM32F103. Use this form when you
+        measure something different.
+  - type: input
+    id: version
+    attributes:
+      label: flexlib version
+      placeholder: v0.6.0
+    validations:
+      required: true
+  - type: input
+    id: function
+    attributes:
+      label: Function
+      placeholder: fm_sin_q31
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What you measured
+      options:
+        - An error past the bound in the header
+        - A cycle count far from the published one
+    validations:
+      required: true
+  - type: textarea
+    id: finding
+    attributes:
+      label: The finding
+      description: >-
+        For accuracy: the input, the result, the exact value and how you
+        computed it. For speed: the cycles you measured, the published value,
+        and how you timed it.
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Target and toolchain
+      description: MCU and clock, flash wait states and cache if you know them, compiler, version and flags.
+      placeholder: STM32F411 at 100 MHz, arm-none-eabi-gcc 14.2, -O2
+    validations:
+      required: true

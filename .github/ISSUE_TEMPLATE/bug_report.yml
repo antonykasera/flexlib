@@ -1,0 +1,45 @@
+name: Bug report
+description: A wrong result, a crash, a build failure or a broken example
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A small program that shows the problem is the
+        most useful thing you can give.
+  - type: input
+    id: version
+    attributes:
+      label: flexlib version
+      description: The release, or the commit if you build from master.
+      placeholder: v0.6.0
+    validations:
+      required: true
+  - type: input
+    id: function
+    attributes:
+      label: Function or module
+      placeholder: fd_fir_q15, fu_parse.h, ...
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      description: For a wrong result, give the input, the output you got and the output you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Code that shows it
+      description: The smaller the better. It will be formatted as C.
+      render: c
+  - type: input
+    id: target
+    attributes:
+      label: Target and toolchain
+      description: The MCU or host, the compiler and its version, and the flags if they matter.
+      placeholder: STM32F103, arm-none-eabi-gcc 13.2, -O2
+    validations:
+      required: true
