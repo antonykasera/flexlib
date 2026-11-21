@@ -25,6 +25,11 @@ State
 : The history plus a chunk of any size (`FD_LMS_STATE_LEN`); the chunk
   changes the speed, not the results.
 
+Reset and step size
+: {c:func}`fd_lms_reset_q15` clears the history and keeps the weights, with
+  the update owed by the last sample applied. {c:func}`fd_lms_set_mu_q15`
+  changes mu from the next sample's update on.
+
 Asserts
 : ntaps 0, a state buffer not longer than ntaps, $mu < 0$.
 
@@ -32,7 +37,7 @@ Checked
 : - Outputs, errors and taps bit for bit against a 128-bit model: 6 lengths
     from 1 to 33 taps, all three modes, mu from 0 to the largest, random,
     full-scale and quiet input, blocks cut at random, taps read back at
-    random points.
+    random points, resets and step-size changes at random points.
   - The normalised step on exact ties.
   - q15: an 8-tap filter identifies a 5-tap system in each mode, every tap
     within 200 LSB after 8000 samples.
@@ -57,6 +62,12 @@ Checked
 ```{doxygenfunction} fd_lms_coefs_q15
 ```
 
+```{doxygenfunction} fd_lms_reset_q15
+```
+
+```{doxygenfunction} fd_lms_set_mu_q15
+```
+
 ```{doxygenstruct} FD_LmsQ31
 ```
 
@@ -67,6 +78,12 @@ Checked
 ```
 
 ```{doxygenfunction} fd_lms_coefs_q31
+```
+
+```{doxygenfunction} fd_lms_reset_q31
+```
+
+```{doxygenfunction} fd_lms_set_mu_q31
 ```
 
 ## Numbers
