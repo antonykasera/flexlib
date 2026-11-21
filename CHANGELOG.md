@@ -5,6 +5,7 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 
 ## Unreleased
 
+- CMake: `flexlib::utils`, `flexlib::math` and `flexlib::dsp` targets through `add_subdirectory`, with `FLEXLIB_REQUIRE` and `FLEXLIB_DEFINES`. The release archive includes `CMakeLists.txt`.
 - flexdsp: float convolution and correlation ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
 
 ## v0.6.0 (2026-11-21)
