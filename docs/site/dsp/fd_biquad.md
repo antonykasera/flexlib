@@ -2,8 +2,8 @@
 
 # Biquads
 
-Cascades of second-order sections in direct form 1, q15 and q31, and their
-design in float: RBJ cookbook sections and Butterworth cascades.
+Cascades of second-order sections in direct form 1, q15, q31 and float,
+and their design in float: RBJ cookbook sections and Butterworth cascades.
 
 Coefficients
 : Per section b0 b1 b2 a1 a2, with $y = b0 x + b1 x1 + b2 x2 + a1 y1 + a2 y2$:
@@ -24,6 +24,12 @@ Design
   $d2 = a2 + 1$, which stay exact near $z = 1$. The quantize functions round,
   pick the smallest bshift, and report sections that rounding made unstable.
 
+Float
+: {c:func}`fd_biquad_f32` takes the same coefficients as floats. Each
+  section's output is its exact sum of the held floats, rounded once:
+  within 0.5 ulp + $2^-32 sum |p|$. A NaN or inf, in or out, makes every
+  later output NaN until reset.
+
 Asserts
 : `nsec` 0, bshift past 31 (q15: 15).
 
@@ -37,6 +43,11 @@ Checked
     an 8th-order Butterworth at -3.01 dB at its corner.
   - Error feedback 40 dB quieter than the plain cascade on a 4th-order
     lowpass at 5 10^-4.
+  - {c:func}`fd_biquad_f32` bit for bit against each section's sum in
+    `__float128` rounded once: 8th-order Butterworth lowpasses at 0.01, 0.1
+    and 0.3, 4000 samples each with the level stepped from 2^-20 to 2^29. A
+    one-section identity on zero, a subnormal and a value near the float
+    limit; NaN until reset; an output past the float range.
 
 ## API
 
@@ -68,6 +79,23 @@ Checked
 ```
 
 ```{doxygenfunction} fd_biquad_q15
+```
+
+### Float
+
+```{doxygendefine} FD_BIQUAD_F32_STATE_LEN
+```
+
+```{doxygenstruct} FD_BiquadF32
+```
+
+```{doxygenfunction} fd_biquad_init_f32
+```
+
+```{doxygenfunction} fd_biquad_reset_f32
+```
+
+```{doxygenfunction} fd_biquad_f32
 ```
 
 ### Design
@@ -119,6 +147,17 @@ A 48 kHz EQ of four sections (low shelf, two peaks, high shelf), blocks of 64:
 | 0 | {cy}`fd_biquad_q15, 48 kHz EQ, 4 x 64` | {cy}`fd_biquad_q31, 48 kHz EQ, 4 x 64` | {cy}`fd_biquad_q31 error feedback, 48 kHz EQ, 4 x 64` |
 | 1 (a +12 dB high shelf) | {cy}`fd_biquad_q15, 48 kHz EQ, bshift 1, 4 x 64` | {cy}`fd_biquad_q31, 48 kHz EQ, bshift 1, 4 x 64` |  |
 
+Float, an 8th-order Butterworth lowpass, soft float on the F103. Errors are
+in ulp of the exact cascade, over 10^6 samples of white noise.
+
+| function | cycles | CMSIS-DSP | mean error, ulp | CMSIS-DSP, ulp |
+|---|--:|--:|--:|--:|
+| `fd_biquad_f32`, fc 0.1 | {cy}`fd_biquad_f32, 4 x 64` | {cy}`arm_biquad_cascade_df2T_f32, 4 x 64` | {acc}`biquad f32, Butterworth 8, fc 0.1; flexdsp @ mean` | {acc}`biquad f32, Butterworth 8, fc 0.1; CMSIS-DSP @ mean` |
+| `fd_biquad_f32`, fc 0.01 |  |  | {acc}`biquad f32, Butterworth 8, fc 0.01; flexdsp @ mean` | {acc}`biquad f32, Butterworth 8, fc 0.01; CMSIS-DSP @ mean` |
+
+CMSIS-DSP: `arm_biquad_cascade_df2T_f32`, its fastest float form. The
+recursion amplifies each section's rounding, more at the lower corner.
+
 ## Example
 
 ```{literalinclude} ../examples/fd_biquad.c
@@ -133,3 +172,8 @@ pass 4; their b and a parts are then summed apart, each exact in 64 bits
 (q15: 32), and added with an overflow check. Only sections whose stored b or
 a alone reach 4 take 96-bit (q15: 64-bit) sums. Init picks the kernel per
 section.
+
+The float cascade unpacks each coefficient once into a mantissa with 6 bits
+of headroom and an exponent, and holds the history unpacked the same way.
+A section's five products are exact, aligned to the largest and summed in
+64 bits, then rounded once to float.

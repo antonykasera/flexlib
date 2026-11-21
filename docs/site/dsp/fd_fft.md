@@ -3,7 +3,7 @@
 # FFT
 
 Complex and real FFTs and their inverses in q15 and q31, in place, with
-block floating point.
+block floating point, and float forms through the q31 transforms.
 
 Sizes
 : Complex: any power of two from 2 to `FD_FFT_MAX`. Real: 4 to
@@ -32,6 +32,13 @@ Helpers
   {c:func}`fd_fft_db_q15` gives $10 log10 |X|^2$ with the exponent folded in,
   0 dB at full scale.
 
+Float
+: {c:func}`fd_cfft_f32` and the other float forms convert the block to q31 at
+  one exponent, run the q31 transform and convert back with its exponent.
+  work holds the q31 copy, n values, and must not overlap x. The results are
+  unscaled, as the q31 forms; the inverses include 1/n. A NaN or inf in x
+  makes every output NaN.
+
 Asserts
 : n not a power of two in range, a misaligned real q15 buffer.
 
@@ -46,6 +53,9 @@ Checked
     trips; the real layout against the complex transform.
   - `make exhaustive`: every size and bin against the exact DFT on 10^6
     small blocks.
+  - The float forms against the double DFT at 2 to 1024 points, inputs from
+    2^-130 to 2^120: SNR over 130 dB. Zeros, NaN, an output past the float
+    range. The real forms and round trips at 4 to 1024 points.
 
 ## API
 
@@ -76,6 +86,22 @@ Checked
 ```{doxygenfunction} fd_irfft_q31
 ```
 
+### Float
+
+```{doxygenfunction} fd_cfft_f32
+```
+
+```{doxygenfunction} fd_icfft_f32
+```
+
+```{doxygenfunction} fd_rfft_f32
+```
+
+```{doxygenfunction} fd_irfft_f32
+```
+
+### Helpers
+
 ```{doxygenfunction} fd_fft_rescale_q15
 ```
 
@@ -104,10 +130,16 @@ DFT, full-scale white noise, 40 blocks.
 | `fd_icfft_q15`, 256 | {cy}`fd_icfft_q15, 256` |  |  |  |
 | `fd_irfft_q15`, 512 | {cy}`fd_irfft_q15, 512` |  |  |  |
 | `fd_fft_db_q15`, 128 bins | {cy}`fd_fft_db_q15, 128 bins` |  |  |  |
+| `fd_cfft_f32`, 256 | {cy}`fd_cfft_f32, 256` | {cy}`arm_cfft_f32, 256` | {acc}`cfft f32; flexdsp; 256; white @ snr db` | {acc}`cfft f32; CMSIS-DSP; 256; white @ snr db` |
+| `fd_rfft_f32`, 512 | {cy}`fd_rfft_f32, 512` | {cy}`arm_rfft_fast_f32, 512` | {acc}`rfft f32; flexdsp; 512; white @ snr db` | {acc}`rfft f32; CMSIS-DSP; 512; white @ snr db` |
+| `fd_icfft_f32`, 256 | {cy}`fd_icfft_f32, 256` |  |  |  |
+| `fd_irfft_f32`, 512 | {cy}`fd_irfft_f32, 512` |  |  |  |
 
 On white noise 40 dB below full scale, `fd_cfft_q15` at 256 points keeps
 {acc}`cfft q15; flexdsp; 256; white, -40 dB @ snr db` dB (CMSIS-DSP {acc}`cfft q15; CMSIS-DSP; 256; white, -40 dB @ snr db`) and `fd_cfft_q31` at 1024 keeps {acc}`cfft q31; flexdsp; 1024; white, -40 dB @ snr db` dB ({acc}`cfft q31; CMSIS-DSP; 1024; white, -40 dB @ snr db`).
-CMSIS-DSP scales by a fixed 1/4 per stage, which drops a quiet signal's low
+The f32 rows are soft float on the F103, where `arm_cfft_f32` and
+`arm_rfft_fast_f32` call libgcc for each operation. CMSIS-DSP scales by a
+fixed 1/4 per stage, which drops a quiet signal's low
 bits. Its q31 butterflies keep the truncated high word of each product;
 these sum each output exactly in 64 bits, which costs the cycles. The
 rounding leaves a mean error of {acc}`cfft q15; flexdsp; 256 @ dc, real part` LSB at DC at 256 points

@@ -3,7 +3,7 @@
 # Vectors
 
 Element-wise arithmetic, conversions, statistics and complex vectors over
-blocks of q15 and q31.
+blocks of q15 and q31, and float element-wise operations and sums.
 
 Rounding
 : To nearest, ties up, and saturated: within 0.5 LSB unless the function
@@ -21,6 +21,14 @@ Formats
   {c:func}`fd_cmag_q15` and {c:func}`fd_cmag_q31` return UQ1.15 and UQ1.31,
   so magnitudes up to sqrt 2 do not saturate.
 
+Float
+: The float element-wise operations do one float operation per element
+  (libgcc on a part without an FPU). Negate, abs, fill and copy work on the
+  bits. {c:func}`fd_dot_f32`, {c:func}`fd_power_f32`, {c:func}`fd_sum_f32`
+  and {c:func}`fd_mean_f32` sum exactly and round once: within 0.5 ulp +
+  $2^-32 sum |p|$. {c:func}`fd_rms_f32` is within 1 ulp. A NaN or inf in a
+  sum gives NaN.
+
 Aliasing
 : `y` may equal an input of the same type.
 
@@ -37,6 +45,10 @@ Checked
     guard bytes after the output; the binary operations also in place.
   - {c:func}`fd_db_q15` on every positive input, {c:func}`fd_db_q31` on 10^6
     random inputs.
+  - The float sums against `__float128` on 4000 random blocks of 1 to 100
+    values spread over up to 60 binades, within the bound every time.
+    Cancellation, subnormals, overflow to inf, NaN and inf, sums past 2^62.
+  - Float negate, abs and clip on signed zeros, NaN and inf.
 
 ## API
 
@@ -106,6 +118,36 @@ Checked
 ```
 
 ```{doxygenfunction} fd_copy_q31
+```
+
+```{doxygenfunction} fd_add_f32
+```
+
+```{doxygenfunction} fd_sub_f32
+```
+
+```{doxygenfunction} fd_mul_f32
+```
+
+```{doxygenfunction} fd_scale_f32
+```
+
+```{doxygenfunction} fd_offset_f32
+```
+
+```{doxygenfunction} fd_negate_f32
+```
+
+```{doxygenfunction} fd_abs_f32
+```
+
+```{doxygenfunction} fd_clip_f32
+```
+
+```{doxygenfunction} fd_fill_f32
+```
+
+```{doxygenfunction} fd_copy_f32
 ```
 
 ### Conversions
@@ -182,6 +224,21 @@ Checked
 ```
 
 ```{doxygenfunction} fd_std_q31
+```
+
+```{doxygenfunction} fd_dot_f32
+```
+
+```{doxygenfunction} fd_power_f32
+```
+
+```{doxygenfunction} fd_sum_f32
+```
+
+```{doxygenfunction} fd_mean_f32
+```
+
+```{doxygenfunction} fd_rms_f32
 ```
 
 ```{doxygenfunction} fd_headroom_q15
@@ -315,6 +372,22 @@ Blocks of 64 (complex multiply q31: 32), medians on an STM32F103 at 72 MHz,
 | `fd_std_q31` | {cy}`fd_std_q31, 64` |  | 0.5 |  |
 | `fd_max_q15` | {cy}`fd_max_q15, 64` | {cy}`arm_max_q15, 64` | exact | exact |
 | `fd_absmax_q15` | {cy}`fd_absmax_q15, 64` | {cy}`arm_absmax_q15, 64` | exact | exact |
+
+### Float
+
+Soft float on the F103. Sum errors in ulp of the exact result, over 10^5
+blocks of values from 2^-10 to 2^10.
+
+| function | cycles | CMSIS-DSP | max error, ulp | CMSIS-DSP, ulp |
+|---|--:|--:|--:|--:|
+| `fd_add_f32` | {cy}`fd_add_f32, 64` | {cy}`arm_add_f32, 64` | 0.5 | 0.5 |
+| `fd_mul_f32` | {cy}`fd_mul_f32, 64` | {cy}`arm_mult_f32, 64` | 0.5 | 0.5 |
+| `fd_abs_f32` | {cy}`fd_abs_f32, 64` | {cy}`arm_abs_f32, 64` | exact | exact |
+| `fd_dot_f32` | {cy}`fd_dot_f32, 64` | {cy}`arm_dot_prod_f32, 64` | {acc}`dot f32, 64; flexdsp` | {acc}`dot f32, 64; CMSIS-DSP` |
+| `fd_power_f32` | {cy}`fd_power_f32, 64` | {cy}`arm_power_f32, 64` | {acc}`power f32, 64; flexdsp` | {acc}`power f32, 64; CMSIS-DSP` |
+| `fd_sum_f32` | {cy}`fd_sum_f32, 64` |  | {acc}`sum f32, 64; flexdsp` |  |
+| `fd_mean_f32` | {cy}`fd_mean_f32, 64` | {cy}`arm_mean_f32, 64` | {acc}`mean f32, 64; flexdsp` | {acc}`mean f32, 64; CMSIS-DSP` |
+| `fd_rms_f32` | {cy}`fd_rms_f32, 64` | {cy}`arm_rms_f32, 64` | {acc}`rms f32, 64; flexdsp` | {acc}`rms f32, 64; CMSIS-DSP` |
 
 ### Complex vectors
 

@@ -3,8 +3,8 @@
 # Correlation
 
 Convolution, cross-correlation at any lags, autocorrelation, peak
-interpolation and Levinson-Durbin in q15 and q31, and correlation through
-q15 FFTs.
+interpolation and Levinson-Durbin in q15 and q31, correlation through q15
+FFTs, and float convolution and correlation.
 
 Rounding
 : Every direct output is an exact sum over $2^(15 + shift)$ (q31:
@@ -33,8 +33,18 @@ FFT correlation
   at worst; on delays with noise down to 0 dB SNR and on chirps it finds the
   same peak lag as the exact sum.
 
+Float
+: {c:func}`fd_conv_f32`, {c:func}`fd_conv_part_f32` and {c:func}`fd_corr_f32`
+  convert each input to q31 at one exponent and run the q31 kernels. Every
+  output is one exact sum rounded once, within 0.5 ulp + $2^-31 S (M + W)$ of
+  the exact result. S is the sum of |values| of the shorter input (b when
+  $na = nb$), M the largest |value| of the longer, and W the sum of the
+  longer's |values| in that output. Values more than about 42 dB below the
+  largest in their input lose bits. work holds $na + nb$ q31 values. A NaN
+  or inf in a or b makes every output NaN.
+
 Aliasing
-: `y` overlaps neither input.
+: `y` overlaps neither input. The float forms' work overlaps nothing.
 
 Asserts
 : na or nb 0, shift past 16 (q31: 32), a range past the outputs, a peak
@@ -52,6 +62,13 @@ Checked
     on AR(2) data with poles from 0.3 to 0.99.
   - {c:func}`fd_corr_fft_q15` over 600 trials of delays in noise and chirps:
     SNR above 40 dB and the peak lag of the exact sum every time.
+  - The float forms bit for bit against a model of the conversion, the
+    `__float128` sum of the q31 products rounded once, and within the bound
+    (worst 0.97 of it): 1500 random shapes up to 80 x 80, lags past both
+    ends, values spread over up to 40 binades. Integer inputs are correctly
+    rounded. Convolution against correlation with b reversed, bit for bit.
+    Zeros, subnormals, results past the float range, NaN and inf, and a
+    shorter input whose sum only fits at the second exponent tried.
 
 ## API
 
@@ -71,6 +88,15 @@ Checked
 ```
 
 ```{doxygenfunction} fd_corr_q31
+```
+
+```{doxygenfunction} fd_conv_f32
+```
+
+```{doxygenfunction} fd_conv_part_f32
+```
+
+```{doxygenfunction} fd_corr_f32
 ```
 
 ```{doxygenfunction} fd_corr_fft_q15
@@ -118,6 +144,26 @@ are against a `double` recursion on the same autocorrelation, 2000 AR(2)
 blocks of 1024 samples with poles from 0.3 to 0.7, in LSB of q31;
 CMSIS-DSP rounds every product and divides through a q15 reciprocal.
 
+Float, 64 x 64, soft float on the F103. Errors are in ulp of the exact
+output, over 4000 pairs of white noise.
+
+| function | cycles | CMSIS-DSP | mean error, ulp | CMSIS-DSP, ulp |
+|---|--:|--:|--:|--:|
+| `fd_conv_f32` | {cy}`fd_conv_f32, 64 x 64` | {cy}`arm_conv_f32, 64 x 64` | {acc}`conv f32, 64 x 64; flexdsp; 4000 pairs of white noise @ mean` | {acc}`conv f32, 64 x 64; CMSIS-DSP; 4000 pairs of white noise @ mean` |
+| `fd_corr_f32`, all lags | {cy}`fd_corr_f32, 64 x 64, all lags` | {cy}`arm_correlate_f32, 64 x 64` | {acc}`correlate f32, 64 x 64; flexdsp; 4000 pairs of white noise @ mean` | {acc}`correlate f32, 64 x 64; CMSIS-DSP; 4000 pairs of white noise @ mean` |
+
+With the second half of a 42 dB below the first, the correlation's mean
+error is
+{acc}`correlate f32, 64 x 64; flexdsp; the same, a's second half 42 dB down @ mean`
+ulp against CMSIS-DSP's
+{acc}`correlate f32, 64 x 64; CMSIS-DSP; the same, a's second half 42 dB down @ mean`.
+At 120 dB it is
+{acc}`correlate f32, 64 x 64; flexdsp; the same, a's second half 120 dB down @ mean`
+ulp against
+{acc}`correlate f32, 64 x 64; CMSIS-DSP; the same, a's second half 120 dB down @ mean`.
+The whole block shares one exponent, so its quiet values keep fewer bits
+than floats do.
+
 ## Example
 
 ```{literalinclude} ../examples/fd_corr.c
@@ -131,3 +177,9 @@ Runs of whole windows go through the FIR kernels, four outputs per pass
 zero. The sums are 32-bit (q31: 64-bit) whenever $max |a| sum |b|$ or
 $max |b| sum |a|$ allows it, which a filter with $sum |h| < 2$ or 12-bit data
 always does; otherwise 64-bit (q31: 96-bit).
+
+The float forms hold the longer input at its own exponent, every $|q| < 2^31$,
+and the shorter at the smallest exponent found with $sum |q| < 2^32$. Each
+pair of indices meets in one output at most, so every partial sum stays
+under $2^63$ and the 64-bit kernels are exact. Each output is then rounded
+once to float.
