@@ -4,14 +4,51 @@
 [![Release](https://img.shields.io/github/v/tag/antonykasera/flexlib?filter=flexutils-v%2A&sort=semver&label=release)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
 
-Small building blocks for Cortex-M: bit operations, text formatting and
-parsing without printf, CRCs, a lock-free ring buffer, COBS, debouncing and
-random numbers. Plain C11, no allocation.
+Most firmware ends up writing the same small pieces: taking bytes apart,
+turning numbers into text and back, checking frames with a CRC, passing bytes
+from an interrupt to the main loop, framing packets on a serial link,
+debouncing buttons. flexutils has them, in plain C11 with no allocation and
+no `printf`.
+
+This prints a temperature held in Q16.16 fixed point, with an id and a
+count:
+
+```c
+#include <stdio.h>
+
+#include "fu_fmt.h"
+
+int main(void) {
+  int32_t temp = 1546650; /* 23.6 in Q16.16 */
+  char line[48];
+  size_t n = fu_snprintf(line, sizeof line, "t=%.1q C id=%08X n=%u", temp,
+                         0xBEEFU, 42U);
+
+  char q[FU_FMT_Q16_SIZE];
+  fu_fmt_q16(q, temp, 4U); /* "23.6000", as printf "%.4f" */
+
+  puts(line);
+  puts(q);
+  return n == 25U ? 0 : 1;
+}
+```
+
+Which prints
+
+```text
+t=23.6 C id=0000BEEF n=42
+23.6000
+```
+
+`%.1q` is the conversion for Q16.16. The value held is 23.6000061..., so one
+decimal gives `23.6`, and `fu_fmt_q16` with four digits gives exactly what
+`printf("%.4f")` would print for it. `newlib`'s `snprintf` would take several
+thousand cycles for the float alone.
+
+## Modules
 
 Cycles are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
 [docs/results/f103.md](../docs/results/f103.md).
-
-## Modules
 
 | header | what | cycles | baseline |
 |---|---|--:|---|
@@ -25,27 +62,29 @@ Cycles are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
 | `fu_rand.h` | xorshift32, xoshiro128**, unbiased bounded draws | xoshiro128** 22 | `rand()` 44 |
 
 `fu_snprintf` handles `%d %i %u %x %X %c %s %%`, `%q` for Q16.16, a width,
-`-` and `0`. `fu_parse` takes a length and returns a status.
+and the `-` and `0` flags. The `fu_parse` functions take a pointer and a
+length, so the text needs no NUL, and return a status instead of setting
+`errno`.
 
-## Guarantees
+## What you can rely on
 
-- `fu_fmt` matches the C library's `%.*f` exactly for all 2^32 Q16.16 values
-  and floats; integers and hex are checked on all 2^32 inputs.
-- `fu_parse` reads back everything `fu_fmt` writes and rounds Q16.16
-  correctly; errors come back as `FU_ParseStatus`.
-- CRCs match the published check values and a bitwise reference.
-- `fu_xoshiro128_below` and `fu_xorshift32_below` are unbiased.
+`fu_fmt` prints the same digits as the C library's `%.*f`, checked on all
+2^32 Q16.16 values and floats, and its integers and hex on all 2^32 inputs.
+`fu_parse` reads back everything `fu_fmt` writes, rounds Q16.16 correctly,
+and reports errors as an `FU_ParseStatus`. Every CRC matches its published
+check value and a bitwise reference. `fu_xoshiro128_below` and
+`fu_xorshift32_below` draw in a range with no bias.
 
 ## Use
 
 In a [flex](https://github.com/antonykasera/STM32F1-HAL) project (v1.1.0 or
-later), one line in the Makefile:
+later), add one line to the Makefile:
 
 ```make
 FLEXLIB_LIBS := utils
 ```
 
-Elsewhere, include the fragment (it only sets variables):
+Elsewhere, include the fragment. It only sets variables:
 
 ```make
 include lib/flexlib/flexutils.mk
@@ -53,29 +92,17 @@ CFLAGS += $(FLEXLIB_CFLAGS)
 SRCS   += $(FU_SRCS)
 ```
 
-```c
-#include "fu_fmt.h"
-#include "fu_ring.h"
-
-static uint8_t rx_mem[256];
-static FU_Ring rx;
-
-void app_init(void) { fu_ring_init(&rx, rx_mem, sizeof rx_mem); }
-
-void report(char *buf, size_t n, int32_t mv, int32_t temp_q16) {
-  fu_snprintf(buf, n, "v=%d mV t=%.2q C\n", mv, temp_q16); /* no printf */
-}
-```
-
 Build with `-ffunction-sections -fdata-sections` and link with
-`--gc-sections`, so unused functions drop out.
+`--gc-sections`, so the functions you don't call stay out of the image.
 
 ## Options
 
-- `FU_CRC_SMALL`: 16-entry CRC tables instead of byte tables. CRC-32 over
-  256 B takes 4109 cycles instead of 1584 warm, and 4672 instead of 14793 cold.
-- `FX_ASSERT_FAIL(file, line)` / `FX_DISABLE_ASSERT`: argument checks trap by
-  default, with no stdio.
+- `FU_CRC_SMALL`: 16-entry CRC tables instead of byte tables. Warm, CRC-32
+  over 256 B then takes 4109 cycles instead of 1584. Cold, with the tables
+  out of the flash cache, it takes 4672 instead of 14793, so for CRCs you
+  run rarely the small tables win.
+- `FX_ASSERT_FAIL(file, line)` / `FX_DISABLE_ASSERT`: by default a failed
+  argument check traps, with no stdio.
 
 ## Testing
 
