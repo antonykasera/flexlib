@@ -52,11 +52,11 @@ golden:
 BENCH_SETS     = utils math struct dsp dsp2 dsp3 dsp4 dsp5 dsp6
 BENCH_SET     ?=
 BENCH_OPT     ?= -O2
-# the board: bench/port/<target>, its port.mk sets the CPU, report and probe
+# bench/port/<target>/port.mk: CPU, report, OpenOCD target
 BENCH_TARGET  ?= f103
 BENCH_PORTDIR  = bench/port/$(BENCH_TARGET)
 include $(BENCH_PORTDIR)/port.mk
-# usb: the board's CDC on BENCH_PORT; rtt: SEGGER RTT over SWD, read by OpenOCD
+# usb: CDC on BENCH_PORT; rtt: SEGGER RTT over SWD (OpenOCD)
 BENCH_BUILD    = $(BUILD)/bench$(filter-out -f103,-$(BENCH_TARGET))$(BENCH_OPT)-$(BENCH_SET)$(filter-out -usb,-$(BENCH_REPORT))
 BENCH_PORT    ?= /dev/ttyACM0
 ARM_NM        ?= arm-none-eabi-nm
@@ -164,7 +164,7 @@ BENCH_LDFLAGS = $(BENCH_CPU) -T$(BENCH_PORTDIR)/linker.ld -Wl,--gc-sections \
                 $(if $(filter utils,$(BENCH_SET)),-u _printf_float) \
                 -Wl,-Map=$(BENCH_BUILD)/bench.map
 
-# flexlib + bench sources get the strict warnings; the board's own (flex), not
+# strict warnings for flexlib and the bench, not for the board's sources
 BENCH_OBJS = $(patsubst %.c,$(BENCH_BUILD)/%.o,$(BENCH_SRCS))
 EXT_OBJS   = $(patsubst %.c,$(BENCH_BUILD)/ext/%.o,$(notdir $(BENCH_EXT_SRCS)))
 CMSIS_OBJS = $(patsubst %.c,$(BENCH_BUILD)/cmsis-dsp/%.o,$(notdir $(CMSIS_DSP_SRCS)))
@@ -222,7 +222,6 @@ else
 bench: $(BENCH_BUILD)/bench.bin
 
 ifeq ($(BENCH_REPORT),rtt)
-# OpenOCD flashes, resets and serves the RTT buffer; bench_run reads it
 bench-run: $(BENCH_BUILD)/bench.elf
 	$(PYTHON) tools/bench_run.py --rtt $< --openocd "$(BENCH_OPENOCD)" \
 		--nm $(ARM_NM) --title "$(BENCH_TITLE)" --out $(BENCH_RESULTS) $(BENCH_APPEND)

@@ -23,7 +23,6 @@ void bench_report_init(void) {
   hal_usb_init();
 }
 
-/* runs the bench each time the host opens the port */
 void bench_report_wait(void) {
   static bool was_open;
   while (1) {
@@ -38,7 +37,6 @@ void bench_report_wait(void) {
   }
 }
 
-/* blocks until queued */
 bool bench_out(const char *s, size_t n) {
   while (n > 0U) {
     size_t k = hal_usb_cdc_write(s, n);

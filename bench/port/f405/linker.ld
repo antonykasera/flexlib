@@ -1,5 +1,4 @@
-/* STM32F405RG: 1 MB flash, 128 KB SRAM (112 + 16 KB, contiguous). The 64 KB
-   CCM RAM at 0x10000000 is not used. */
+/* STM32F405RG; the CCM RAM is not used */
 
 MEMORY
 {
@@ -24,10 +23,9 @@ SECTIONS
   .text :
   {
     . = ALIGN(4);
-    /* the bench harness first */
     EXCLUDE_FILE(*/utils/src/*.o */math/src/*.o */dsp/src/*.o *cmsis-dsp/*.o *libc_nano.a:*
                  *libc.a:* *libm.a:* *libgcc.a:*) *(.text .text* .rodata .rodata*)
-    /* what cases time: on a 4 KB step, as on the F103 */
+    /* timed code on a 4 KB step */
     . = ALIGN(4096);
     _bench_measured = .;
     *(.bench_measured.text .bench_measured.rodata)

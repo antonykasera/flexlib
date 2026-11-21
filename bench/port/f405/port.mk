@@ -1,5 +1,4 @@
-# bench board: STM32F405RG 8 MHz crystal, SWD; report over RTT only.
-# Device headers and startup from ST's cmsis_device_f4, core headers from CMSIS 6.
+# bench board: STM32F405RG, 8 MHz crystal, RTT only; ST and CMSIS 6 headers
 
 CMSIS_CORE_DIR ?= third_party/cmsis-core
 CMSIS_F4_DIR   ?= third_party/cmsis-device-f4
@@ -10,7 +9,6 @@ BENCH_REPORT   ?= rtt
 BENCH_OPENOCD  ?= -f interface/stlink.cfg -f target/stm32f4x.cfg
 BENCH_PORT_DEFS = -DSTM32F405xx
 BENCH_PORT_SRCS = $(BENCH_PORTDIR)/port.c
-# the FPU paths' hashes (make golden, FX_EMULATE_FPU)
 BENCH_GOLDEN    = bench/core/golden_fpu.c
 BENCH_PORT_INC  = -isystem $(CMSIS_CORE_DIR)/CMSIS/Core/Include \
                   -isystem $(CMSIS_F4_DIR)/Include

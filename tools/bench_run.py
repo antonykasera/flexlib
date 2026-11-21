@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # @file bench_run.py
-# @brief Read the bench table from the board (USB CDC, or RTT through OpenOCD)
-# into a results file
+# @brief Read the bench table from the board (USB CDC or RTT) into a file
 #
 # Copyright (c) 2026 Antony Kasera
 # SPDX-License-Identifier: Apache-2.0
@@ -52,11 +51,10 @@ def rtt_address(nm, elf):
 
 
 def start_openocd(args):
-    """Flash, reset, serve the RTT up-buffer on args.rtt_port."""
     addr = rtt_address(args.nm, args.rtt)
     cmds = ["init",
             f"program {{{args.rtt}}} verify reset",
-            "sleep 100",  # the control block is in .data: set up after reset
+            "sleep 100",  # the control block is set up after reset
             f"rtt setup 0x{addr:08x} 16 {{SEGGER RTT}}",
             "rtt polling_interval 5",
             "rtt start",
@@ -78,12 +76,11 @@ def connect(port, ocd, log, timeout):
             sock.settimeout(0.1)
             return sock
         except OSError:
-            time.sleep(0.2)  # still flashing
+            time.sleep(0.2)
     sys.exit(f"bench_run: no RTT server on port {port}, see {log.name}")
 
 
 def read_report(read, timeout):
-    """Text from read() up to the end marker; read() returns b"" when idle."""
     buf = ""
     deadline = time.monotonic() + timeout
     while END not in buf:

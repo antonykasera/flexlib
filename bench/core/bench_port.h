@@ -13,14 +13,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void bench_port_init(void);     /* clocks and flash wait states */
-void bench_port_describe(void); /* the rest of the CPUID line: ", flash ..." */
-void bench_port_extra(void);    /* tables only this board has, or nothing */
+void bench_port_init(void);
+void bench_port_describe(void); /* ", flash ..." after the CPUID */
+void bench_port_extra(void);
 
-/* report backend: report_usb.c (port) or report_rtt.c (core) */
+/* report_usb.c (port) or report_rtt.c (core) */
 void bench_report_init(void);
-void bench_report_wait(void);            /* returns when a reader is there */
-bool bench_out(const char *s, size_t n); /* false: the reader went away */
+void bench_report_wait(void);
+bool bench_out(const char *s, size_t n); /* false: reader gone */
 
 /* bench_main.c */
 void bench_print(const char *s);

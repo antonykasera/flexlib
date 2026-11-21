@@ -1,4 +1,4 @@
-# bench board: STM32F103C8 Blue Pill clone; flex gives the clock, USB and startup
+# bench board: STM32F103C8 Blue Pill clone, on flex
 
 BENCH_CPU       = $(M3_FLAGS)
 BENCH_TITLE     = STM32F103C8 (Blue Pill clone)

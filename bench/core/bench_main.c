@@ -102,7 +102,6 @@ static void print_slow(const SlowCase *s, unsigned n) {
   }
 }
 
-/* the warm case of the same name */
 static const BenchCase *find_case(const char *name) {
   for (unsigned g = 0U; g < bench_groups_n; g++) {
     for (unsigned i = 0U; i < bench_groups[g]->n; i++) {

@@ -15,7 +15,7 @@ typedef struct {
   const char *name;
   char *buf;
   uint32_t size;
-  volatile uint32_t wr; /* ours */
+  volatile uint32_t wr;
   volatile uint32_t rd; /* the debugger's */
   uint32_t flags;
 } RttBuffer;
@@ -30,7 +30,7 @@ typedef struct {
 
 static char rtt_buf[RTT_SIZE];
 
-/* in .data: valid from reset, before main; tools/bench_run.py finds it by name */
+/* .data: valid before main; bench_run.py finds it by name */
 RttControl bench_rtt = {
     "SEGGER RTT", 1, 0, {{"bench", rtt_buf, RTT_SIZE, 0U, 0U, RTT_BLOCK_IF_FULL}}};
 
@@ -58,7 +58,7 @@ bool bench_out(const char *s, size_t n) {
     rtt_buf[wr] = *s++;
     n--;
     wr = next;
-    __asm volatile("dmb" ::: "memory"); /* the byte before the offset */
+    __asm volatile("dmb" ::: "memory"); /* byte before offset */
     b->wr = wr;
   }
   return true;

@@ -1,7 +1,6 @@
 /**
  * @file exhaustive_fd_bfp_slow.c
- * @brief Block floating point conversions on every float and every q31, at
- * block exponents from the value's own to far above it
+ * @brief fd_bfp conversions on every float and every q31
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0
@@ -31,7 +30,6 @@ int main(void) {
       qv[i] = (int32_t)u;
     }
 
-    /* x -> q31 at the value's own exponent and above */
     for (int i = 0; i < CHUNK; i++) {
       int32_t e0 = fd_bfp_exp(&x[i], 1U);
       if (!isfinite(x[i])) {
@@ -51,7 +49,6 @@ int main(void) {
       }
     }
 
-    /* q31 -> float, a whole chunk per call, then in place */
     for (unsigned j = 0U; j < sizeof f_exp / sizeof f_exp[0]; j++) {
       int32_t e = f_exp[j];
       double scale = ldexp(1.0, e - 31);
