@@ -30,7 +30,7 @@ or exact reference; CMSIS-DSP errors are in
 | `fm_asin_q15` / `fm_asin_q31` | 98 / 284 | | 0.75 / 0.81 LSB | |
 | `fm_log2_q16` / `fm_ln_q16` | 72 / 87 | CMSIS `arm_vlog_q31` 548 | 0.501 LSB | 1.71 LSB |
 | `fm_exp2_q16` / `fm_exp_q16` | 67 / 89 | `expf` via float 1566 | 0.54 LSB | |
-| `fm_pow_q16` | 153 | `powf` via float 5183 | 0.65 LSB + \|y\| 2^-32 | |
+| `fm_pow_q16` | 153 | `powf` via float 5183 | 0.65 LSB + \|y\| 2^-32 of the result | |
 
 Angles in `fm_trig` and `fm_atan` are binary (a full turn is 2^16 or 2^32).
 Results saturate; the logs of x <= 0 return `INT32_MIN`.
@@ -63,9 +63,7 @@ is at most 0.5 ULP + 2^-32 times the sum of the products' magnitudes.
 | function | cycles | plain C (libgcc) | CMSIS-DSP | error | CMSIS / plain error |
 |---|--:|--:|--:|---|---|
 | `fm_mat4_mul_q31` | 992 | | 1309 | 0.5 LSB, saturated | 1 LSB, wraps |
-| `fm_mat3_mul_q31` / `fm_dot3_q31` | 458 / 66 | | | 0.5 LSB | |
-| `fm_mat4_mul_f32` | 2986 | 6411 | 6445 | 0.5 ULP | 8e5 ULP on random matrices |
-| `fm_mat3_mul_f32` | 1428 | 2695 | | 0.5 ULP | |
+| `fm_mat4_mul_f32` | 2986 | 6411 | 6445 | 0.5 ULP | 8e5 ULP |
 | `fm_dot3_f32` / `fm_cross3_f32` | 207 / 425 | 264 / 461 | | 0.5 ULP | |
 | `fm_quat_mul` | 747 | 1431 | 1434 | 0.5 ULP | 2e6 ULP |
 | `fm_quat_normalize` | 534 | 937 | 914 | 0.6 ULP, any finite q | 2.8 ULP |
@@ -124,7 +122,8 @@ float control_step(const float gyro[3]) {
 }
 ```
 
-No soft-float anywhere in that loop: about 3.4k cycles, 48 us at 72 MHz.
+The loop makes no soft-float calls and takes about 3.4k cycles (48 us at
+72 MHz).
 
 ## Options
 
@@ -133,9 +132,6 @@ No soft-float anywhere in that loop: about 3.4k cycles, 48 us at 72 MHz.
 - `FX_ASSERT_FAIL(file, line)` / `FX_DISABLE_ASSERT`: argument checks trap by
   default, with no stdio.
 
-## Checking it
+## Testing
 
-`make` runs the host tests, the cross builds and the asm audit;
-`make exhaustive` runs every 32-bit input; `make accuracy` writes the
-CMSIS-DSP comparison; `make bench-run` measures on the board. See the
-[top-level README](../README.md).
+See [docs/testing.md](../docs/testing.md).

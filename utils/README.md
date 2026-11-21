@@ -4,9 +4,9 @@
 [![Release](https://img.shields.io/github/v/tag/antonykasera/flexlib?filter=flexutils-v%2A&sort=semver&label=release)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
 
-Everyday Cortex-M code, fast and checked on every input it can take: bit
-tricks, formatting and parsing without printf, CRCs, a lock-free ring, COBS,
-debouncing and PRNGs. Plain C11, no allocation.
+Small building blocks for Cortex-M: bit operations, text formatting and
+parsing without printf, CRCs, a lock-free ring buffer, COBS, debouncing and
+random numbers. Plain C11, no allocation.
 
 Cycles are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
 [docs/results/f103.md](../docs/results/f103.md).
@@ -15,14 +15,17 @@ Cycles are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
 
 | header | what | cycles | baseline |
 |---|---|--:|---|
-| `fu_bits.h` | clz / ctz (32, 64), popcount, rbit, byte swaps, LE / BE loads and stores, sign extension of N-bit fields | popcount 13, clz64 3, `fu_load_be32` 4, `fu_sext(x, 12)` 2 | `__builtin_popcount` 17 |
-| `fu_fmt.h` | u32, i32, hex, Q16.16 and float to text; `fu_snprintf` (`%d %i %u %x %X %c %s %%`, `%q` for Q16.16; width, `-`, `0`) | u32 116 (10 digits), Q16.16 `%.4f` 154, float `%.2f` 182 | `snprintf` 1024, 4281, 4285 |
-| `fu_parse.h` | text to u32, i32, hex, Q16.16 (correctly rounded); bounded input, status return | u32 153 (10 digits), Q16.16 275 | `strtoul` 327, `strtod` path 1332 |
-| `fu_crc.h` | CRC-8 SMBus / Maxim, CRC-16 CCITT / MODBUS, CRC-32 (zlib) | CRC-32 6.2 per byte (256 B: 1584), CRC-16 8.9, CRC-8 7.1 | byte table 11, bitwise 54 per byte |
-| `fu_ring.h` | lock-free SPSC byte ring, fixed-size element queue, circular-DMA receive | write + read 64 B: 392; put + get 33 | memcpy-based 933 |
-| `fu_cobs.h` | COBS encode, strict in-place decode, byte-at-a-time receiver | encode 64 B 329, decode 342 | byte loop 996, 906 |
-| `fu_debounce.h` | integrator for one input; branch-free vertical counter for 32 | 32 inputs per tick: 20 | 16 single integrators 379 |
-| `fu_rand.h` | xorshift32, xoshiro128** with jump, unbiased bounded draws | xoshiro128** 22, unbiased `below(100)` 33 | `rand()` 44 |
+| `fu_bits.h` | clz, ctz, popcount, bit reverse, byte swaps, LE / BE loads, sign extension | popcount 13 | `__builtin_popcount` 17 |
+| `fu_fmt.h` | integers, hex, Q16.16 and float to text, `fu_snprintf` | u32 116, float `%.2f` 182 | `snprintf` 1024, 4285 |
+| `fu_parse.h` | text to u32, i32, hex, Q16.16 | u32 153, Q16.16 275 | `strtoul` 327, `strtod` 1332 |
+| `fu_crc.h` | CRC-8 SMBus / Maxim, CRC-16 CCITT / MODBUS, CRC-32 | CRC-32 6.2 per byte | bitwise 54 per byte |
+| `fu_ring.h` | lock-free byte ring, element queue, DMA receive | 64 B write + read 392 | `memcpy` ring 933 |
+| `fu_cobs.h` | COBS encode, in-place decode, byte receiver | 64 B encode 329 | byte loop 996 |
+| `fu_debounce.h` | one input, or 32 inputs at once | 32 inputs 20 per tick | 16 integrators 379 |
+| `fu_rand.h` | xorshift32, xoshiro128**, unbiased bounded draws | xoshiro128** 22 | `rand()` 44 |
+
+`fu_snprintf` handles `%d %i %u %x %X %c %s %%`, `%q` for Q16.16, a width,
+`-` and `0`. `fu_parse` takes a length and returns a status.
 
 ## Guarantees
 
@@ -74,9 +77,6 @@ Build with `-ffunction-sections -fdata-sections` and link with
 - `FX_ASSERT_FAIL(file, line)` / `FX_DISABLE_ASSERT`: argument checks trap by
   default, with no stdio.
 
-## Checking it
+## Testing
 
-`make` runs the host tests, the cross builds and the asm audit;
-`make exhaustive` and `make exhaustive-slow` cover every 32-bit input;
-`make bench-run` measures on the board. See the
-[top-level README](../README.md).
+See [docs/testing.md](../docs/testing.md).
