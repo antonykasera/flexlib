@@ -147,7 +147,8 @@ CMSIS_SRCS_dsp5   = $(addprefix FilteringFunctions/,arm_fir_interpolate_q15.c \
                       arm_fir_interpolate_init_q15.c arm_fir_interpolate_q31.c \
                       arm_fir_interpolate_init_q31.c)
 CMSIS_SRCS_dsp6   = $(addprefix FilteringFunctions/,arm_fir_f32.c arm_fir_init_f32.c \
-                      arm_biquad_cascade_df2T_f32.c arm_biquad_cascade_df2T_init_f32.c) \
+                      arm_biquad_cascade_df2T_f32.c arm_biquad_cascade_df2T_init_f32.c \
+                      arm_conv_f32.c arm_correlate_f32.c) \
                     $(addprefix TransformFunctions/,arm_cfft_f32.c arm_cfft_radix8_f32.c \
                       arm_cfft_init_f32.c arm_rfft_fast_f32.c arm_rfft_fast_init_f32.c \
                       arm_bitreversal2.c) \

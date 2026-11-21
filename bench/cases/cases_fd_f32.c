@@ -9,6 +9,7 @@
 #include "bench.h"
 #include "fd_bfp.h"
 #include "fd_biquad.h"
+#include "fd_corr.h"
 #include "fd_fft.h"
 #include "fd_fir.h"
 #include "fd_vec.h"
@@ -272,6 +273,30 @@ BENCH_UNARY(b_sum, uint32_t, in_off, float, fd_sum_f32(pool + x, BLK))
 BENCH_UNARY(b_mean, uint32_t, in_off, float, fd_mean_f32(pool + x, BLK))
 BENCH_UNARY(b_rms, uint32_t, in_off, float, fd_rms_f32(pool + x, BLK))
 
+/* conv / corr 64 x 64; B: fd_dot_f32 per lag over the overlap */
+
+BENCH_CALL static void corr_b(const float *a, const float *b, float *y) {
+  for (int32_t l = 1 - (int32_t)BLK; l < (int32_t)BLK; l++) {
+    uint32_t ia = l > 0 ? (uint32_t)l : 0U, ib = l < 0 ? (uint32_t)-l : 0U;
+    *y++ = fd_dot_f32(a + ia, b + ib, BLK - ia - ib);
+  }
+}
+
+#define XBLOCK(name, call)                                                     \
+  BENCH_UNARY_DEF(name, uint32_t, in_off, uint32_t, ((call), 0U),              \
+                  OUT((2U * BLK - 1U) * 4U), (void)0)
+
+XBLOCK(b_conv, fd_conv_f32(pool + x, BLK, pool + 256U + x, BLK, work.t.x,
+                           work.t.w))
+XBLOCK(b_corr, fd_corr_f32(pool + x, BLK, pool + 256U + x, BLK,
+                           1 - (int32_t)BLK, 2U * BLK - 1U, work.t.x, work.t.w))
+XBLOCK(b_corr_b, corr_b(pool + x, pool + 256U + x, work.t.x))
+#ifdef BENCH_HAVE_CMSIS_DSP
+XBLOCK(c_conv, arm_conv_f32(pool + x, BLK, pool + 256U + x, BLK, work.t.x))
+XBLOCK(c_corr,
+       arm_correlate_f32(pool + x, BLK, pool + 256U + x, BLK, work.t.x))
+#endif
+
 static const BenchCase cases[] = {
     {"fd_bfp_exp, 256 floats", "flexlib", b_exp, true},
     {"fd_bfp_to_q31, 256 floats", "flexlib", b_to_q31, true},
@@ -292,6 +317,9 @@ static const BenchCase cases[] = {
     {"fd_add_f32, 64", "flexlib", b_add, true},
     {"fd_mul_f32, 64", "flexlib", b_mul, true},
     {"fd_abs_f32, 64", "flexlib", b_abs, true},
+    {"fd_conv_f32, 64 x 64", "flexlib", b_conv, true},
+    {"fd_corr_f32, 64 x 64, all lags", "flexlib", b_corr, true},
+    {"corr f32 exact sum per lag (fd_dot_f32)", "candidate", b_corr_b, true},
 #ifdef BENCH_HAVE_CMSIS_DSP
     {"arm_fir_f32, 32 taps x 64", "CMSIS-DSP", c_fir, false},
     {"arm_biquad_cascade_df2T_f32, 4 x 64", "CMSIS-DSP", c_biquad, false},
@@ -304,6 +332,8 @@ static const BenchCase cases[] = {
     {"arm_add_f32, 64", "CMSIS-DSP", c_add, false},
     {"arm_mult_f32, 64", "CMSIS-DSP", c_mult, false},
     {"arm_abs_f32, 64", "CMSIS-DSP", c_abs, false},
+    {"arm_conv_f32, 64 x 64", "CMSIS-DSP", c_conv, false},
+    {"arm_correlate_f32, 64 x 64", "CMSIS-DSP", c_corr, false},
 #endif
 };
 
