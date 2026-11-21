@@ -37,7 +37,7 @@ code in the image. The firmware writes into a SEGGER RTT buffer in RAM and
 waits while it is full. OpenOCD (0.12 or later) flashes the image and serves
 the buffer on TCP port 9090. `BENCH_OPENOCD` holds the interface and target
 arguments (default `-f interface/stlink.cfg -f target/stm32f1x.cfg`). The
-measured code starts on a 4 KB boundary, so both reports time the same
+measured code starts on a 4 KB boundary: both reports time the same
 instructions at the same alignment.
 
 `BENCH_TARGET` selects the board (default `f103`). `BENCH_TARGET=f405` builds
@@ -53,9 +53,9 @@ caches before each sample.
 - Warm: each case runs once untimed first. Cold: the flash cache is flushed
   before every sample; cold numbers move by about one line (113 cycles).
 - The board is an F103 clone (CPUID 0x412FC230) whose flash behaves like a
-  cache (32-byte lines, 16-32 KB). A genuine STM32F103 has none, so timings
+  cache (32-byte lines, 16-32 KB). A genuine STM32F103 has none, and timings
   may differ, especially for tables and rarely run code.
-- Built at `-O2` without LTO, so library functions are timed as real calls.
+- Built at `-O2` without LTO: library functions are timed as real calls.
 - `make bench-windows` lists the instructions inside each timed window.
 - Each case's output hash on the board is checked against the same code run
   on the host.

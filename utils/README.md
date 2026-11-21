@@ -40,7 +40,7 @@ t=23.6 C id=0000BEEF n=42
 23.6000
 ```
 
-`%.1q` is the conversion for Q16.16. The value held is 23.6000061..., so one
+`%.1q` is the conversion for Q16.16. The value held is 23.6000061...: one
 decimal gives `23.6`, and `fu_fmt_q16` with four digits gives exactly what
 `printf("%.4f")` would print for it. `newlib`'s `snprintf` would take several
 thousand cycles for the float alone.
@@ -63,7 +63,7 @@ Cycles are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
 
 `fu_snprintf` handles `%d %i %u %x %X %c %s %%`, `%q` for Q16.16, a width,
 and the `-` and `0` flags. The `fu_parse` functions take a pointer and a
-length, so the text needs no NUL, and return a status instead of setting
+length, with no NUL needed, and return a status instead of setting
 `errno`.
 
 ## What you can rely on
@@ -93,14 +93,14 @@ SRCS   += $(FU_SRCS)
 ```
 
 Build with `-ffunction-sections -fdata-sections` and link with
-`--gc-sections`, so the functions you don't call stay out of the image.
+`--gc-sections`. The functions you don't call then stay out of the image.
 
 ## Options
 
 - `FU_CRC_SMALL`: 16-entry CRC tables instead of byte tables. Warm, CRC-32
   over 256 B then takes 4109 cycles instead of 1584. Cold, with the tables
-  out of the flash cache, it takes 4672 instead of 14793, so for CRCs you
-  run rarely the small tables win.
+  out of the flash cache, it takes 4672 instead of 14793: for CRCs you
+  run rarely, the small tables win.
 - `FX_ASSERT_FAIL(file, line)` / `FX_DISABLE_ASSERT`: by default a failed
   argument check traps, with no stdio.
 

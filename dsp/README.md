@@ -9,7 +9,7 @@ on blocks of samples, FIR and biquad filters, windows, tone detection, noise,
 FFTs, correlation, adaptive filters and sample-rate conversion. It works in
 Q15 and Q31 on flexmath's fixed-point core, and the FIR, biquad, FFT,
 convolution, correlation and sums also come in float, computed on the same
-integer kernels so they need no FPU either. Plain C11, no allocation.
+integer kernels, and need no FPU either. Plain C11, no allocation.
 
 Here a 31-tap lowpass at 0.1 cycles per sample is fed DC plus a tone at half
 the sample rate:
@@ -69,7 +69,7 @@ Samples are `fm_q15`, `fm_q31` or `float`. Complex samples are interleaved
 uses. Block functions take `(x, y, n)`, and `y` may be the same buffer as an
 input of the same type.
 
-Results round to nearest, with ties going up, and saturate, so they are
+Results round to nearest, with ties going up, and saturate. They are
 within 0.5 LSB unless a function says otherwise. The filters and
 correlations compute each output as the exact sum of its products and round
 once, for any coefficients. The FFTs round ties down and never need to
@@ -123,7 +123,7 @@ standard deviation are computed from exact sums and rounded once.
 The q31 dot product and power return Q16.48, CMSIS-DSP's format, but
 saturate instead of wrapping past 2^15. `fd_headroom_q15` / `_q31` return a
 block's spare sign bits. The f32 sums add up exactly in 64 bits before one
-rounding, so a long sum does not lose accuracy as it goes. Their errors are
+rounding: a long sum does not lose accuracy as it goes. Their errors are
 for 64 values from 2^-10 to 2^10.
 
 ## Complex vectors
@@ -135,8 +135,8 @@ for 64 values from 2^-10 to 2^10.
 | `fd_cmag2_q15` | 718 | 958 | exact (UQ2.30) | Q3.13 |
 | `fd_cdot_q15` | 1806 | | exact | |
 
-`fd_cmag` returns unsigned UQ1.15 / UQ1.31, so a magnitude up to sqrt 2 fits
-without saturating.
+`fd_cmag` returns unsigned UQ1.15 / UQ1.31, which holds a magnitude up to
+sqrt 2 without saturating.
 
 ## FIR filters (`fd_fir.h`)
 
@@ -157,7 +157,7 @@ multiplies the newest sample.
 
 You pass a state buffer of `FD_FIR_STATE_LEN` samples: the `ntaps - 1`
 history samples plus a chunk of any size. A block runs in chunk-sized
-pieces, and the history moves once per chunk, so a larger chunk is faster
+pieces, and the history moves once per chunk. A larger chunk is faster,
 and the results do not change. Decimators take any `n` and return the
 outputs written. `fd_fir_design` builds windowed-sinc lowpass, highpass,
 bandpass and bandstop filters in float, and `fd_fir_quantize_q15` / `_q31`
@@ -176,7 +176,7 @@ the shelves and peaks of an audio EQ, with far fewer multiplies than a FIR.
 These are four sections, an 8th-order Butterworth lowpass, on blocks of 64.
 They are DF1 with CMSIS-DSP's coefficient order and signs, in Q2.30 / Q2.14.
 Each section's output is its exact sum rounded once, for any coefficients. A
-large gain is a shift on the `b` coefficients alone, so the feedback keeps
+large gain is a shift on the `b` coefficients alone, and the feedback keeps
 full precision.
 
 | function | cycles | CMSIS-DSP | error, fc 0.01 | CMSIS-DSP error |
@@ -225,8 +225,8 @@ the last few samples, dropping a spike.
 
 ## Windows (`fd_window.h`)
 
-A window tapers a block before an FFT, so a tone does not smear across the
-spectrum. These are generated at run time for any length, symmetric for
+A window tapers a block before an FFT, to keep a tone from smearing across
+the spectrum. These are generated at run time for any length, symmetric for
 filter design or periodic for spectra, from flexmath's cosine on exact
 binary angles. Apply one with `fd_mul_q15` / `_q31`.
 
@@ -264,13 +264,13 @@ Complex FFTs of any power of two from 2 to `FD_FFT_MAX` points, in place on
 `fd_cq15` / `fd_cq31`, real FFTs of 4 to `FD_FFT_MAX` points through a
 half-size complex one and a split pass, and the inverses of both.
 `FD_FFT_MAX` is 1024 by default, with the twiddles taken from flexmath's sine
-table, so they cost no table of their own. 2048 or 4096 add a 4 KB table.
+table instead of a table of their own. 2048 or 4096 add a 4 KB table.
 The transforms are radix-4, decimation in time.
 
 A fixed-point FFT has to keep its values from overflowing as they grow
 through the stages. These use block floating point: before each stage they
 measure the block's headroom and scale by exactly what that stage needs,
-down as well as up, so a quiet input keeps its bits. The transform returns
+down as well as up. A quiet input keeps its bits. The transform returns
 the exponent e, and the result is `x[k] 2^e` in integer units. Every stage
 output is its exact value rounded once, to nearest with ties down, and
 nothing saturates or wraps for any input. An all-zero block gives zeros and
@@ -290,7 +290,7 @@ nothing saturates or wraps for any input. An all-zero block gives zeros and
 
 SNR is against the exact DFT, on full-scale white noise over 40 blocks
 ([docs/accuracy.md](../docs/accuracy.md) has tones, two tones and quiet
-input). CMSIS-DSP scales by a fixed 1/4 per stage, so a quiet signal loses
+input). CMSIS-DSP scales by a fixed 1/4 per stage, and a quiet signal loses
 its low bits: white noise at -40 dB keeps 70.4 dB here at 256 points
 (CMSIS-DSP 20.1), and q31 keeps 164.9 dB at 1024 (107.5). The q31 butterflies
 sum each output exactly in 64 bits, where CMSIS-DSP keeps the truncated high
@@ -386,7 +386,7 @@ An adaptive filter learns its coefficients as it runs: it cancels an echo,
 removes hum picked up by a reference sensor, or identifies an unknown
 system. These are LMS in q15 and q31, plain (`w += mu e x`), normalised
 (`mu e x / x'x`) and sign-error (`mu sign(e) x`), here with 32 taps on
-blocks of 64. The weights are Q30 in 32 bits for both formats, so small
+blocks of 64. The weights are Q30 in 32 bits for both formats, and small
 updates still move them. The update for one sample runs in the same pass
 over the taps as the next sample's output. Outputs are exact sums rounded
 once and saturated, and the normalised step is an exact division, once per

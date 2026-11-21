@@ -2,7 +2,7 @@
 
 Thanks for taking the time to help. Bug reports, accuracy and performance
 findings, fixes and new functions are all welcome. This page explains what a
-change needs so it can be merged without a long back and forth.
+change needs to be merged without a long back and forth.
 
 ## Before you start
 

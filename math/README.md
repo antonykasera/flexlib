@@ -4,11 +4,11 @@
 [![Release](https://img.shields.io/github/v/tag/antonykasera/flexlib?filter=flexmath-v%2A&sort=semver&label=release)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
 
-A Cortex-M3 has no FPU, so every float operation is a call into libgcc, and
+A Cortex-M3 has no FPU. Every float operation is a call into libgcc, and
 newlib's `sinf` takes over a thousand cycles. flexmath gives you two ways
 around that. The fixed-point functions work on fractions held in integers,
 in Q15, Q31 and Q16.16. The float functions take and return `float` as usual
-but compute with integer operations inside, so code written with floats runs
+but compute with integer operations inside. Code written with floats runs
 several times faster without changing its types. Vectors, matrices,
 quaternions and PID controllers come in both forms. Plain C11, no
 allocation.
@@ -44,7 +44,7 @@ Which prints
 
 The length of (3, 4) comes out exactly 5, the angle is 0.9272952 rad, and
 the sine of 10^6 rad matches `double`'s to every printed digit: `fm_sinf`
-reduces any argument exactly, so a large one costs no more than a small one.
+reduces any argument exactly, and a large one costs no more than a small one.
 
 Cycles below are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
 [docs/results/f103.md](../docs/results/f103.md). Errors are against a
@@ -70,8 +70,8 @@ Cycles below are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
 | `fm_exp2_q16` / `fm_exp_q16` | 67 / 89 | `expf` via float 1566 | 0.54 LSB | |
 | `fm_pow_q16` | 153 | `powf` via float 5183 | 0.65 LSB + \|y\| 2^-32 of the result | |
 
-Angles in `fm_trig` and `fm_atan` are binary: a full turn is 2^16 or 2^32,
-so a phase held in an unsigned integer wraps round by itself. Results
+Angles in `fm_trig` and `fm_atan` are binary: a full turn is 2^16 or 2^32.
+A phase held in an unsigned integer then wraps round by itself. Results
 saturate instead of wrapping, and the logarithms of x <= 0 return
 `INT32_MIN`.
 
@@ -92,15 +92,15 @@ inf, NaN (quieted) and subnormals are handled as C requires.
 | `fm_log2f` / `fm_logf` | 107 / 121 | 1701 / 1540 | 0.52 ULP | |
 | `fm_exp2f` / `fm_expf` | 87 / 112 | 3546 / 1292 | 0.52 ULP | |
 
-`fm_sinf` and `fm_cosf` reduce any argument exactly, so large arguments cost
+`fm_sinf` and `fm_cosf` reduce any argument exactly, and large arguments cost
 the same 150 cycles. newlib's `sinf` takes 15320 for |x| between pi/4 and
 2^22.
 
 ## Vectors, matrices, quaternions, PID
 
 Every output is one exact sum of its products, rounded once. For float the
-error is at most 0.5 ULP + 2^-32 times the sum of the products' magnitudes,
-so terms that cancel leave the exact remainder where a plain float loop
+error is at most 0.5 ULP + 2^-32 times the sum of the products' magnitudes:
+terms that cancel leave the exact remainder where a plain float loop
 loses it.
 
 | function | cycles | plain C (libgcc) | CMSIS-DSP | error | CMSIS / plain error |
@@ -121,11 +121,11 @@ and the derivative on the error: a smaller controller than flexmath's.
 - `fm_linalg`: dot2/3/4, cross2/3, mat3 and mat4 times a matrix or a vector,
   on row-major arrays.
 - `fm_quat`: `FM_Quat {w, x, y, z}`. `fm_quat_integrate` applies the exact
-  rotation for the gyro rates and renormalises, so the attitude does not
+  rotation for the gyro rates and renormalises, and the attitude does not
   drift from rounding.
 - `fm_pid`: the output is clamped, and while it is, the integrator stops at
-  the limit, so there is no overshoot after saturation. The derivative acts
-  on the measurement, so a setpoint step does not kick the output. Gains are
+  the limit. There is no overshoot after saturation. Because the derivative
+  acts on the measurement, a setpoint step does not kick the output. Gains are
   per step: ki = Ki dt, kd = Kd / dt.
 
 ## Use
