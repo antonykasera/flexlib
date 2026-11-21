@@ -1000,6 +1000,7 @@ void test_fd_fft_rescale(void) {
   ASSERT_EQ(y1[0].re, INT32_MAX);
   ASSERT_EQ(y1[0].im, INT32_MIN);
   /* to = log2 n: CMSIS-DSP's X / n, the rounding of the transform */
+  rng = 1U;
   fill(m_x, 256U, 10, 0);
   to15(m_x, 256U);
   for (uint32_t i = 0U; i < 256U; i++) {
