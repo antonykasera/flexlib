@@ -7,7 +7,7 @@
 Signal processing for Cortex-M on flexlib's fixed-point core: block
 arithmetic, filters, windows, generators, FFTs, correlation, adaptive filters
 and sample-rate conversion in Q15 and Q31, with float forms of the FIR,
-biquad, FFT and sums. Plain C11, no allocation.
+biquad, FFT, convolution, correlation and sums. Plain C11, no allocation.
 
 Cycles are medians for a block of 64 on an STM32F103 at 72 MHz (`-O2`, warm
 cache). The tables show the main cases;
@@ -274,11 +274,19 @@ which a filter with sum |h| < 2 or 12-bit ADC data always does; otherwise
 | `fd_conv_q31`, 64 x 64 | 47073 | 49642 | 0.5 LSB | 1 LSB |
 | `fd_corr_q15`, 256 x 256, all lags | 614396 | 1738429 | 0.5 LSB | 1 LSB |
 | `fd_corr_q31`, 64 x 64, all lags | 46647 | 51009 | 0.5 LSB | |
+| `fd_conv_f32`, 64 x 64 | 61126 | 500890 (soft float) | mean 0.42 ulp | mean 6.9 ulp |
+| `fd_corr_f32`, 64 x 64, all lags | 62492 | 481099 (soft float) | mean 0.38 ulp | mean 6.2 ulp |
 | `fd_corr_fft_q15`, 256 x 256 in 512 | 131431 | | 41 dB SNR | |
 | `fd_autocorr_q15`, 256, 16 lags | 38605 | | 0.5 LSB | |
 | `fd_peak_q15`, 128 | 1325 | | 0.5 LSB (Q16.16) | |
 | `fd_levinson_q31`, order 10 | 4909 | 3779 | 7.7 LSB | 82 LSB |
 
+- `fd_conv_f32`, `fd_conv_part_f32` and `fd_corr_f32` convert each input to
+  q31 at one exponent and run the q31 kernels, one rounding per output. The
+  caller gives a q31 work buffer of `na + nb` values. Values more than about
+  42 dB below the largest in their input lose bits. On inputs like that the
+  errors can be larger than soft float's. The table's errors are on white
+  noise, and `docs/accuracy.md` has inputs with quiet halves.
 - `fd_corr_fft_q15` correlates two zero-padded blocks through q15 FFTs, in
   place: 4.7 times faster than the direct sum at 256 x 256, with the error
   at least 41 dB below the output's power (46 dB on average on full-scale
