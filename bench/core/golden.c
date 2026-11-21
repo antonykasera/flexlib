@@ -458,6 +458,10 @@ const BenchGolden bench_golden[] = {
     {"fd_sum_f32, 64", 0x23AFC573U},
     {"fd_mean_f32, 64", 0x48A43D5BU},
     {"fd_rms_f32, 64", 0x8F6E6225U},
+    {"fd_biquad_f32, 4 x 64", 0xB7EB6C3EU},
+    {"fd_add_f32, 64", 0xCF3D7649U},
+    {"fd_mul_f32, 64", 0xC9DF3FF7U},
+    {"fd_abs_f32, 64", 0x79952DD9U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

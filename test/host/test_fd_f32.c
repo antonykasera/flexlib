@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "fd_biquad.h"
 #include "fd_fft.h"
 #include "fd_vec.h"
 #include "ref_dsp.h"
@@ -183,4 +184,90 @@ void test_fd_f32_rfft(void) {
       ASSERT_NEAR(sx[i], a[i], 1e-6 * ldexp(1.0, k));
     }
   }
+}
+
+/* each section's exact sum rounded once: the same bits as __float128 */
+void test_fd_f32_biquad(void) {
+  enum { S = 4, N = 4000 };
+  static const float fc[3] = {0.01f, 0.1f, 0.3f};
+  uint64_t r = 0xB1F32U;
+  float c[5 * S];
+  int32_t cu[10 * S], st[FD_BIQUAD_F32_STATE_LEN(S)];
+  unsigned long bad = 0U;
+  for (unsigned d = 0U; d < 3U; d++) {
+    FD_BiquadDesign s[S];
+    ASSERT_EQ(fd_biquad_butter(s, 2U * S, FD_LOWPASS, fc[d]), FD_OK);
+    for (unsigned k = 0U; k < S; k++) {
+      c[5U * k] = s[k].b0;
+      c[5U * k + 1U] = s[k].b1;
+      c[5U * k + 2U] = s[k].b2;
+      c[5U * k + 3U] = 2.0f - s[k].d1;
+      c[5U * k + 4U] = s[k].d2 - 1.0f;
+    }
+    FD_BiquadF32 f;
+    fd_biquad_init_f32(&f, c, cu, S, st);
+    float h[S + 1][2];
+    memset(h, 0, sizeof h);
+    for (unsigned i = 0U; i < N; i++) {
+      float x = unif(&r, (int)(i / 500U) * 7 - 20);
+      float y;
+      fd_biquad_f32(&f, &x, &y, 1U);
+      float v = x;
+      for (unsigned k = 0U; k < S; k++) {
+        const float *q = c + 5U * k;
+        f128 sum = (f128)((double)q[0] * (double)v) +
+                   (f128)((double)q[1] * (double)h[k][0]) +
+                   (f128)((double)q[2] * (double)h[k][1]) +
+                   (f128)((double)q[3] * (double)h[k + 1][0]) +
+                   (f128)((double)q[4] * (double)h[k + 1][1]);
+        h[k][1] = h[k][0];
+        h[k][0] = v;
+        v = (float)sum;
+      }
+      h[S][1] = h[S][0];
+      h[S][0] = v;
+      bad += memcmp(&y, &v, sizeof y) != 0;
+    }
+  }
+  ASSERT_EQ(bad, 0);
+}
+
+void test_fd_f32_biquad_edges(void) {
+  const float c[5] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  int32_t cu[10], st[FD_BIQUAD_F32_STATE_LEN(1)];
+  FD_BiquadF32 f;
+  fd_biquad_init_f32(&f, c, cu, 1U, st);
+  float x[4] = {0.0f, 0x1p-149f, -3.0e38f, NAN}, y[4];
+  fd_biquad_f32(&f, x, y, 3U);
+  ASSERT_TRUE(memcmp(x, y, 3U * sizeof x[0]) == 0); /* identity, exact */
+  fd_biquad_f32(&f, x + 3, y, 1U);
+  ASSERT_TRUE(isnan(y[0]));
+  fd_biquad_f32(&f, x, y, 1U);
+  ASSERT_TRUE(isnan(y[0])); /* until reset */
+  fd_biquad_reset_f32(&f);
+  fd_biquad_f32(&f, x + 1, y, 1U);
+  ASSERT_TRUE(y[0] == x[1]);
+  const float g[5] = {2.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+  fd_biquad_init_f32(&f, g, cu, 1U, st);
+  fd_biquad_f32(&f, x + 2, y, 1U);
+  ASSERT_TRUE(isnan(y[0])); /* the output overflowed */
+}
+
+void test_fd_f32_elementwise(void) {
+  float x[4] = {1.5f, -0.0f, NAN, -INFINITY}, z[4];
+  fd_negate_f32(x, z, 4U);
+  ASSERT_TRUE(z[0] == -1.5f && signbit(z[1]) == 0 && isnan(z[2]) &&
+              z[3] == INFINITY);
+  fd_abs_f32(x, z, 4U);
+  ASSERT_TRUE(z[0] == 1.5f && signbit(z[1]) == 0 && z[3] == INFINITY);
+  fd_clip_f32(x, -1.0f, 1.0f, z, 4U);
+  ASSERT_TRUE(z[0] == 1.0f && isnan(z[2]) && z[3] == -1.0f);
+  fd_add_f32(x, x, z, 1U);
+  fd_mul_f32(x, x, z + 1, 1U);
+  fd_scale_f32(x, 2.0f, z + 2, 1U);
+  fd_offset_f32(x, 1.0f, z + 3, 1U);
+  ASSERT_TRUE(z[0] == 3.0f && z[1] == 2.25f && z[2] == 3.0f && z[3] == 2.5f);
+  fd_fill_f32(7.0f, z, 4U);
+  fd_copy_f32(z, x, 4U);
+  ASSERT_TRUE(x[3] == 7.0f);
 }

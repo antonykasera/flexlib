@@ -116,6 +116,10 @@ the bench.
 | FIR f32, 32 taps | CMSIS-DSP | the same in 300-sample bursts 42 dB apart | 5.41e+05 | 4.42 | +0.62 |
 | FIR f32, 32 taps | flexdsp | the same in 300-sample bursts 120 dB apart | 1.12e+08 | 3.39e+03 | -1.6e+02 |
 | FIR f32, 32 taps | CMSIS-DSP | the same in 300-sample bursts 120 dB apart | 5.41e+05 | 4.44 | +0.7 |
+| biquad f32, Butterworth 8, fc 0.1 | flexdsp | 10^6 samples of white noise | 3.56e+05 | 7.94 | +0.31 |
+| biquad f32, Butterworth 8, fc 0.1 | CMSIS-DSP | 10^6 samples of white noise (DF2T) | 1.6e+06 | 20.8 | -0.33 |
+| biquad f32, Butterworth 8, fc 0.01 | flexdsp | 10^6 samples of white noise | 5.85e+06 | 207 | -1.6 |
+| biquad f32, Butterworth 8, fc 0.01 | CMSIS-DSP | 10^6 samples of white noise (DF2T) | 1.86e+07 | 574 | -16 |
 | biquad q31, Butterworth 4, fc 0.01 | flexdsp | 10^6 samples of half-scale noise | 79.7 | 15 | -0.008 |
 | biquad q31, Butterworth 4, fc 0.01 | flexdsp error feedback | 10^6 samples of half-scale noise | 4.98 | 0.842 | -3e-06 |
 | biquad q31, Butterworth 4, fc 0.01 | CMSIS-DSP | 10^6 samples of half-scale noise | 349 | 264 | -2.6e+02 |

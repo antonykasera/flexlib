@@ -8,6 +8,7 @@
 
 #include "bench.h"
 #include "fd_bfp.h"
+#include "fd_biquad.h"
 #include "fd_fft.h"
 #include "fd_fir.h"
 #include "fd_vec.h"
@@ -26,6 +27,12 @@
 
 static float pool[POOL]; /* (-1, 1) */
 static int32_t pool31[NB + 64U];
+
+/* CMSIS's sign for a1, a2 */
+static const float bq_c[5U * SEC] = {
+    0.0675f, 0.135f,  0.0675f, 1.1430f, -0.4128f, 0.0675f, 0.135f,
+    0.0675f, 1.1430f, -0.4128f, 0.0675f, 0.135f,  0.0675f, 1.1430f,
+    -0.4128f, 0.0675f, 0.135f,  0.0675f, 1.1430f, -0.4128f};
 
 typedef union {
   float f[2U * POOL];
@@ -153,12 +160,7 @@ BLOCK(b_to_f32, fd_bfp_to_f32(pool31 + x, work.f, NB, 0), NB * 4U, (void)0)
 #ifdef BENCH_HAVE_CMSIS_DSP
 static float fir_st[T - 1U + BLK];
 static arm_fir_instance_f32 cfir;
-/* CMSIS's sign for a1, a2 */
-static const float bq_c[5U * SEC] = {
-    0.0675f, 0.135f,  0.0675f, 1.1430f, -0.4128f, 0.0675f, 0.135f,
-    0.0675f, 1.1430f, -0.4128f, 0.0675f, 0.135f,  0.0675f, 1.1430f,
-    -0.4128f, 0.0675f, 0.135f,  0.0675f, 1.1430f, -0.4128f};
-static float bq_st[2U * SEC];
+static float bq_df2t[2U * SEC];
 static arm_biquad_cascade_df2T_instance_f32 cbq;
 static arm_rfft_fast_instance_f32 crfft;
 
@@ -168,7 +170,7 @@ static void cmsis_init(void) {
     done = true;
     fir_init();
     arm_fir_init_f32(&cfir, T, hf, fir_st, BLK);
-    arm_biquad_cascade_df2T_init_f32(&cbq, SEC, bq_c, bq_st);
+    arm_biquad_cascade_df2T_init_f32(&cbq, SEC, bq_c, bq_df2t);
     (void)arm_rfft_fast_init_512_f32(&crfft);
   }
 }
@@ -180,7 +182,7 @@ static inline uint32_t in_off_c(uint32_t u) {
 
 static void cprep(void) {
   memset(fir_st, 0, sizeof fir_st);
-  memset(bq_st, 0, sizeof bq_st);
+  memset(bq_df2t, 0, sizeof bq_df2t);
 }
 
 static void cload(void) { memcpy(work.f, pool, sizeof pool); }
@@ -217,6 +219,11 @@ CBLOCK(c_cfft, arm_cfft_f32(&arm_cfft_sR_f32_len256, work.f, 0U, 1U),
        2U * 256U * 4U, cload())
 CBLOCK(c_rfft, arm_rfft_fast_f32(&crfft, work.f, work.f + POOL, 0U),
        POOL * 4U, cload())
+CBLOCK(c_add, arm_add_f32(pool + x, pool + 64U + x, work.f, BLK), BLK * 4U,
+       (void)0)
+CBLOCK(c_mult, arm_mult_f32(pool + x, pool + 64U + x, work.f, BLK), BLK * 4U,
+       (void)0)
+CBLOCK(c_abs, arm_abs_f32(pool + x, work.f, BLK), BLK * 4U, (void)0)
 BENCH_UNARY(c_dot, uint32_t, in_off_c, float, dot(pool + x, pool + 64U + x))
 BENCH_UNARY(c_power, uint32_t, in_off_c, float, power(pool + x))
 BENCH_UNARY(c_mean, uint32_t, in_off_c, float, mean(pool + x))
@@ -224,6 +231,29 @@ BENCH_UNARY(c_rms, uint32_t, in_off_c, float, rms(pool + x))
 #endif
 
 static void tload(void) { memcpy(work.t.x, pool, sizeof pool); }
+
+static int32_t bq_cu[10U * SEC], bq_st[FD_BIQUAD_F32_STATE_LEN(SEC)];
+static FD_BiquadF32 bq;
+
+static void bq_prep(void) {
+  static bool done;
+  if (!done) {
+    done = true;
+    fd_biquad_init_f32(&bq, bq_c, bq_cu, SEC, bq_st);
+  }
+  fd_biquad_reset_f32(&bq);
+}
+
+#define EBLOCK(name, call)                                                     \
+  BENCH_UNARY_DEF(name, uint32_t, in_off, uint32_t, ((call), 0U),              \
+                  OUT(BLK * 4U), (void)0)
+
+BENCH_UNARY_DEF(b_biquad, uint32_t, in_off, uint32_t,
+                (fd_biquad_f32(&bq, pool + x, work.f, BLK), 0U), OUT(BLK * 4U),
+                bq_prep())
+EBLOCK(b_add, fd_add_f32(pool + x, pool + 64U + x, work.f, BLK))
+EBLOCK(b_mul, fd_mul_f32(pool + x, pool + 64U + x, work.f, BLK))
+EBLOCK(b_abs, fd_abs_f32(pool + x, work.f, BLK))
 
 #define TBLOCK(name, call)                                                     \
   BENCH_UNARY_DEF(name, uint32_t, in_off, uint32_t, ((call), 0U),              \
@@ -258,6 +288,10 @@ static const BenchCase cases[] = {
     {"fd_sum_f32, 64", "flexlib", b_sum, true},
     {"fd_mean_f32, 64", "flexlib", b_mean, true},
     {"fd_rms_f32, 64", "flexlib", b_rms, true},
+    {"fd_biquad_f32, 4 x 64", "flexlib", b_biquad, true},
+    {"fd_add_f32, 64", "flexlib", b_add, true},
+    {"fd_mul_f32, 64", "flexlib", b_mul, true},
+    {"fd_abs_f32, 64", "flexlib", b_abs, true},
 #ifdef BENCH_HAVE_CMSIS_DSP
     {"arm_fir_f32, 32 taps x 64", "CMSIS-DSP", c_fir, false},
     {"arm_biquad_cascade_df2T_f32, 4 x 64", "CMSIS-DSP", c_biquad, false},
@@ -267,6 +301,9 @@ static const BenchCase cases[] = {
     {"arm_power_f32, 64", "CMSIS-DSP", c_power, false},
     {"arm_mean_f32, 64", "CMSIS-DSP", c_mean, false},
     {"arm_rms_f32, 64", "CMSIS-DSP", c_rms, false},
+    {"arm_add_f32, 64", "CMSIS-DSP", c_add, false},
+    {"arm_mult_f32, 64", "CMSIS-DSP", c_mult, false},
+    {"arm_abs_f32, 64", "CMSIS-DSP", c_abs, false},
 #endif
 };
 

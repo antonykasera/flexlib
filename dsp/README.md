@@ -36,6 +36,7 @@ against exact references; CMSIS-DSP's are in
 | `fd_offset_q15`, `fd_negate_q15`, `fd_abs_q15` | 413, 410, 585 | 452, 562, 619 | exact | exact |
 | `fd_clip_q15` | 576 | 692 | exact | exact |
 | `fd_fill_q15`, `fd_copy_q15` | 144, 214 | 138, 231 | | `memcpy` 918 |
+| `fd_add_f32` / `fd_mul_f32` / `fd_abs_f32` | 4121 / 2861 / 410 | 4120 / 2860 / 404 | one rounding / exact | the same |
 
 ## Conversions
 
@@ -118,9 +119,12 @@ on the `b` alone, so the feedback coefficients keep full precision.
 | `fd_biquad_q15` | 6120 | 13291 (`fast` 8778) | 96 LSB | 355 LSB |
 | `fd_biquad_q31` | 14200 | 11883 (`fast` 16631) | 80 LSB | 349 LSB |
 | `fd_biquad_q31` with error feedback | 18052 | `32x64` 25739 | 5 LSB | `32x64` 1.7 LSB |
+| `fd_biquad_f32` | 57635 | `df2T` 113574 | mean 207 ulp | mean 574 ulp |
 
 Errors are the recursion's, against the same coefficients in double, over
-10^6 samples of noise ([docs/accuracy.md](../docs/accuracy.md)). At fc 5e-4
+10^6 samples of noise ([docs/accuracy.md](../docs/accuracy.md)). The f32
+cascade holds coefficients and history unpacked and rounds each section's
+exact sum once. At fc 5e-4
 plain q31 reaches 8170 LSB and error feedback 115 (CMSIS: 110000; `32x64`:
 1.6).
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `fd_biquad_f32`: float DF1 cascades, each section's exact sum rounded once; 2x faster than `arm_biquad_cascade_df2T_f32` in soft float.
+- Float element-wise operations: `fd_add_f32`, `fd_sub_f32`, `fd_mul_f32`, `fd_scale_f32`, `fd_offset_f32`, `fd_negate_f32`, `fd_abs_f32`, `fd_clip_f32`, `fd_fill_f32`, `fd_copy_f32`.
 - `fd_cfft_f32`, `fd_icfft_f32`, `fd_rfft_f32`, `fd_irfft_f32`: float FFTs through the q31 transforms, about 12 dB more SNR than `arm_cfft_f32` and 4.9-5.6x faster in soft float.
 - `fd_dot_f32`, `fd_power_f32`, `fd_sum_f32`, `fd_mean_f32`, `fd_rms_f32`: exact sums before one rounding.
 - `fd_fir_f32` / `fd_fir_sample_f32`: float FIR filters on the q31 kernel (block floating point, one rounding per output). 7.9x faster than `arm_fir_f32` in soft float on the Cortex-M3, and more accurate on signals within 42 dB.

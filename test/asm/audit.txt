@@ -369,3 +369,4 @@ f32_sum           smull !call=__aeabi_fmul !call=__aeabi_fadd !udiv
 div_acc           calls-ok !call=__aeabi_fmul !call=__aeabi_fadd !call=__aeabi_fdiv
 fft_run           !call=__aeabi_fmul !call=__aeabi_fadd
 fd_cfft_f32       !call=__aeabi_fmul !call=__aeabi_fadd
+fd_biquad_f32     smull !call=__aeabi_fmul !call=__aeabi_fadd !udiv

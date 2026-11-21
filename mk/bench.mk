@@ -151,7 +151,8 @@ CMSIS_SRCS_dsp6   = $(addprefix FilteringFunctions/,arm_fir_f32.c arm_fir_init_f
                     $(addprefix TransformFunctions/,arm_cfft_f32.c arm_cfft_radix8_f32.c \
                       arm_cfft_init_f32.c arm_rfft_fast_f32.c arm_rfft_fast_init_f32.c \
                       arm_bitreversal2.c) \
-                    BasicMathFunctions/arm_dot_prod_f32.c \
+                    $(addprefix BasicMathFunctions/,arm_dot_prod_f32.c arm_add_f32.c \
+                      arm_mult_f32.c arm_abs_f32.c) \
                     $(addprefix StatisticsFunctions/,arm_power_f32.c arm_mean_f32.c \
                       arm_rms_f32.c) \
                     CommonTables/arm_common_tables.c CommonTables/arm_const_structs.c

@@ -739,6 +739,60 @@ static void fd_fir_rows(void) {
   row(&cf31, "CMSIS-DSP", "10^6 random samples, Hamming lowpass");
 }
 
+/* in ulp of the exact cascade (no rounding), Butterworth order 8 */
+static void fd_biquad_f32_rows(void) {
+  __extension__ typedef __float128 f128;
+  enum { S = 4, N = 1000000 };
+  static const float fcs[2] = {0.1f, 0.01f};
+  for (int d = 0; d < 2; d++) {
+    ErrStats f, c;
+    char name[48];
+    snprintf(name, sizeof name, "biquad f32, Butterworth 8, fc %g",
+             (double)fcs[d]);
+    stats_init(&f, name, "ulp");
+    stats_init(&c, name, "ulp");
+    FD_BiquadDesign s[S];
+    (void)fd_biquad_butter(s, 2U * S, FD_LOWPASS, fcs[d]);
+    float cf[5 * S];
+    for (int k = 0; k < S; k++) {
+      cf[5 * k] = s[k].b0;
+      cf[5 * k + 1] = s[k].b1;
+      cf[5 * k + 2] = s[k].b2;
+      cf[5 * k + 3] = 2.0f - s[k].d1;
+      cf[5 * k + 4] = s[k].d2 - 1.0f;
+    }
+    static int32_t cu[10 * S], st[FD_BIQUAD_F32_STATE_LEN(S)];
+    static float cs[2 * S];
+    FD_BiquadF32 a;
+    arm_biquad_cascade_df2T_instance_f32 ci;
+    fd_biquad_init_f32(&a, cf, cu, S, st);
+    arm_biquad_cascade_df2T_init_f32(&ci, S, cf, cs);
+    f128 h[S + 1][2];
+    memset(h, 0, sizeof h);
+    uint64_t rng = 31U;
+    for (int i = 0; i < N; i++) {
+      float x = (float)(int32_t)test_rng_u32(&rng) * 0x1p-31f, y, yc;
+      fd_biquad_f32(&a, &x, &y, 1U);
+      arm_biquad_cascade_df2T_f32(&ci, &x, &yc, 1U);
+      f128 v = (f128)x;
+      for (int k = 0; k < S; k++) {
+        const float *q = cf + 5 * k;
+        f128 o = (f128)q[0] * v + (f128)q[1] * h[k][0] + (f128)q[2] * h[k][1] +
+                 (f128)q[3] * h[k + 1][0] + (f128)q[4] * h[k + 1][1];
+        h[k][1] = h[k][0];
+        h[k][0] = v;
+        v = o;
+      }
+      h[S][1] = h[S][0];
+      h[S][0] = v;
+      stats_add(&f, (double)v, ulp_err_f32(y, (double)v));
+      stats_add(&c, (double)v, ulp_err_f32(yc, (double)v));
+    }
+    row(&f, "flexdsp", "10^6 samples of white noise");
+    row(&c, "CMSIS-DSP", "10^6 samples of white noise (DF2T)");
+  }
+}
+
 /* in ulp of the exact sum; bursts 42 dB (2^7) or 120 dB apart */
 static void fd_fir_f32_rows(void) {
   __extension__ typedef __float128 f128;
@@ -1634,6 +1688,7 @@ int main(void) {
   fd_sums_f32_rows();
   fd_fir_rows();
   fd_fir_f32_rows();
+  fd_biquad_f32_rows();
   fd_biquad_rows(0.01f, "Butterworth 4, fc 0.01", 1);
   fd_biquad_rows(0.0005f, "Butterworth 4, fc 5e-4", 0); /* Q2.14 b round to 0 */
   fd_conv_rows();

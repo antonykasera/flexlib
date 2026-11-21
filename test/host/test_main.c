@@ -132,6 +132,9 @@ void test_fd_f32_sums(void);
 void test_fd_f32_sums_edges(void);
 void test_fd_f32_fft(void);
 void test_fd_f32_rfft(void);
+void test_fd_f32_biquad(void);
+void test_fd_f32_biquad_edges(void);
+void test_fd_f32_elementwise(void);
 
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
@@ -325,6 +328,9 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_f32_sums_edges);
   TEST_RUN(test_fd_f32_fft);
   TEST_RUN(test_fd_f32_rfft);
+  TEST_RUN(test_fd_f32_biquad);
+  TEST_RUN(test_fd_f32_biquad_edges);
+  TEST_RUN(test_fd_f32_elementwise);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

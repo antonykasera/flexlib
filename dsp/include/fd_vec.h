@@ -72,6 +72,27 @@ void fd_copy_q15(const fm_q15 *x, fm_q15 *y, uint32_t n);
 /** Copy n elements. */
 void fd_copy_q31(const fm_q31 *x, fm_q31 *y, uint32_t n);
 
+/** $y = a + b$, one float operation per element. */
+void fd_add_f32(const float *a, const float *b, float *y, uint32_t n);
+/** $y = a - b$. */
+void fd_sub_f32(const float *a, const float *b, float *y, uint32_t n);
+/** $y = a b$. */
+void fd_mul_f32(const float *a, const float *b, float *y, uint32_t n);
+/** $y = x k$. */
+void fd_scale_f32(const float *x, float k, float *y, uint32_t n);
+/** $y = x + c$. */
+void fd_offset_f32(const float *x, float c, float *y, uint32_t n);
+/** $y = -x$, the sign bit flipped. */
+void fd_negate_f32(const float *x, float *y, uint32_t n);
+/** $y = |x|$, the sign bit cleared. */
+void fd_abs_f32(const float *x, float *y, uint32_t n);
+/** x clamped to $[lo, hi]$, $lo <= hi$; NaN passes through. */
+void fd_clip_f32(const float *x, float lo, float hi, float *y, uint32_t n);
+/** Set n elements to c. */
+void fd_fill_f32(float c, float *y, uint32_t n);
+/** Copy n elements. */
+void fd_copy_f32(const float *x, float *y, uint32_t n);
+
 /** @} */
 
 /**
