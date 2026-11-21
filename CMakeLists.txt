@@ -1,4 +1,5 @@
-# flexlib as CMake targets: flexlib::utils, flexlib::math and flexlib::dsp.
+# flexlib as CMake targets: flexlib::utils, flexlib::math, flexlib::dsp and
+# flexlib::nn.
 #
 #     add_subdirectory(lib/flexlib)
 #     target_link_libraries(app PRIVATE flexlib::dsp)  # brings math and utils
@@ -45,5 +46,7 @@ endfunction()
 _flexlib_add(utils utils)
 _flexlib_add(math math)
 _flexlib_add(dsp dsp)
+_flexlib_add(nn nn)
 target_link_libraries(flexlib_math PUBLIC flexlib_utils)
 target_link_libraries(flexlib_dsp PUBLIC flexlib_math)
+target_link_libraries(flexlib_nn PUBLIC flexlib_math)

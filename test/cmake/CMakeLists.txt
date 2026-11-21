@@ -12,5 +12,5 @@ add_subdirectory("${FLEXLIB_DIR}" flexlib)
 
 if(NOT CMAKE_CROSSCOMPILING)
   add_executable(app "${CMAKE_CURRENT_LIST_DIR}/../consumer/main.c")
-  target_link_libraries(app PRIVATE flexlib::dsp)
+  target_link_libraries(app PRIVATE flexlib::dsp flexlib::nn)
 endif()

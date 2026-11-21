@@ -1,7 +1,12 @@
 # Changelog
 
 Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
-[math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md).
+[math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md),
+[nn/CHANGELOG.md](nn/CHANGELOG.md).
+
+## Unreleased
+
+- flexnn (`fnn_`), int8 inference, in development: requantisation so far ([nn/CHANGELOG.md](nn/CHANGELOG.md)). `flexnn.mk`, the `flexlib::nn` CMake target, and `nn` in the default `FLEXLIB_LIBS`.
 
 ## v0.7.0 (2026-11-21)
 

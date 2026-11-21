@@ -12,6 +12,7 @@
 #include "fd_resample.h"
 #include "fd_vec.h"
 #include "fm_float.h"
+#include "fnn_quant.h"
 #include "fu_crc.h"
 #include "fx_version.h"
 
@@ -26,6 +27,7 @@ volatile fm_q15 rms;
 static fm_q15 spec[8] __attribute__((aligned(4)));
 volatile int32_t bin1; /* Re X[1] of an impulse: its height */
 volatile fm_q15 conv1, lms_y, rs_y;
+volatile int8_t nn_y;
 
 /* {1/2, -1/2} * {1/2}, one LMS sample from zero weights, and the first
  * output of an interpolation by 2 through {1/2, 1/2} */
@@ -49,6 +51,20 @@ static void filters(void) {
   rs_y = ry[0];
 }
 
+/* 384 at a scale of 1/256 is 1.5: 2 */
+static void requant(void) {
+  int32_t m;
+  int8_t rsh;
+  static const int32_t acc = 384;
+  int8_t out = 0;
+  if (fnn_quant_from_scale(1.0 / 256.0, &m, &rsh) == FNN_OK) {
+    const FNN_Quant q = {&m, &rsh, 1U};
+    const FNN_Out o = {0, -128, 127};
+    fnn_requant_s8(&acc, &out, 1U, &q, &o);
+  }
+  nn_y = out;
+}
+
 static void transform(void) {
   for (unsigned i = 0U; i < 8U; i++) {
     spec[i] = i == 0U ? 16384 : 0;
@@ -67,6 +83,7 @@ int main(void) {
     rms = fd_rms_q15(sq, 4U);
     transform();
     filters();
+    requant();
   }
 }
 #else
@@ -78,12 +95,14 @@ int main(void) {
   rms = fd_rms_q15(sq, 4U);
   transform();
   filters();
+  requant();
   printf("flexlib %s: sin(0.5) %.7f, crc32 %08x, rms %d, fft %d, conv %d, "
-         "lms %d, resample %d\n",
+         "lms %d, resample %d, requant %d\n",
          FLEXLIB_VERSION, (double)y, (unsigned)crc, rms, (int)bin1, conv1,
-         lms_y, rs_y);
+         lms_y, rs_y, nn_y);
   return y == 0x1.eaee88p-2f && crc == 0xCBF43926U && rms == 16384 &&
-                 bin1 == 16384 && conv1 == -8192 && lms_y == 0 && rs_y == 8192
+                 bin1 == 16384 && conv1 == -8192 && lms_y == 0 &&
+                 rs_y == 8192 && nn_y == 2
              ? 0
              : 1;
 }
