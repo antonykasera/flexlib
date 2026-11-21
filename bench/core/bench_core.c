@@ -27,7 +27,7 @@ bool bench_scratch_claim(const void *id) {
     !defined(BENCH_SET_struct) && !defined(BENCH_SET_dsp) &&                   \
     !defined(BENCH_SET_dsp2) && !defined(BENCH_SET_dsp3) &&                    \
     !defined(BENCH_SET_dsp4) && !defined(BENCH_SET_dsp5) &&                    \
-    !defined(BENCH_SET_dsp6)
+    !defined(BENCH_SET_dsp6) && !defined(BENCH_SET_nn)
 #define BENCH_SET_ALL 1
 #endif
 #if defined(BENCH_SET_ALL) || defined(BENCH_SET_utils)
@@ -56,6 +56,9 @@ bool bench_scratch_claim(const void *id) {
 #endif
 #if defined(BENCH_SET_ALL) || defined(BENCH_SET_dsp6)
 #define BENCH_DSP6 1
+#endif
+#if defined(BENCH_SET_ALL) || defined(BENCH_SET_nn)
+#define BENCH_NN 1
 #endif
 
 extern const BenchGroup bench_group_arch;
@@ -87,6 +90,7 @@ extern const BenchGroup bench_group_fd_fft;
 extern const BenchGroup bench_group_fd_corr;
 extern const BenchGroup bench_group_fd_f32;
 extern const BenchGroup bench_group_fd_resample;
+extern const BenchGroup bench_group_fnn;
 extern const BenchGroup bench_group_cmsis;
 
 const BenchGroup *const bench_groups[] = {
@@ -136,6 +140,9 @@ const BenchGroup *const bench_groups[] = {
 #endif
 #ifdef BENCH_DSP6
     &bench_group_fd_f32,
+#endif
+#ifdef BENCH_NN
+    &bench_group_fnn,
 #endif
 #if defined(BENCH_HAVE_CMSIS_DSP) && defined(BENCH_MATH)
     &bench_group_cmsis,

@@ -18,3 +18,8 @@
 	url = https://github.com/STMicroelectronics/cmsis_device_f4.git
 	update = none
 	shallow = true
+[submodule "cmsis-nn"]
+	path = third_party/cmsis-nn
+	url = https://github.com/ARM-software/CMSIS-NN.git
+	update = none
+	shallow = true

@@ -2,6 +2,7 @@
 
 FLEX_DIR      ?= third_party/flex
 CMSIS_DSP_DIR ?= third_party/cmsis-dsp
+CMSIS_NN_DIR  ?= third_party/cmsis-nn
 
 BENCH_INC = -Ibench/core $(LIB_PRIV)
 
@@ -20,11 +21,12 @@ BENCH_CASES_dsp3   = bench/cases/cases_fd_fft.c
 BENCH_CASES_dsp4   = bench/cases/cases_fd_corr.c
 BENCH_CASES_dsp5   = bench/cases/cases_fd_resample.c
 BENCH_CASES_dsp6   = bench/cases/cases_fd_f32.c
+BENCH_CASES_nn     = bench/cases/cases_fnn.c
 # everything that also builds on the host (golden, lint)
 BENCH_PORTABLE = bench/core/bench_core.c $(BENCH_CASES_utils) \
                  $(BENCH_CASES_math) $(BENCH_CASES_struct) $(BENCH_CASES_dsp) \
                  $(BENCH_CASES_dsp2) $(BENCH_CASES_dsp3) $(BENCH_CASES_dsp4) \
-                 $(BENCH_CASES_dsp5) $(BENCH_CASES_dsp6)
+                 $(BENCH_CASES_dsp5) $(BENCH_CASES_dsp6) $(BENCH_CASES_nn)
 
 GOLDEN_BUILD = $(BUILD)/golden
 
@@ -49,7 +51,7 @@ golden:
 		-o $(GOLDEN_BUILD)/golden_gen_fpu_dsp
 	./$(GOLDEN_BUILD)/golden_gen_fpu_dsp | cmp - bench/core/golden_fpu.c
 
-BENCH_SETS     = utils math struct dsp dsp2 dsp3 dsp4 dsp5 dsp6
+BENCH_SETS     = utils math struct dsp dsp2 dsp3 dsp4 dsp5 dsp6 nn
 BENCH_SET     ?=
 BENCH_OPT     ?= -O2
 # bench/port/<target>/port.mk: CPU, report, OpenOCD target
@@ -79,6 +81,37 @@ CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/,$(CMSIS_SRCS_$(BENCH_SET))
 CMSIS_DSP_DEFS = $(if $(filter dsp dsp2 dsp3 dsp4 dsp5 dsp6,$(BENCH_SET)),-DARM_MATH_LOOPUNROLL)
 endif
 endif
+
+# CMSIS-NN as it ships: no options, so its gemmlowp rounding
+ifeq ($(BENCH_SET),nn)
+ifneq ($(wildcard $(CMSIS_NN_DIR)/Include/arm_nnfunctions.h),)
+BENCH_DEFS    += -DBENCH_HAVE_CMSIS_NN
+CMSIS_NN_INC   = -isystem $(CMSIS_NN_DIR)/Include
+CMSIS_NN_SRCS  = $(addprefix $(CMSIS_NN_DIR)/Source/,$(CMSIS_NN_SRCS_nn))
+endif
+endif
+
+CMSIS_NN_SRCS_nn  = $(addprefix FullyConnectedFunctions/,arm_fully_connected_s8.c \
+                      arm_fully_connected_get_buffer_sizes_s8.c) \
+                    $(addprefix ConvolutionFunctions/,arm_convolve_1x1_s8_fast.c \
+                      arm_convolve_s8.c arm_convolve_1_x_n_s8.c \
+                      arm_convolve_get_buffer_sizes_s8.c arm_depthwise_conv_s8.c \
+                      arm_depthwise_conv_s8_opt.c arm_depthwise_conv_get_buffer_sizes_s8.c \
+                      arm_nn_mat_mult_kernel_s8_s16.c \
+                      arm_nn_mat_mult_kernel_row_offset_s8_s16.c \
+                      arm_nn_depthwise_conv_s8_core.c) \
+                    $(addprefix PoolingFunctions/,arm_max_pool_s8.c arm_avgpool_s8.c \
+                      arm_avgpool_get_buffer_sizes_s8.c) \
+                    BasicMathFunctions/arm_elementwise_add_s8.c \
+                    $(addprefix SoftmaxFunctions/,arm_softmax_s8.c \
+                      arm_nn_softmax_common_s8.c) \
+                    $(addprefix NNSupportFunctions/,arm_nn_mat_mul_core_1x_s8.c \
+                      arm_nn_mat_mul_core_4x_s8.c arm_nn_mat_mult_nt_t_s8.c \
+                      arm_nn_vec_mat_mult_t_s8.c arm_nn_vec_mat_mult_t_per_ch_s8.c \
+                      arm_nn_depthwise_conv_nt_t_s8.c \
+                      arm_nn_depthwise_conv_nt_t_padded_s8.c \
+                      arm_q7_to_q15_with_offset.c arm_s8_to_s16_unordered_with_offset.c \
+                      arm_nntables.c)
 
 CMSIS_SRCS_math   = FastMathFunctions/arm_sin_q15.c \
                     FastMathFunctions/arm_sin_q31.c \
@@ -161,7 +194,7 @@ CMSIS_SRCS_dsp6   = $(addprefix FilteringFunctions/,arm_fir_f32.c arm_fir_init_f
 BENCH_BASE_CFLAGS = $(BENCH_CPU) $(STD) $(BENCH_OPT) -g3 \
                     -ffunction-sections -fdata-sections $(BENCH_DEFS) \
                     $(LIB_INC) $(BENCH_INC) -I$(BENCH_PORTDIR) $(BENCH_PORT_INC) \
-                    $(CMSIS_DSP_INC)
+                    $(CMSIS_DSP_INC) $(CMSIS_NN_INC)
 # _printf_float: newlib-nano's %f, for the fu_fmt_f32 baseline
 BENCH_LDFLAGS = $(BENCH_CPU) -T$(BENCH_PORTDIR)/linker.ld -Wl,--gc-sections \
                 -Wl,--no-warn-rwx-segments --specs=nano.specs --specs=nosys.specs \
@@ -171,8 +204,9 @@ BENCH_LDFLAGS = $(BENCH_CPU) -T$(BENCH_PORTDIR)/linker.ld -Wl,--gc-sections \
 # strict warnings for flexlib and the bench, not for the board's sources
 BENCH_OBJS = $(patsubst %.c,$(BENCH_BUILD)/%.o,$(BENCH_SRCS))
 EXT_OBJS   = $(patsubst %.c,$(BENCH_BUILD)/ext/%.o,$(notdir $(BENCH_EXT_SRCS)))
-CMSIS_OBJS = $(patsubst %.c,$(BENCH_BUILD)/cmsis-dsp/%.o,$(notdir $(CMSIS_DSP_SRCS)))
-vpath %.c $(sort $(dir $(BENCH_EXT_SRCS) $(CMSIS_DSP_SRCS)))
+CMSIS_OBJS = $(patsubst %.c,$(BENCH_BUILD)/cmsis-dsp/%.o,$(notdir $(CMSIS_DSP_SRCS))) \
+             $(patsubst %.c,$(BENCH_BUILD)/cmsis-nn/%.o,$(notdir $(CMSIS_NN_SRCS)))
+vpath %.c $(sort $(dir $(BENCH_EXT_SRCS) $(CMSIS_DSP_SRCS) $(CMSIS_NN_SRCS)))
 
 # rebuild when the flags change
 ifeq ($(BENCH_MISSING),)
@@ -192,9 +226,13 @@ $(EXT_OBJS): $(BENCH_BUILD)/ext/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(ARM_CC) $(BENCH_BASE_CFLAGS) -Wall -Wextra -MMD -MP -c $< -o $@
 
-$(CMSIS_OBJS): $(BENCH_BUILD)/cmsis-dsp/%.o: %.c
+$(filter $(BENCH_BUILD)/cmsis-dsp/%,$(CMSIS_OBJS)): $(BENCH_BUILD)/cmsis-dsp/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(ARM_CC) $(BENCH_BASE_CFLAGS) $(CMSIS_DSP_DEFS) -MMD -MP -c $< -o $@
+
+$(filter $(BENCH_BUILD)/cmsis-nn/%,$(CMSIS_OBJS)): $(BENCH_BUILD)/cmsis-nn/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(ARM_CC) $(BENCH_BASE_CFLAGS) -MMD -MP -c $< -o $@
 
 $(BENCH_BUILD)/startup.o: $(BENCH_STARTUP)
 	@mkdir -p $(dir $@)

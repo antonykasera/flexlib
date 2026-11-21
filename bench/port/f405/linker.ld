@@ -23,7 +23,8 @@ SECTIONS
   .text :
   {
     . = ALIGN(4);
-    EXCLUDE_FILE(*/utils/src/*.o */math/src/*.o */dsp/src/*.o *cmsis-dsp/*.o *libc_nano.a:*
+    EXCLUDE_FILE(*/utils/src/*.o */math/src/*.o */dsp/src/*.o */nn/src/*.o *cmsis-dsp/*.o
+                 *cmsis-nn/*.o *libc_nano.a:*
                  *libc.a:* *libm.a:* *libgcc.a:*) *(.text .text* .rodata .rodata*)
     /* timed code on a 4 KB step */
     . = ALIGN(4096);

@@ -26,7 +26,8 @@ SECTIONS
     *cache_probe.o(.text .text* .rodata .rodata*)
     _cache_probe_end = .;
     /* the bench harness: the cold flush reads its first 32 KB */
-    EXCLUDE_FILE(*/utils/src/*.o */math/src/*.o */dsp/src/*.o *cmsis-dsp/*.o *libc_nano.a:*
+    EXCLUDE_FILE(*/utils/src/*.o */math/src/*.o */dsp/src/*.o */nn/src/*.o *cmsis-dsp/*.o
+                 *cmsis-nn/*.o *libc_nano.a:*
                  *libc.a:* *libm.a:* *libgcc.a:*) *(.text .text* .rodata .rodata*)
     /* what cases time: past the 32 KB the cold flush reads, on a 4 KB step so
        that the harness's size (USB or RTT report) does not move it */
