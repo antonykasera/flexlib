@@ -1,0 +1,6 @@
+{%- extends "!layout.html" %}
+{#- the tab title: page | site, or the site alone on the landing page #}
+{%- block htmltitle %}
+  {%- set page = title|striptags %}
+  <title>{{ page|e }}{% if docstitle and page != docstitle %} | {{ docstitle|e }}{% endif %}</title>
+{%- endblock %}
