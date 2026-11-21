@@ -284,6 +284,36 @@ void test_fd_corr_long(void) {
   }
 }
 
+/* conv(a, b) is corr(a, b reversed) over all lags, bit for bit */
+void test_fd_corr_conv_reversed(void) {
+  static fm_q15 a[MAXN], b[MAXN], rb[MAXN], yc[2U * MAXN], yr[2U * MAXN];
+  static fm_q31 a31[MAXN], b31[MAXN], rb31[MAXN], yc31[2U * MAXN],
+      yr31[2U * MAXN];
+  for (unsigned t = 0U; t < 200U; t++) {
+    uint32_t na = 1U + test_rng_u32(&rng) % (t < 150U ? 20U : MAXN);
+    uint32_t nb = 1U + test_rng_u32(&rng) % (t < 150U ? 20U : MAXN);
+    int kind = (int)(t % 4U);
+    uint32_t sh = test_rng_u32(&rng) % 17U;
+    fill15(a, na, kind);
+    fill15(b, nb, kind == 3 ? 0 : kind);
+    fill31(a31, na, kind);
+    fill31(b31, nb, kind == 3 ? 0 : kind);
+    for (uint32_t i = 0U; i < nb; i++) {
+      rb[i] = b[nb - 1U - i];
+      rb31[i] = b31[nb - 1U - i];
+    }
+    fd_conv_q15(a, na, b, nb, sh, yc);
+    fd_corr_q15(a, na, rb, nb, 1 - (int32_t)nb, na + nb - 1U, sh, yr);
+    fd_conv_q31(a31, na, b31, nb, 2U * sh, yc31);
+    fd_corr_q31(a31, na, rb31, nb, 1 - (int32_t)nb, na + nb - 1U, 2U * sh,
+                yr31);
+    for (uint32_t k = 0U; k < na + nb - 1U; k++) {
+      ASSERT_EQ(yc[k], yr[k]);
+      ASSERT_EQ(yc31[k], yr31[k]);
+    }
+  }
+}
+
 /* ---- autocorrelation: the exact sums, the exponent rule ---- */
 
 static int32_t ref_rs(i128 r0) {
@@ -573,6 +603,14 @@ void test_fd_corr_levinson(void) {
   }
   ASSERT_EQ(fd_levinson_q31(r, 2U, 0U, a, NULL, NULL), FD_ERR_RANGE);
   ASSERT_EQ(fd_levinson_q31(r, 2U, 2U, a, NULL, NULL), FD_OK);
+  /* a coefficient of exactly -2^ashift fits; one LSB further does not */
+  r[0] = 1362286842;
+  r[1] = -1059425342;
+  r[2] = 669983803;
+  ASSERT_EQ(fd_levinson_q31(r, 2U, 0U, a, NULL, NULL), FD_OK);
+  ASSERT_EQ(a[0], INT32_MIN);
+  r[2]--;
+  ASSERT_EQ(fd_levinson_q31(r, 2U, 0U, a, NULL, NULL), FD_ERR_RANGE);
 }
 
 /* ---- correlation through FFTs: SNR against the exact sums, peak lags ---- */

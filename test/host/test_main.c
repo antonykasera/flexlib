@@ -90,6 +90,7 @@ void test_fd_corr_q15(void);
 void test_fd_corr_q31(void);
 void test_fd_corr_sum_rule(void);
 void test_fd_corr_long(void);
+void test_fd_corr_conv_reversed(void);
 void test_fd_corr_autocorr(void);
 void test_fd_corr_peak(void);
 void test_fd_corr_levinson(void);
@@ -296,6 +297,7 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_corr_q31);
   TEST_RUN(test_fd_corr_sum_rule);
   TEST_RUN(test_fd_corr_long);
+  TEST_RUN(test_fd_corr_conv_reversed);
   TEST_RUN(test_fd_corr_autocorr);
   TEST_RUN(test_fd_corr_peak);
   TEST_RUN(test_fd_corr_levinson);
