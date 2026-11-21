@@ -35,7 +35,8 @@ html {
   --pst-font-family-monospace: "IBM Plex Mono", ui-monospace, monospace;
   --pst-font-size-base: 1rem;
   --pst-font-weight-heading: 600;
-  --fl-prose: 72ch;
+  --fl-prose: 110ch;
+  --pst-sidebar-secondary: 15rem;
 }
 
 html[data-theme="light"] {
@@ -96,6 +97,14 @@ html[data-theme] {
 body { line-height: 1.6; }
 
 .bd-article p, .bd-article li, .bd-article dd { max-width: var(--fl-prose); }
+
+/* layout: the page fills wide screens, both side columns stay narrow and the
+ * article takes the rest */
+.bd-page-width { max-width: 120rem; }
+@media (min-width: 960px) {
+  .bd-sidebar-primary { --pst-sidebar-primary-width: 16rem; flex: 0 0 16rem; }
+}
+.bd-main .bd-content .bd-article-container { max-width: 80rem; }
 
 h1, h2, h3, h4 { font-weight: 600; letter-spacing: normal; text-transform: none; }
 .bd-article h1 { font-size: 2rem; margin-top: 0; }
@@ -224,3 +233,6 @@ code.literal { background: none; border: none; padding: 0; }
 @media (max-width: 720px) {
   .fl-header-name { float: none; margin: 0 0 0.25rem; }
 }
+
+/* admonitions span their box */
+.bd-article .admonition p { max-width: none; }
