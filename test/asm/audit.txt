@@ -336,6 +336,8 @@ fd_conv_part_q31   smlal !udiv !call=memcpy !call=memset
 fd_corr_q31        smlal !udiv !call=memcpy !call=memset
 fd_autocorr_q15    mla smlal !udiv !call=memcpy !call=memset
 fd_autocorr_q31    smlal !udiv !call=memcpy
+# float: one body for conv and corr (no soft-float calls)
+xcf                smlal clz !udiv !call=memcpy !call=memset
 fd_peak_q15        !udiv
 fd_peak_q31        !udiv
 fd_levinson_q31    smull !udiv

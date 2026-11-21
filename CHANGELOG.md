@@ -3,6 +3,10 @@
 Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md).
 
+## Unreleased
+
+- flexdsp: float convolution and correlation ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
+
 ## v0.6.0 (2026-11-21)
 
 flexdsp 0.4.0 and flexmath 0.2.5.

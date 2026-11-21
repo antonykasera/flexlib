@@ -1,6 +1,6 @@
 /**
  * @file fd_corr.c
- * @brief Convolution and correlation of q15 / q31 blocks
+ * @brief Convolution and correlation of q15 / q31 / float blocks
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0
@@ -11,6 +11,7 @@
 #include "fd_fir_core.h"
 #include "fd_vec.h"
 #include "fm_div.h"
+#include <math.h>
 
 /* Output i windows a from s = s0 + i: a[s + p] times c(p) for the p in
  * [0, nb) that fall inside a, with c(p) = b[nb - 1 - p] (convolution, rev)
@@ -252,9 +253,11 @@ FX_INLINE int32_t outr96(Sum96 s, int32_t rs) {
   return (int32_t)(t >> (uint32_t)(rs - 32));
 }
 
+/* Outputs to y, with yr to yr as outr(sum, rs), or with yf to yf as
+ * sum 2^fe (narrow only) */
 FX_INLINE void xc31(const fm_q31 *a, int32_t na, const fm_q31 *b, int32_t nb,
                     bool rev, int32_t s, uint32_t n, uint32_t sh, bool wide,
-                    fm_q31 *y, int32_t *yr, int32_t rs) {
+                    fm_q31 *y, int32_t *yr, int32_t rs, float *yf, int32_t fe) {
   if (wide) {
     for (; n != 0U; n--) {
       Sum96 v = one31w(a, na, b, nb, rev, s);
@@ -271,15 +274,17 @@ FX_INLINE void xc31(const fm_q31 *a, int32_t na, const fm_q31 *b, int32_t nb,
   while (n != 0U) {
     uint32_t m = interior(s, na, nb, n, 3U);
     if (m != 0U) {
-      k31(b, 1U, !rev, (uint32_t)nb, a + s, y, 1U, m, 0U, 0U, sh, yr, rs, NULL,
-          0);
+      k31(b, 1U, !rev, (uint32_t)nb, a + s, y, 1U, m, 0U, 0U, sh, yr, rs, yf,
+          fe);
     } else if (n >= 3U || done >= 3U - n) {
       if (n < 3U) {
         uint32_t back = 3U - n;
         s -= (int32_t)back;
         done -= back;
         n = 3U;
-        if (yr != NULL) {
+        if (yf != NULL) {
+          yf -= back;
+        } else if (yr != NULL) {
           yr -= back;
         } else {
           y -= back;
@@ -288,23 +293,31 @@ FX_INLINE void xc31(const fm_q31 *a, int32_t na, const fm_q31 *b, int32_t nb,
       m = 3U;
       Edge e = edge(s, 3U, na, nb);
       if (e.hi < e.lo) {
-        int32_t *z = yr != NULL ? yr : y;
-        z[0] = z[1] = z[2] = 0;
+        if (yf != NULL) {
+          yf[0] = yf[1] = yf[2] = 0.0f;
+        } else {
+          int32_t *z = yr != NULL ? yr : y;
+          z[0] = z[1] = z[2] = 0;
+        }
       } else {
         k31(rev ? b + (nb - 1 - e.hi) : b + e.lo, 1U, !rev,
             (uint32_t)(e.hi - e.lo + 1), a + e.first, y, 1U, 3U, e.nl, e.nt, sh,
-            yr, rs, NULL, 0);
+            yr, rs, yf, fe);
       }
     } else {
       m = 1U;
-      if (yr != NULL) {
+      if (yf != NULL) {
+        *yf = fd_bfp_f32_of_s64(one31(a, na, b, nb, rev, s), fe);
+      } else if (yr != NULL) {
         *yr = outr(one31(a, na, b, nb, rev, s), rs);
       } else {
         *y = out31s(one31(a, na, b, nb, rev, s), sh);
       }
     }
     s += (int32_t)m;
-    if (yr != NULL) {
+    if (yf != NULL) {
+      yf += m;
+    } else if (yr != NULL) {
       yr += m;
     } else {
       y += m;
@@ -331,7 +344,7 @@ void fd_conv_part_q31(const fm_q31 *a, uint32_t na, const fm_q31 *b,
   FX_ASSERT(na >= 1U && nb >= 1U && (na | nb) < 0x80000000U && shift <= 32U);
   FX_ASSERT(first <= na + nb - 1U && n <= na + nb - 1U - first);
   xc31(a, (int32_t)na, b, (int32_t)nb, true, (int32_t)first - (int32_t)nb + 1,
-       n, shift, wide31(a, na, b, nb), y, NULL, 0);
+       n, shift, wide31(a, na, b, nb), y, NULL, 0, NULL, 0);
 }
 
 void fd_conv_q15(const fm_q15 *a, uint32_t na, const fm_q15 *b, uint32_t nb,
@@ -355,7 +368,69 @@ void fd_corr_q31(const fm_q31 *a, uint32_t na, const fm_q31 *b, uint32_t nb,
                  int32_t lag0, uint32_t nlags, uint32_t shift, fm_q31 *y) {
   FX_ASSERT(na >= 1U && nb >= 1U && (na | nb) < 0x80000000U && shift <= 32U);
   xc31(a, (int32_t)na, b, (int32_t)nb, false, lag0, nlags, shift,
-       wide31(a, na, b, nb), y, NULL, 0);
+       wide31(a, na, b, nb), y, NULL, 0, NULL, 0);
+}
+
+/* ---- float: block floating point on the narrow q31 kernels ---- */
+
+/* the smallest e found with sum |q| < 2^32: the reconversion rounds each
+ * value by at most 1/2, which ((g + n) >> k) + n < 2^32 allows for */
+static int32_t short_in(const float *x, int32_t *q, uint32_t n, int32_t e) {
+  fd_bfp_to_q31(x, q, n, e);
+  uint64_t g = 0U;
+  for (uint32_t i = 0U; i < n; i++) {
+    g += abs31(q[i]);
+  }
+  if (g < 0x100000000U) {
+    return e;
+  }
+  uint32_t k = 1U;
+  while (((g + n) >> k) + n >= 0x100000000U) {
+    k++;
+  }
+  fd_bfp_to_q31(x, q, n, e + (int32_t)k);
+  return e + (int32_t)k;
+}
+
+/* Each pair of indices meets once: |q| < 2^31 for the longer input and
+ * sum |q| < 2^32 for the shorter keep every partial sum under 2^63. */
+static void xcf(const float *a, uint32_t na, const float *b, uint32_t nb,
+                bool rev, int32_t s, uint32_t n, float *y, fm_q31 *work) {
+  int32_t ea = fd_bfp_exp(a, na), eb = fd_bfp_exp(b, nb);
+  if (FX_UNLIKELY(ea == FD_BFP_BAD || eb == FD_BFP_BAD)) {
+    for (uint32_t i = 0U; i < n; i++) {
+      y[i] = NAN;
+    }
+    return;
+  }
+  fm_q31 *qa = work, *qb = work + na;
+  if (nb <= na) {
+    fd_bfp_to_q31(a, qa, na, ea);
+    eb = short_in(b, qb, nb, eb);
+  } else {
+    ea = short_in(a, qa, na, ea);
+    fd_bfp_to_q31(b, qb, nb, eb);
+  }
+  xc31(qa, (int32_t)na, qb, (int32_t)nb, rev, s, n, 0U, false, NULL, NULL, 0, y,
+       ea + eb - 62);
+}
+
+void fd_conv_part_f32(const float *a, uint32_t na, const float *b, uint32_t nb,
+                      uint32_t first, uint32_t n, float *y, fm_q31 *work) {
+  FX_ASSERT(na >= 1U && nb >= 1U && (na | nb) < 0x80000000U);
+  FX_ASSERT(first <= na + nb - 1U && n <= na + nb - 1U - first);
+  xcf(a, na, b, nb, true, (int32_t)first - (int32_t)nb + 1, n, y, work);
+}
+
+void fd_conv_f32(const float *a, uint32_t na, const float *b, uint32_t nb,
+                 float *y, fm_q31 *work) {
+  fd_conv_part_f32(a, na, b, nb, 0U, na + nb - 1U, y, work);
+}
+
+void fd_corr_f32(const float *a, uint32_t na, const float *b, uint32_t nb,
+                 int32_t lag0, uint32_t nlags, float *y, fm_q31 *work) {
+  FX_ASSERT(na >= 1U && nb >= 1U && (na | nb) < 0x80000000U);
+  xcf(a, na, b, nb, false, lag0, nlags, y, work);
 }
 
 /* ---- autocorrelation: block floating, r[0] in [2^30, 2^31) ---- */
@@ -428,7 +503,7 @@ int32_t fd_autocorr_q31(const fm_q31 *x, uint32_t n, fm_q31 *r,
     }
     rs = norm64((uint64_t)r0);
   }
-  xc31(x, m, x, m, false, 0, nlags, 0U, wide, NULL, r, rs);
+  xc31(x, m, x, m, false, 0, nlags, 0U, wide, NULL, r, rs, NULL, 0);
   return rs - 31;
 }
 

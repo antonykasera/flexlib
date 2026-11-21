@@ -128,6 +128,13 @@ void test_fd_fir_f32_state(void);
 void test_fd_fir_f32_coef_exp(void);
 void test_fd_fir_f32_exp_schedule(void);
 
+/* --- fd_corr float (test_fd_corr_f32.c) --- */
+void test_fd_corr_f32_model(void);
+void test_fd_corr_f32_integers(void);
+void test_fd_corr_f32_conv_reversed(void);
+void test_fd_corr_f32_edges(void);
+void test_fd_corr_f32_short_exp(void);
+
 /* --- fd_vec, fd_fft float (test_fd_f32.c) --- */
 void test_fd_f32_sums(void);
 void test_fd_f32_sums_edges(void);
@@ -326,6 +333,11 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_fir_f32_state);
   TEST_RUN(test_fd_fir_f32_coef_exp);
   TEST_RUN(test_fd_fir_f32_exp_schedule);
+  TEST_RUN(test_fd_corr_f32_model);
+  TEST_RUN(test_fd_corr_f32_integers);
+  TEST_RUN(test_fd_corr_f32_conv_reversed);
+  TEST_RUN(test_fd_corr_f32_edges);
+  TEST_RUN(test_fd_corr_f32_short_exp);
   TEST_RUN(test_fd_f32_sums);
   TEST_RUN(test_fd_f32_sums_edges);
   TEST_RUN(test_fd_f32_fft);
