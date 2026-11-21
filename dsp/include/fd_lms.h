@@ -64,6 +64,13 @@ void fd_lms_q15(FD_LmsQ15 *f, const fm_q15 *x, const fm_q15 *d, fm_q15 *y,
  * last sample. */
 void fd_lms_coefs_q15(FD_LmsQ15 *f, fm_q15 *h);
 
+/** Clear the history and keep the weights, with the update owed by the last
+ * sample applied. */
+void fd_lms_reset_q15(FD_LmsQ15 *f);
+
+/** Change the step size, $mu >= 0$, from the next sample's update on. */
+void fd_lms_set_mu_q15(FD_LmsQ15 *f, fm_q15 mu);
+
 /** q31 LMS state; opaque. */
 typedef struct {
   /** @privatesection */
@@ -88,5 +95,9 @@ void fd_lms_q31(FD_LmsQ31 *f, const fm_q31 *x, const fm_q31 *d, fm_q31 *y,
 /** The taps as q31, h[0] on the newest sample; applies the update owed by the
  * last sample. */
 void fd_lms_coefs_q31(FD_LmsQ31 *f, fm_q31 *h);
+/** q31 form of fd_lms_reset_q15(). */
+void fd_lms_reset_q31(FD_LmsQ31 *f);
+/** q31 form of fd_lms_set_mu_q15(). */
+void fd_lms_set_mu_q31(FD_LmsQ31 *f, fm_q31 mu);
 
 #endif /* FD_LMS_H */

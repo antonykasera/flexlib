@@ -323,7 +323,8 @@ end within the error of a `double` LMS on the same data (42 dB below the
 system's norm after 60000 samples); CMSIS-DSP's q15 LMS truncates its
 updates, drifts, and ends 0.5 dB *above* the norm
 ([docs/accuracy.md](../docs/accuracy.md)). `fd_lms_coefs_q15` / `_q31` read
-the taps back.
+the taps back. `fd_lms_reset_*` clears the history and keeps the weights.
+`fd_lms_set_mu_*` changes the step size between calls.
 
 ## Sample-rate conversion (`fd_resample.h`)
 

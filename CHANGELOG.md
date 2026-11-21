@@ -5,6 +5,7 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 
 ## Unreleased
 
+- flexdsp: LMS reset and step-size setter ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
 - flexdsp: float FIR and biquad filters, FFTs, sums and element-wise operations ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
 - arch: `fx_fmaf`, a fused multiply-add (VFMA), on targets with an FPU.
 - Bench: the report can go over SWD with SEGGER RTT (`BENCH_REPORT=rtt`), for boards without USB.

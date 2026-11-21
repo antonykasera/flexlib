@@ -154,6 +154,25 @@ void fd_lms_coefs_q15(FD_LmsQ15 *f, fm_q15 *h) {
   f->step = 0;
 }
 
+void fd_lms_reset_q15(FD_LmsQ15 *f) {
+  fm_q15 *p = f->state + f->pos;
+  for (uint32_t k = 0U; k < f->ntaps; k++) {
+    f->w[k] = FX_SSAT(f->w[k] + f->step * p[-1 - (int32_t)k], 31);
+  }
+  for (uint32_t k = 0U; k < f->ntaps; k++) {
+    f->state[k] = 0;
+  }
+  f->pos = f->ntaps;
+  f->step = 0;
+  f->res = 0;
+  f->energy = 0U;
+}
+
+void fd_lms_set_mu_q15(FD_LmsQ15 *f, fm_q15 mu) {
+  FX_ASSERT(mu >= 0);
+  f->mu = mu;
+}
+
 /* ---- q31 ---- */
 
 void fd_lms_init_q31(FD_LmsQ31 *f, int32_t *w, uint32_t ntaps, fm_q31 *state,
@@ -261,4 +280,22 @@ void fd_lms_coefs_q31(FD_LmsQ31 *f, fm_q31 *h) {
     h[k] = u * 2;
   }
   f->step = 0;
+}
+
+void fd_lms_reset_q31(FD_LmsQ31 *f) {
+  fm_q31 *p = f->state + f->pos;
+  for (uint32_t k = 0U; k < f->ntaps; k++) {
+    f->w[k] = upd31(f->w[k], f->step, p[-1 - (int32_t)k]);
+  }
+  for (uint32_t k = 0U; k < f->ntaps; k++) {
+    f->state[k] = 0;
+  }
+  f->pos = f->ntaps;
+  f->step = 0;
+  f->energy[0] = f->energy[1] = 0U;
+}
+
+void fd_lms_set_mu_q31(FD_LmsQ31 *f, fm_q31 mu) {
+  FX_ASSERT(mu >= 0);
+  f->mu = mu;
 }

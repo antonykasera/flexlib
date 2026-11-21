@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `fd_lms_reset_q15` / `_q31` clear the history and keep the weights; `fd_lms_set_mu_q15` / `_q31` change the step size.
 - `fd_biquad_f32`: float DF1 cascades, each section's exact sum rounded once; 2x faster than `arm_biquad_cascade_df2T_f32` in soft float.
 - Float element-wise operations: `fd_add_f32`, `fd_sub_f32`, `fd_mul_f32`, `fd_scale_f32`, `fd_offset_f32`, `fd_negate_f32`, `fd_abs_f32`, `fd_clip_f32`, `fd_fill_f32`, `fd_copy_f32`.
 - `fd_cfft_f32`, `fd_icfft_f32`, `fd_rfft_f32`, `fd_irfft_f32`: float FFTs through the q31 transforms, about 12 dB more SNR than `arm_cfft_f32` and 4.9-5.6x faster in soft float.

@@ -345,6 +345,8 @@ fd_lms_q15         mla ssat !call=memcpy !call=memmove
 fd_lms_q31         smlal ssat !call=memcpy !call=memmove
 fd_lms_coefs_q15   no-calls  ssat
 fd_lms_coefs_q31   no-calls  smlal ssat
+fd_lms_reset_q15   ssat !udiv
+fd_lms_reset_q31   smlal ssat !udiv
 
 # fd_resample: the branch kernels inline (the 96-bit one out of line, as in fd_fir)
 fd_resample_q15    mla smlal !call=memcpy !call=memmove
