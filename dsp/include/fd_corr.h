@@ -1,6 +1,6 @@
 /**
  * @file fd_corr.h
- * @brief Convolution and correlation of q15 / q31 blocks
+ * @brief Convolution and correlation of q15 / q31 / float blocks
  *
  * Direct forms: every output is an exact sum over $2^(15 + shift)$ (q31:
  * $2^(31 + shift)$), rounded once (ties up) and saturated. $shift <= 16$
@@ -46,13 +46,36 @@ void fd_corr_q31(const fm_q31 *a, uint32_t na, const fm_q31 *b, uint32_t nb,
                  int32_t lag0, uint32_t nlags, uint32_t shift, fm_q31 *y);
 
 /**
+ * @name Float
+ * Each input goes to q31 at one exponent and every output is one exact sum
+ * rounded once, within 0.5 ulp + $2^-31 S (M + W)$ of the exact result: S
+ * is the sum of |values| of the shorter input (b when $na = nb$), M the
+ * largest |value| of the longer and W the sum of the longer's |values| in
+ * that output. work holds $na + nb$ values. Neither y nor work overlaps
+ * anything. A NaN or inf in a or b: every output NaN.
+ * @{
+ */
+
+/** fd_conv_q31() on floats. */
+void fd_conv_f32(const float *a, uint32_t na, const float *b, uint32_t nb,
+                 float *y, fm_q31 *work);
+/** Outputs first to first + n - 1 of fd_conv_f32(). */
+void fd_conv_part_f32(const float *a, uint32_t na, const float *b, uint32_t nb,
+                      uint32_t first, uint32_t n, float *y, fm_q31 *work);
+/** fd_corr_q31() on floats. */
+void fd_corr_f32(const float *a, uint32_t na, const float *b, uint32_t nb,
+                 int32_t lag0, uint32_t nlags, float *y, fm_q31 *work);
+
+/** @} */
+
+/**
  * @brief Circular correlation through q15 FFTs, in place:
  * $a[k] 2^e = sum a[(j + k) mod n] b[j]$.
  *
  * With both blocks zero-padded to $n >= na + nb - 1$ it is the linear
- * correlation, lag k in slot k and lag -k in slot n - k. The error is about
- * 45 dB below the output's power (41 dB at worst on noise, chirps and
- * delays); fd_corr_q15() is exact.
+ * correlation, lag k in slot k and lag -k in slot n - k. The error is at
+ * least 41 dB below the output's power on noise, chirps and delays, 46 dB on
+ * average on full-scale noise. fd_corr_q15() is exact.
  *
  * @param a n samples, 4-byte aligned; the result out
  * @param b n samples, 4-byte aligned; overwritten

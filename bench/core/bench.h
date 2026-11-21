@@ -43,6 +43,8 @@ extern uint8_t bench_arg_b[BENCH_N * 8U];
     defined(BENCH_SET_dsp2) || defined(BENCH_SET_dsp4) ||                      \
     defined(BENCH_SET_dsp5)
 #define BENCH_SCRATCH_SIZE 3584U
+#elif defined(BENCH_SET_dsp6) /* the f32 rfft: 512 in, 512 out */
+#define BENCH_SCRATCH_SIZE 4096U
 #else
 #define BENCH_SCRATCH_SIZE 8192U
 #endif

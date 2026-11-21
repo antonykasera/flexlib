@@ -33,12 +33,12 @@ typedef struct {
   fm_q15 *state;
   uint32_t ntaps;
   uint32_t len;
-  uint32_t pos;    /* samples in state; the newest at pos - 1 */
-  uint32_t mode;   /* FD_LmsMode */
-  fm_q15 mu;       /* >= 0 */
-  int32_t step;    /* the update owed by the last sample */
-  int32_t res;     /* PLAIN: what rounding left off mu e, carried on */
-  uint64_t energy; /* NORM: x'x over the last ntaps samples */
+  uint32_t pos;
+  uint32_t mode;
+  fm_q15 mu;
+  int32_t step;
+  int32_t res;
+  uint64_t energy;
 } FD_LmsQ15;
 
 /**
@@ -64,6 +64,13 @@ void fd_lms_q15(FD_LmsQ15 *f, const fm_q15 *x, const fm_q15 *d, fm_q15 *y,
  * last sample. */
 void fd_lms_coefs_q15(FD_LmsQ15 *f, fm_q15 *h);
 
+/** Clear the history and keep the weights, with the update owed by the last
+ * sample applied. */
+void fd_lms_reset_q15(FD_LmsQ15 *f);
+
+/** Change the step size, $mu >= 0$, from the next sample's update on. */
+void fd_lms_set_mu_q15(FD_LmsQ15 *f, fm_q15 mu);
+
 /** q31 LMS state; opaque. */
 typedef struct {
   /** @privatesection */
@@ -73,9 +80,9 @@ typedef struct {
   uint32_t len;
   uint32_t pos;
   uint32_t mode;
-  fm_q31 mu; /* >= 0 */
+  fm_q31 mu;
   int32_t step;
-  uint64_t energy[2]; /* NORM: x'x, 128 bits (hi, lo) */
+  uint64_t energy[2];
 } FD_LmsQ31;
 
 /** q31 form of fd_lms_init_q15(). */
@@ -88,5 +95,9 @@ void fd_lms_q31(FD_LmsQ31 *f, const fm_q31 *x, const fm_q31 *d, fm_q31 *y,
 /** The taps as q31, h[0] on the newest sample; applies the update owed by the
  * last sample. */
 void fd_lms_coefs_q31(FD_LmsQ31 *f, fm_q31 *h);
+/** q31 form of fd_lms_reset_q15(). */
+void fd_lms_reset_q31(FD_LmsQ31 *f);
+/** q31 form of fd_lms_set_mu_q15(). */
+void fd_lms_set_mu_q31(FD_LmsQ31 *f, fm_q31 mu);
 
 #endif /* FD_LMS_H */

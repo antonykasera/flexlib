@@ -29,7 +29,7 @@ define RUN_EXHAUSTIVE
 	@mkdir -p $(BUILD)/exhaustive
 	@set -e; for t in $(1); do \
 		b=$(BUILD)/exhaustive/$$(basename $$t .c); \
-		$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -fopenmp $(LIB_INC) $$t \
+		$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -fopenmp $(LIB_INC) $(LIB_PRIV) $$t \
 			$(LIB_SRCS) -lm -o $$b; \
 		echo "--- $$t"; ./$$b; \
 	done

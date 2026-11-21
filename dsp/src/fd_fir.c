@@ -93,7 +93,7 @@ void fd_fir_q31(FD_FirQ31 *f, const fm_q31 *x, fm_q31 *y, uint32_t n) {
     if (f->wide != 0U) {
       k31w(f->h, 1U, t, b, 1U, y, 1U, m);
     } else {
-      k31(f->h, 1U, false, t, b, y, 1U, m, 0U, 0U, 0U, NULL, 0);
+      k31(f->h, 1U, false, t, b, y, 1U, m, 0U, 0U, 0U, NULL, 0, NULL, 0);
     }
     f->w += m;
     x += m;
@@ -263,7 +263,7 @@ void fd_fir_interp_q31(FD_FirInterpQ31 *p, const fm_q31 *x, fm_q31 *y,
         k31w(f->h + br, l, tb, b + (t - tb), 1U, y + br, l, m);
       } else {
         k31(f->h + br, l, false, tb, b + (t - tb), y + br, l, m, 0U, 0U, 0U,
-            NULL, 0);
+            NULL, 0, NULL, 0);
       }
     }
     f->w += m;

@@ -5,11 +5,13 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
 
 Signal processing for Cortex-M on flexlib's fixed-point core: block
-arithmetic, filters, windows and generators in Q15 and Q31. Plain
-C11, no allocation.
+arithmetic, filters, windows, generators, FFTs, correlation, adaptive filters
+and sample-rate conversion in Q15 and Q31, with float forms of the FIR,
+biquad, FFT, convolution, correlation and sums. Plain C11, no allocation.
 
 Cycles are medians for a block of 64 on an STM32F103 at 72 MHz (`-O2`, warm
-cache), from [docs/results/f103.md](../docs/results/f103.md). Errors are
+cache). The tables show the main cases;
+[docs/results/f103.md](../docs/results/f103.md) has every case. Errors are
 against exact references; CMSIS-DSP's are in
 [docs/accuracy.md](../docs/accuracy.md), each in its own output format.
 
@@ -36,6 +38,7 @@ against exact references; CMSIS-DSP's are in
 | `fd_offset_q15`, `fd_negate_q15`, `fd_abs_q15` | 413, 410, 585 | 452, 562, 619 | exact | exact |
 | `fd_clip_q15` | 576 | 692 | exact | exact |
 | `fd_fill_q15`, `fd_copy_q15` | 144, 214 | 138, 231 | | `memcpy` 918 |
+| `fd_add_f32` / `fd_mul_f32` / `fd_abs_f32` | 4121 / 2861 / 410 | 4120 / 2860 / 404 | one rounding / exact | the same |
 
 ## Conversions
 
@@ -53,12 +56,17 @@ against exact references; CMSIS-DSP's are in
 | `fd_dot_q15` / `fd_dot_q31` | 654 / 1284 | 670 / 914 | exact / 0.5 LSB | exact / 42 LSB |
 | `fd_power_q15` / `fd_power_q31` | 546 / 1205 | 517 / 817 | exact / 0.5 LSB | exact / 41 LSB |
 | `fd_rms_q15` / `fd_rms_q31` | 865 / 1592 | 708 / 961 | 0.5 LSB | 179 LSB |
-| `fd_var_q15` | 1369 | 838 | 0.5 LSB | 1 LSB |
+| `fd_var_q15` | 1362 | 838 | 0.5 LSB | 1 LSB |
 | `fd_std_q15` / `fd_std_q31` | 1411 / 2291 | 916 | 0.5 LSB | 178 LSB |
 | `fd_max_q15`, `fd_absmax_q15` | 559, 850 | 530, 1097 | exact | exact |
+| `fd_dot_f32` / `fd_power_f32` | 4504 / 3911 | 6427 / 6318 | 0.5 ulp | 1.7e4 / 7.5 ulp |
+| `fd_sum_f32`, `fd_mean_f32` | 3597, 3799 | -, 3896 | 0.5 ulp | -, 1.3e5 ulp |
+| `fd_rms_f32` | 4176 | 7033 | 0.84 ulp | 4.3 ulp |
 
 q31 dot and power return Q16.48, CMSIS-DSP's format, saturating instead of
 wrapping past 2^15. `fd_headroom_q15` / `_q31` return a block's spare sign bits.
+The f32 sums are exact in 64 bits before one rounding; errors for 64 values
+from 2^-10 to 2^10.
 
 ## Complex vectors
 
@@ -85,7 +93,7 @@ wider ones otherwise. `h[0]` multiplies the newest sample.
 | `fd_fir_q31` | 17836 | 16593 (`fast` 22446) | 0.5 LSB | 1 LSB (`fast` 17) |
 | `fd_fir_decim_q15` by 4 | 3686 | 4854 | 0.5 LSB | |
 | `fd_fir_interp_q15` by 4 | 12522 | 20806 | 0.5 LSB | |
-| `fd_fir_sample_q15` | 453 | | 0.5 LSB | |
+| `fd_fir_f32` | 22735 | 180335 (soft float) | mean 0.37 ulp | mean 4.4 ulp |
 
 The state holds `ntaps - 1` history samples plus a chunk of any size
 (`FD_FIR_STATE_LEN`); a block is processed in chunk-sized pieces, and the
@@ -93,6 +101,11 @@ history moves once per chunk. Decimators take any `n` and return the outputs
 written. `fd_fir_design` builds windowed-sinc lowpass, highpass, bandpass and
 bandstop filters in float (rectangular, Hann, Hamming, Blackman,
 Blackman-Harris), and `fd_fir_quantize_q15` / `_q31` round them.
+
+`fd_fir_f32` runs the q31 kernel on block floating point, one rounding per
+output (bound in `fd_fir.h`). Inputs within 42 dB of the chunk's loudest are
+held exactly; after a larger drop, about a chunk of outputs keeps fewer bits
+than float. Errors on white noise; `docs/accuracy.md` has the bursts.
 
 ## Biquads (`fd_biquad.h`)
 
@@ -106,9 +119,12 @@ on the `b` alone, so the feedback coefficients keep full precision.
 | `fd_biquad_q15` | 6120 | 13291 (`fast` 8778) | 96 LSB | 355 LSB |
 | `fd_biquad_q31` | 14200 | 11883 (`fast` 16631) | 80 LSB | 349 LSB |
 | `fd_biquad_q31` with error feedback | 18052 | `32x64` 25739 | 5 LSB | `32x64` 1.7 LSB |
+| `fd_biquad_f32` | 57635 | `df2T` 113574 | mean 207 ulp | mean 574 ulp |
 
 Errors are the recursion's, against the same coefficients in double, over
-10^6 samples of noise ([docs/accuracy.md](../docs/accuracy.md)). At fc 5e-4
+10^6 samples of noise ([docs/accuracy.md](../docs/accuracy.md)). The f32
+cascade holds coefficients and history unpacked and rounds each section's
+exact sum once. At fc 5e-4
 plain q31 reaches 8170 LSB and error feedback 115 (CMSIS: 110000; `32x64`:
 1.6).
 
@@ -190,11 +206,12 @@ block gives zeros and `e = 0`.
 | `fd_cfft_q15`, 256 | 32433 | 32665 | 72.4 dB | 60.1 dB |
 | `fd_cfft_q15`, 1024 | 157075 | 159716 | 68.3 dB | 54.0 dB |
 | `fd_cfft_q31`, 256 | 59677 | 36223 | 167.8 dB | 152.6 dB |
-| `fd_cfft_q31`, 1024 | 295942 | 182148 | 164.4 dB | 147.5 dB |
 | `fd_rfft_q15`, 512 | 40107 | 109341 | 69.8 dB | 57.1 dB |
 | `fd_rfft_q31`, 512 | 81801 | | 166.7 dB | 150.8 dB |
 | `fd_icfft_q15`, 256 / `fd_irfft_q15`, 512 | 33849 / 39724 | | | |
 | `fd_fft_db_q15`, 128 bins | 15160 | | 0.5003 LSB | |
+| `fd_cfft_f32`, 256 | 85313 | 418737 | 151.8 dB | 140.5 dB |
+| `fd_rfft_f32`, 512 | 107463 | 604927 | 151.7 dB | 139.4 dB |
 
 SNR is against the exact DFT; white noise at full scale, 40 blocks
 ([docs/accuracy.md](../docs/accuracy.md) has tones, two tones and quiet input).
@@ -219,6 +236,8 @@ Layouts and scaling:
 - Magnitude and power are `fd_cmag_*` and `fd_cmag2_*`. `fd_fft_db_q15` /
   `_q31` give 10 log10 |X|^2 with the exponent folded in, 0 dB at |X| = full
   scale.
+- Float: `fd_cfft_f32` / `fd_rfft_f32` and inverses run the q31 transforms on
+  block floating point, with a caller's q31 work buffer of n values beside x.
 
 A spectrum in dB from 512 samples:
 
@@ -252,25 +271,27 @@ which a filter with sum |h| < 2 or 12-bit ADC data always does; otherwise
 | function | cycles | CMSIS-DSP | error | CMSIS-DSP error |
 |---|--:|--:|--:|--:|
 | `fd_conv_q15`, 64 x 64 | 20270 | 123619 (`fast` 42252) | 0.5 LSB | 1 LSB |
-| `fd_conv_q15`, 256 x 32 | 32765 | 516899 | 0.5 LSB | 1 LSB |
-| `fd_conv_q15`, 64 x 64, both full scale | 46388 | | 0.5 LSB | |
 | `fd_conv_q31`, 64 x 64 | 47073 | 49642 | 0.5 LSB | 1 LSB |
 | `fd_corr_q15`, 256 x 256, all lags | 614396 | 1738429 | 0.5 LSB | 1 LSB |
-| `fd_corr_q15`, 256 x 256, lags 0..31 | 70614 | | 0.5 LSB | |
-| the same on 12-bit data | 32637 | | 0.5 LSB | |
 | `fd_corr_q31`, 64 x 64, all lags | 46647 | 51009 | 0.5 LSB | |
+| `fd_conv_f32`, 64 x 64 | 61126 | 500890 (soft float) | mean 0.42 ulp | mean 6.9 ulp |
+| `fd_corr_f32`, 64 x 64, all lags | 62492 | 481099 (soft float) | mean 0.38 ulp | mean 6.2 ulp |
 | `fd_corr_fft_q15`, 256 x 256 in 512 | 131431 | | 41 dB SNR | |
 | `fd_autocorr_q15`, 256, 16 lags | 38605 | | 0.5 LSB | |
-| the same on 12-bit data | 16850 | | exact | |
-| `fd_autocorr_q31`, 128, 16 lags | 44395 | | 0.5 LSB | |
 | `fd_peak_q15`, 128 | 1325 | | 0.5 LSB (Q16.16) | |
 | `fd_levinson_q31`, order 10 | 4909 | 3779 | 7.7 LSB | 82 LSB |
 
+- `fd_conv_f32`, `fd_conv_part_f32` and `fd_corr_f32` convert each input to
+  q31 at one exponent and run the q31 kernels, one rounding per output. The
+  caller gives a q31 work buffer of `na + nb` values. Values more than about
+  42 dB below the largest in their input lose bits. On inputs like that the
+  errors can be larger than soft float's. The table's errors are on white
+  noise, and `docs/accuracy.md` has inputs with quiet halves.
 - `fd_corr_fft_q15` correlates two zero-padded blocks through q15 FFTs, in
   place: 4.7 times faster than the direct sum at 256 x 256, with the error
-  about 45 dB (41 at worst) below the output's power instead of exact. On
-  delays with noise down to 0 dB SNR and on chirps it finds the same peak lag
-  as the exact sum.
+  at least 41 dB below the output's power (46 dB on average on full-scale
+  noise) instead of exact. On delays with noise down to 0 dB SNR and on
+  chirps it finds the same peak lag as the exact sum.
 - `fd_autocorr_q15` / `_q31` return `r[k] 2^e` with `r[0]` in [2^30, 2^31):
   31 significant bits at any signal level, the input `fd_levinson_q31` wants.
 - `fd_peak_q15` / `_q31` return the index of the largest value moved to the
@@ -303,7 +324,8 @@ end within the error of a `double` LMS on the same data (42 dB below the
 system's norm after 60000 samples); CMSIS-DSP's q15 LMS truncates its
 updates, drifts, and ends 0.5 dB *above* the norm
 ([docs/accuracy.md](../docs/accuracy.md)). `fd_lms_coefs_q15` / `_q31` read
-the taps back.
+the taps back. `fd_lms_reset_*` clears the history and keeps the weights.
+`fd_lms_set_mu_*` changes the step size between calls.
 
 ## Sample-rate conversion (`fd_resample.h`)
 
@@ -340,12 +362,9 @@ per order and width).
 | `fd_resample_q31` 3 / 2, 24 taps, 64 in | 12347 | 19674 | 0.5 LSB | 1 LSB |
 | `fd_resample_q15` 160 / 147, 1280 taps, 64 in | 7923 | | 0.5 LSB | |
 | `fd_halfband_decim_q15`, 31 taps, 64 in | 2988 | | 0.5 LSB | |
-| `fd_halfband_decim_q31`, 31 taps, 64 in | 6075 | | 0.5 LSB | |
 | `fd_halfband_interp_q15`, 31 taps, 64 in | 5293 | | 0.5 LSB | |
-| `fd_halfband_interp_q31`, 31 taps, 64 in | 11738 | | 0.5 LSB | |
 | `fd_cic_decim_q15` order 3 by 64, 12-bit, 256 in | 2012 | | exact | |
 | the same on 16-bit input (64-bit registers) | 2932 | | 0.5 LSB | |
-| `fd_cic_decim_q15` order 5 by 16, 12-bit, 256 in | 4688 | | exact | |
 
 - CMSIS-DSP has no rational resampler; its rows interpolate by 3 with
   `arm_fir_interpolate_*` and keep every second output, computing three

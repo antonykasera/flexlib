@@ -1,5 +1,18 @@
 # flexdsp changelog
 
+## Unreleased
+
+- `fd_conv_f32`, `fd_conv_part_f32`, `fd_corr_f32`: float convolution and correlation on the q31 kernels (block floating point, one rounding per output). 7.7-8.2x faster than `arm_conv_f32` / `arm_correlate_f32` in soft float on the Cortex-M3. More accurate than soft float on white noise, less on inputs that span more than about 40 dB.
+
+## 0.4.0 (2026-11-21)
+
+- `fd_lms_reset_q15` / `_q31` clear the history and keep the weights; `fd_lms_set_mu_q15` / `_q31` change the step size.
+- `fd_biquad_f32`: float DF1 cascades, each section's exact sum rounded once; 2x faster than `arm_biquad_cascade_df2T_f32` in soft float.
+- Float element-wise operations: `fd_add_f32`, `fd_sub_f32`, `fd_mul_f32`, `fd_scale_f32`, `fd_offset_f32`, `fd_negate_f32`, `fd_abs_f32`, `fd_clip_f32`, `fd_fill_f32`, `fd_copy_f32`.
+- `fd_cfft_f32`, `fd_icfft_f32`, `fd_rfft_f32`, `fd_irfft_f32`: float FFTs through the q31 transforms, about 12 dB more SNR than `arm_cfft_f32` and 4.9-5.6x faster in soft float.
+- `fd_dot_f32`, `fd_power_f32`, `fd_sum_f32`, `fd_mean_f32`, `fd_rms_f32`: exact sums before one rounding.
+- `fd_fir_f32` / `fd_fir_sample_f32`: float FIR filters on the q31 kernel (block floating point, one rounding per output). 7.9x faster than `arm_fir_f32` in soft float on the Cortex-M3, and more accurate on signals within 42 dB.
+
 ## 0.3.0 (2026-11-12)
 
 - Licensed under Apache-2.0 (was MIT; earlier releases are granted under Apache-2.0 too).

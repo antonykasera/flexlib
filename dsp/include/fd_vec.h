@@ -72,6 +72,27 @@ void fd_copy_q15(const fm_q15 *x, fm_q15 *y, uint32_t n);
 /** Copy n elements. */
 void fd_copy_q31(const fm_q31 *x, fm_q31 *y, uint32_t n);
 
+/** $y = a + b$, one float operation per element. */
+void fd_add_f32(const float *a, const float *b, float *y, uint32_t n);
+/** $y = a - b$. */
+void fd_sub_f32(const float *a, const float *b, float *y, uint32_t n);
+/** $y = a b$. */
+void fd_mul_f32(const float *a, const float *b, float *y, uint32_t n);
+/** $y = x k$. */
+void fd_scale_f32(const float *x, float k, float *y, uint32_t n);
+/** $y = x + c$. */
+void fd_offset_f32(const float *x, float c, float *y, uint32_t n);
+/** $y = -x$, the sign bit flipped. */
+void fd_negate_f32(const float *x, float *y, uint32_t n);
+/** $y = |x|$, the sign bit cleared. */
+void fd_abs_f32(const float *x, float *y, uint32_t n);
+/** x clamped to $[lo, hi]$, $lo <= hi$; NaN passes through. */
+void fd_clip_f32(const float *x, float lo, float hi, float *y, uint32_t n);
+/** Set n elements to c. */
+void fd_fill_f32(float c, float *y, uint32_t n);
+/** Copy n elements. */
+void fd_copy_f32(const float *x, float *y, uint32_t n);
+
 /** @} */
 
 /**
@@ -141,6 +162,18 @@ fm_q31 fd_var_q31(const fm_q31 *x, uint32_t n);
 fm_q15 fd_std_q15(const fm_q15 *x, uint32_t n);
 /** Standard deviation over $n - 1$, correctly rounded; $2 <= n < 2^24$. */
 fm_q31 fd_std_q31(const fm_q31 *x, uint32_t n);
+
+/** Sum of $a b$, exact before one rounding: within 0.5 ulp +
+ * $2^-32 sum |a b|$; a NaN or inf gives NaN. */
+float fd_dot_f32(const float *a, const float *b, uint32_t n);
+/** Sum of $x^2$, as fd_dot_f32(). */
+float fd_power_f32(const float *x, uint32_t n);
+/** Sum, as fd_dot_f32(). */
+float fd_sum_f32(const float *x, uint32_t n);
+/** Mean, the exact sum over n rounded once; $n >= 1$. */
+float fd_mean_f32(const float *x, uint32_t n);
+/** Root mean square, within 1 ulp; $n >= 1$. */
+float fd_rms_f32(const float *x, uint32_t n);
 
 /** Spare sign bits h: every value fits $16 - h$ bits. */
 uint32_t fd_headroom_q15(const fm_q15 *x, uint32_t n);

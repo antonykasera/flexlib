@@ -90,6 +90,7 @@ void test_fd_corr_q15(void);
 void test_fd_corr_q31(void);
 void test_fd_corr_sum_rule(void);
 void test_fd_corr_long(void);
+void test_fd_corr_conv_reversed(void);
 void test_fd_corr_autocorr(void);
 void test_fd_corr_peak(void);
 void test_fd_corr_levinson(void);
@@ -112,6 +113,36 @@ void test_fd_resample_halfband_design(void);
 void test_fd_resample_cic(void);
 void test_fd_resample_cic_edges(void);
 void test_fd_resample_cic_comp(void);
+
+/* --- fd_bfp (test_fd_bfp.c) --- */
+void test_fd_bfp_blocks(void);
+void test_fd_bfp_edges(void);
+void test_fd_bfp_sampled(void);
+void test_fd_bfp_s64(void);
+
+/* --- fd_fir_f32 (test_fd_fir_f32.c) --- */
+void test_fd_fir_f32_bound(void);
+void test_fd_fir_f32_coefs(void);
+void test_fd_fir_f32_nonfinite(void);
+void test_fd_fir_f32_state(void);
+void test_fd_fir_f32_coef_exp(void);
+void test_fd_fir_f32_exp_schedule(void);
+
+/* --- fd_corr float (test_fd_corr_f32.c) --- */
+void test_fd_corr_f32_model(void);
+void test_fd_corr_f32_integers(void);
+void test_fd_corr_f32_conv_reversed(void);
+void test_fd_corr_f32_edges(void);
+void test_fd_corr_f32_short_exp(void);
+
+/* --- fd_vec, fd_fft float (test_fd_f32.c) --- */
+void test_fd_f32_sums(void);
+void test_fd_f32_sums_edges(void);
+void test_fd_f32_fft(void);
+void test_fd_f32_rfft(void);
+void test_fd_f32_biquad(void);
+void test_fd_f32_biquad_edges(void);
+void test_fd_f32_elementwise(void);
 
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
@@ -273,6 +304,7 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_corr_q31);
   TEST_RUN(test_fd_corr_sum_rule);
   TEST_RUN(test_fd_corr_long);
+  TEST_RUN(test_fd_corr_conv_reversed);
   TEST_RUN(test_fd_corr_autocorr);
   TEST_RUN(test_fd_corr_peak);
   TEST_RUN(test_fd_corr_levinson);
@@ -291,6 +323,28 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_resample_cic);
   TEST_RUN(test_fd_resample_cic_edges);
   TEST_RUN(test_fd_resample_cic_comp);
+  TEST_RUN(test_fd_bfp_blocks);
+  TEST_RUN(test_fd_bfp_edges);
+  TEST_RUN(test_fd_bfp_sampled);
+  TEST_RUN(test_fd_bfp_s64);
+  TEST_RUN(test_fd_fir_f32_bound);
+  TEST_RUN(test_fd_fir_f32_coefs);
+  TEST_RUN(test_fd_fir_f32_nonfinite);
+  TEST_RUN(test_fd_fir_f32_state);
+  TEST_RUN(test_fd_fir_f32_coef_exp);
+  TEST_RUN(test_fd_fir_f32_exp_schedule);
+  TEST_RUN(test_fd_corr_f32_model);
+  TEST_RUN(test_fd_corr_f32_integers);
+  TEST_RUN(test_fd_corr_f32_conv_reversed);
+  TEST_RUN(test_fd_corr_f32_edges);
+  TEST_RUN(test_fd_corr_f32_short_exp);
+  TEST_RUN(test_fd_f32_sums);
+  TEST_RUN(test_fd_f32_sums_edges);
+  TEST_RUN(test_fd_f32_fft);
+  TEST_RUN(test_fd_f32_rfft);
+  TEST_RUN(test_fd_f32_biquad);
+  TEST_RUN(test_fd_f32_biquad_edges);
+  TEST_RUN(test_fd_f32_elementwise);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

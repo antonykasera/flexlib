@@ -24,3 +24,6 @@ fd_fft31_r4        no-calls  smlal !udiv
 fd_fft31_r4x       no-calls  smlal !udiv
 fd_fft15_cfft      !udiv
 fd_fft31_cfft      !udiv
+
+# fx_fmaf: one fused multiply-add on the FPU
+probe_fmaf      max=3  vfma.f32 !call=fmaf

@@ -73,6 +73,44 @@ void fd_biquad_q31(FD_BiquadQ31 *f, const fm_q31 *x, fm_q31 *y, uint32_t n);
 void fd_biquad_q15(FD_BiquadQ15 *f, const fm_q15 *x, fm_q15 *y, uint32_t n);
 
 /**
+ * @name Float
+ * Each section's output is its exact sum of the held floats, rounded once:
+ * within 0.5 ulp + $2^-32 sum |p|$. A NaN or inf, in or out, makes every later
+ * output NaN until reset.
+ * @{
+ */
+
+/** Float state length for nsec sections, in words. */
+#define FD_BIQUAD_F32_STATE_LEN(nsec) (4U * (nsec) + 4U)
+
+/** Float cascade state; opaque. */
+typedef struct {
+  /** @privatesection */
+  const int32_t *cu;
+  int32_t *state;
+  uint32_t nsec;
+  uint32_t bad;
+} FD_BiquadF32;
+
+/**
+ * Set up a float cascade with zero history.
+ *
+ * @param f     state
+ * @param c     5 nsec coefficients, finite; read only here
+ * @param cu    10 nsec words for them unpacked; must outlive f
+ * @param nsec  $>= 1$
+ * @param state `FD_BIQUAD_F32_STATE_LEN(nsec)` words; must outlive f
+ */
+void fd_biquad_init_f32(FD_BiquadF32 *f, const float *c, int32_t *cu,
+                        uint32_t nsec, int32_t *state);
+/** Clear the history. */
+void fd_biquad_reset_f32(FD_BiquadF32 *f);
+/** Filter n samples; y may be x. */
+void fd_biquad_f32(FD_BiquadF32 *f, const float *x, float *y, uint32_t n);
+
+/** @} */
+
+/**
  * @name Design
  * In float, not timed.
  * @{

@@ -1,6 +1,6 @@
 # flexmath changelog
 
-## Unreleased
+## 0.2.5 (2026-11-21)
 
 - `fm_add_q31` / `fm_sub_q31` take and return `fm_q31`, like the Q15 and Q16.16 forms (was `int32_t`, the same type: no change for callers).
 

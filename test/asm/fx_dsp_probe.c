@@ -43,3 +43,8 @@ int32_t probe_smulwb(int32_t a, int32_t b) { return fx_smulwb(a, b); }
 int32_t probe_smlawb(int32_t acc, int32_t a, int32_t b) {
   return fx_smlawb(acc, a, b);
 }
+
+#if FX_FPU_PATH
+float probe_fmaf(float a, float b, float c);
+float probe_fmaf(float a, float b, float c) { return fx_fmaf(a, b, c); }
+#endif

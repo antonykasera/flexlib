@@ -34,7 +34,7 @@ typedef struct {
   /** @privatesection */
   FD_FirInterpQ15 ip;
   uint32_t m;
-  uint32_t ph; /* next output at the l-times rate, from the next input */
+  uint32_t ph;
 } FD_ResampleQ15;
 
 /** Resampler state; opaque. */
@@ -100,7 +100,7 @@ FD_Status fd_resample_design(float *h, uint32_t ntaps, uint32_t l, uint32_t m,
 /** Half-band state; opaque. */
 typedef struct {
   /** @privatesection */
-  FD_FirQ15 fir; /* over the 4k - 1 (interpolator: 2k) sample window */
+  FD_FirQ15 fir;
   uint32_t k;
   uint32_t phase;
 } FD_HalfbandQ15;
@@ -175,8 +175,8 @@ FD_Status fd_halfband_design(float *hb, uint32_t k, FD_Window win);
 typedef struct {
   /** @privatesection */
   uint32_t order, ratio, count;
-  uint32_t wide;  /* 64-bit registers */
-  uint32_t shift; /* 32 - bits (left), or bits - 32 (right, wide) */
+  uint32_t wide;
+  uint32_t shift;
   uint32_t growth;
   uint64_t integ[FD_CIC_MAX_ORDER], comb[FD_CIC_MAX_ORDER];
 } FD_Cic;

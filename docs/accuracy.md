@@ -95,12 +95,31 @@ the bench.
 | complex magnitude q15, Q2.14 out | CMSIS-DSP | 10^5 blocks of 64 | 1 | 0.498 | -0.5 |
 | complex multiply q15, q15 out | flexdsp | 10^5 blocks of 64 | 0.5 | 0.241 | -3.4e-05 |
 | complex multiply q15, Q3.13 out | CMSIS-DSP | 10^5 blocks of 64 | 2 | 0.667 | -0.5 |
+| dot f32, 64 | flexdsp | 10^5 blocks, values 2^-10 to 2^10 | 0.5 | 0.25 | -0.00073 |
+| dot f32, 64 | CMSIS-DSP | 10^5 blocks, values 2^-10 to 2^10 | 1.7e+04 | 3.73 | +0.42 |
+| power f32, 64 | flexdsp | 10^5 blocks, values 2^-10 to 2^10 | 0.5 | 0.25 | +0.0027 |
+| power f32, 64 | CMSIS-DSP | 10^5 blocks, values 2^-10 to 2^10 | 7.48 | 0.979 | -0.4 |
+| sum f32, 64 | flexdsp | 10^5 blocks, values 2^-10 to 2^10 | 0.5 | 0.25 | -0.00039 |
+| mean f32, 64 | flexdsp | 10^5 blocks, values 2^-10 to 2^10 | 0.5 | 0.25 | -0.00039 |
+| mean f32, 64 | CMSIS-DSP | 10^5 blocks, values 2^-10 to 2^10 | 1.27e+05 | 8.14 | +1.5 |
+| rms f32, 64 | flexdsp | 10^5 blocks, values 2^-10 to 2^10 | 0.842 | 0.272 | +0.0021 |
+| rms f32, 64 | CMSIS-DSP | 10^5 blocks, values 2^-10 to 2^10 | 4.26 | 0.543 | -0.2 |
 | FIR q15, 32 taps | flexdsp | 10^6 random samples, Hamming lowpass | 0.5 | 0.25 | -9.3e-05 |
 | FIR q15, 32 taps | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 1 | 0.5 | -0.5 |
 | FIR q15, 32 taps (fast) | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 1 | 0.5 | -0.5 |
 | FIR q31, 32 taps | flexdsp | 10^6 random samples, Hamming lowpass | 0.5 | 0.25 | -8.1e-05 |
 | FIR q31, 32 taps | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 1 | 0.5 | -0.5 |
 | FIR q31, 32 taps (fast) | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 17 | 2.61 | -0.005 |
+| FIR f32, 32 taps | flexdsp | 10^6 samples of white noise, Hamming lowpass | 5.42e+04 | 0.365 | -0.063 |
+| FIR f32, 32 taps | CMSIS-DSP | 10^6 samples of white noise, Hamming lowpass | 5.41e+05 | 4.38 | +0.65 |
+| FIR f32, 32 taps | flexdsp | the same in 300-sample bursts 42 dB apart | 5.42e+04 | 0.761 | -0.07 |
+| FIR f32, 32 taps | CMSIS-DSP | the same in 300-sample bursts 42 dB apart | 5.41e+05 | 4.42 | +0.62 |
+| FIR f32, 32 taps | flexdsp | the same in 300-sample bursts 120 dB apart | 1.12e+08 | 3.39e+03 | -1.6e+02 |
+| FIR f32, 32 taps | CMSIS-DSP | the same in 300-sample bursts 120 dB apart | 5.41e+05 | 4.44 | +0.7 |
+| biquad f32, Butterworth 8, fc 0.1 | flexdsp | 10^6 samples of white noise | 3.56e+05 | 7.94 | +0.31 |
+| biquad f32, Butterworth 8, fc 0.1 | CMSIS-DSP | 10^6 samples of white noise (DF2T) | 1.6e+06 | 20.8 | -0.33 |
+| biquad f32, Butterworth 8, fc 0.01 | flexdsp | 10^6 samples of white noise | 5.85e+06 | 207 | -1.6 |
+| biquad f32, Butterworth 8, fc 0.01 | CMSIS-DSP | 10^6 samples of white noise (DF2T) | 1.86e+07 | 574 | -16 |
 | biquad q31, Butterworth 4, fc 0.01 | flexdsp | 10^6 samples of half-scale noise | 79.7 | 15 | -0.008 |
 | biquad q31, Butterworth 4, fc 0.01 | flexdsp error feedback | 10^6 samples of half-scale noise | 4.98 | 0.842 | -3e-06 |
 | biquad q31, Butterworth 4, fc 0.01 | CMSIS-DSP | 10^6 samples of half-scale noise | 349 | 264 | -2.6e+02 |
@@ -120,6 +139,18 @@ the bench.
 | conv q31, 64 x 64 | CMSIS-DSP | 4000 pairs: full scale, sum abs(b) < 2 | 1 | 0.5 | -0.5 |
 | correlate q15, 64 x 64 | flexdsp | 4000 pairs, all 127 lags | 0.5 | 0.25 | +0.00054 |
 | correlate q15, 64 x 64 | CMSIS-DSP | 4000 pairs, all 127 lags | 1 | 0.5 | -0.5 |
+| conv f32, 64 x 64 | flexdsp | 4000 pairs of white noise | 9.39e+03 | 0.418 | +0.026 |
+| conv f32, 64 x 64 | CMSIS-DSP | 4000 pairs of white noise | 3.04e+05 | 6.92 | +0.097 |
+| correlate f32, 64 x 64 | flexdsp | 4000 pairs of white noise | 8.61e+03 | 0.384 | +0.0011 |
+| correlate f32, 64 x 64 | CMSIS-DSP | 4000 pairs of white noise | 2.51e+05 | 6.15 | +1.2 |
+| conv f32, 64 x 64 | flexdsp | the same, a's second half 42 dB down | 9.09e+04 | 1.35 | -0.15 |
+| conv f32, 64 x 64 | CMSIS-DSP | the same, a's second half 42 dB down | 2.02e+05 | 5.69 | -0.2 |
+| correlate f32, 64 x 64 | flexdsp | the same, a's second half 42 dB down | 4.77e+06 | 10.4 | -9.4 |
+| correlate f32, 64 x 64 | CMSIS-DSP | the same, a's second half 42 dB down | 2.58e+05 | 6.25 | +0.31 |
+| conv f32, 64 x 64 | flexdsp | the same, a's second half 120 dB down | 4.87e+08 | 7.64e+03 | -2e+02 |
+| conv f32, 64 x 64 | CMSIS-DSP | the same, a's second half 120 dB down | 4.21e+05 | 5.94 | +1 |
+| correlate f32, 64 x 64 | flexdsp | the same, a's second half 120 dB down | 5.16e+09 | 1.73e+04 | -1.1e+04 |
+| correlate f32, 64 x 64 | CMSIS-DSP | the same, a's second half 120 dB down | 2.51e+05 | 5.66 | +1.4 |
 | Levinson q31, order 10 | flexdsp | 2000 AR(2) blocks of 1024 (poles 0.3-0.7) | 7.65 | 1.12 | -0.012 |
 | Levinson q31, order 10 | CMSIS-DSP | 2000 AR(2) blocks of 1024 (poles 0.3-0.7) | 82.3 | 5.5 | -0.098 |
 | resample q15 3/2, 24 taps | flexdsp | 10^6 half-scale inputs, Hamming lowpass | 0.5 | 0.25 | -0.00036 |
@@ -219,6 +250,30 @@ in CMSIS-DSP). 40 blocks per row.
 | rfft q15 | CMSIS-DSP | 512 | white, -40 dB | 17.1 | 11.7 |
 | rfft q31 | flexdsp | 512 | white, -40 dB | 165.2 | 166.3 |
 | rfft q31 | CMSIS-DSP | 512 | white, -40 dB | 110.8 | 103.5 |
+| cfft f32 | flexdsp | 256 | white | 151.8 | 148.6 |
+| cfft f32 | CMSIS-DSP | 256 | white | 140.5 | 138.8 |
+| cfft f32 | flexdsp | 256 | tone | 154.6 | 153.4 |
+| cfft f32 | CMSIS-DSP | 256 | tone | 140.3 | 140.8 |
+| cfft f32 | flexdsp | 256 | two tones | 152.0 | 150.4 |
+| cfft f32 | CMSIS-DSP | 256 | two tones | 140.8 | 141.7 |
+| cfft f32 | flexdsp | 256 | white, -40 dB | 151.7 | 148.1 |
+| cfft f32 | CMSIS-DSP | 256 | white, -40 dB | 141.1 | 137.2 |
+| cfft f32 | flexdsp | 1024 | white | 151.6 | 147.1 |
+| cfft f32 | CMSIS-DSP | 1024 | white | 139.2 | 137.2 |
+| cfft f32 | flexdsp | 1024 | tone | 149.0 | 148.9 |
+| cfft f32 | CMSIS-DSP | 1024 | tone | 139.8 | 143.5 |
+| cfft f32 | flexdsp | 1024 | two tones | 151.4 | 146.6 |
+| cfft f32 | CMSIS-DSP | 1024 | two tones | 139.4 | 141.8 |
+| cfft f32 | flexdsp | 1024 | white, -40 dB | 151.7 | 149.0 |
+| cfft f32 | CMSIS-DSP | 1024 | white, -40 dB | 139.5 | 138.2 |
+| rfft f32 | flexdsp | 512 | white | 151.7 | 148.7 |
+| rfft f32 | CMSIS-DSP | 512 | white | 139.4 | 139.5 |
+| rfft f32 | flexdsp | 512 | tone | 150.4 | 147.3 |
+| rfft f32 | CMSIS-DSP | 512 | tone | 139.4 | 138.5 |
+| rfft f32 | flexdsp | 512 | two tones | 151.8 | 150.5 |
+| rfft f32 | CMSIS-DSP | 512 | two tones | 139.5 | 138.7 |
+| rfft f32 | flexdsp | 512 | white, -40 dB | 151.7 | 148.4 |
+| rfft f32 | CMSIS-DSP | 512 | white, -40 dB | 140.0 | 136.9 |
 
 Mean error per bin over 2000 blocks of full-scale white noise, in LSB of each
 output format: the bias of the rounding (flexdsp: ties down in the stages

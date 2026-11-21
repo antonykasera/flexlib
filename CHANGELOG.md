@@ -3,6 +3,21 @@
 Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md).
 
+## Unreleased
+
+- flexdsp: float convolution and correlation ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
+
+## v0.6.0 (2026-11-21)
+
+flexdsp 0.4.0 and flexmath 0.2.5.
+
+- flexdsp: LMS reset and step-size setter ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
+- flexdsp: float FIR and biquad filters, FFTs, sums and element-wise operations ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
+- arch: `fx_fmaf`, a fused multiply-add (VFMA), on targets with an FPU.
+- Bench: the report can go over SWD with SEGGER RTT (`BENCH_REPORT=rtt`), for boards without USB.
+- Bench: an STM32F405 port (`BENCH_TARGET=f405`); CMSIS 6 and ST's F4 device headers are new submodules for it.
+- Bench: a ninth image, `dsp6`, with the CMSIS-DSP f32 functions in soft float and flexdsp's internal float block conversions.
+
 ## v0.5.0 (2026-11-12)
 
 flexdsp 0.3.0, flexmath 0.2.4 and flexutils 0.1.2.

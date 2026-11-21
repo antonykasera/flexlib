@@ -142,6 +142,16 @@ void test_fd_lms_q15(void) {
                 ASSERT_EQ(h[k], u >> 15);
               }
             }
+            uint32_t r = test_rng_u32(&rng) % 16U;
+            if (r == 0U) {
+              fd_lms_reset_q15(&f);
+              memset(m.hist, 0, sizeof m.hist);
+              m.energy = 0;
+              m.res = 0;
+            } else if (r == 1U) {
+              m.mu = mus[test_rng_u32(&rng) % 5U];
+              fd_lms_set_mu_q15(&f, (fm_q15)m.mu);
+            }
           }
         }
       }
@@ -299,6 +309,15 @@ void test_fd_lms_q31(void) {
               for (uint32_t k = 0U; k < t; k++) {
                 ASSERT_EQ(h[k], m.w[k] * 2);
               }
+            }
+            uint32_t r = test_rng_u32(&rng) % 16U;
+            if (r == 0U) {
+              fd_lms_reset_q31(&f);
+              memset(m.hist, 0, sizeof m.hist);
+              m.energy = 0;
+            } else if (r == 1U) {
+              m.mu = mus[test_rng_u32(&rng) % 5U];
+              fd_lms_set_mu_q31(&f, m.mu);
             }
           }
         }

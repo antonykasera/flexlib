@@ -7,7 +7,7 @@ LINT_HEADERS = $(wildcard arch/*.h utils/include/*.h math/include/*.h \
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) $(BENCH_INC) $(CROSS_SRCS) \
-		$(BENCH_PORTABLE) bench/core/golden.c
+		$(BENCH_PORTABLE) bench/core/golden.c bench/core/golden_fpu.c
 	$(HOST_CC) $(LINT_FLAGS) $(LIB_INC) $(LIB_PRIV) -Itest/host $(wildcard test/host/*.c)
 	$(HOST_CC) $(LINT_FLAGS) -DBENCH_HOST $(LIB_INC) $(BENCH_INC) \
 		$(BENCH_PORTABLE) bench/core/golden_gen.c
