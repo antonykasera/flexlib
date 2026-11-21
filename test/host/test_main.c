@@ -9,6 +9,7 @@
 #include "test_assert.h"
 
 const char *test_filter = NULL;
+unsigned test_shard = 0U, test_shards = 1U, tests_seen = 0U;
 unsigned tests_run = 0;
 unsigned tests_failed = 0;
 unsigned checks_failed = 0;
@@ -257,7 +258,16 @@ void test_fnn_quant_from_scale(void);
 void test_fnn_quant_from_tflite(void);
 
 int main(int argc, char **argv) {
-  test_filter = argc > 1 ? argv[1] : NULL;
+  for (int i = 1; i < argc; i++) {
+    if (sscanf(argv[i], "--shard=%u/%u", &test_shard, &test_shards) == 2) {
+      if (test_shards == 0U || test_shard >= test_shards) {
+        printf("bad shard %s\n", argv[i]);
+        return 2;
+      }
+    } else {
+      test_filter = argv[i];
+    }
+  }
   TEST_RUN(test_rng_reproducible);
   TEST_RUN(test_stats_tracks_max_mean_bias);
   TEST_RUN(test_ulp_err_f32);
