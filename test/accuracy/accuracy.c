@@ -964,6 +964,65 @@ static void fd_conv_rows(void) {
   row(&rc15, "CMSIS-DSP", "4000 pairs, all 127 lags");
 }
 
+/* 64 x 64 floats against the exact sums, in ulp: b white noise, a's second
+ * half 0, 42 or 120 dB below its first */
+static void fd_conv_f32_rows(void) {
+  __extension__ typedef __float128 f128;
+  enum { N = 64, NB = 4000 };
+  static const int drop[3] = {0, 7, 20};
+  static const char *const what[3] = {
+      "4000 pairs of white noise", "the same, a's second half 42 dB down",
+      "the same, a's second half 120 dB down"};
+  for (int s = 0; s < 3; s++) {
+    ErrStats f, c, fr, cr;
+    stats_init(&f, "conv f32, 64 x 64", "ulp");
+    stats_init(&c, "conv f32, 64 x 64", "ulp");
+    stats_init(&fr, "correlate f32, 64 x 64", "ulp");
+    stats_init(&cr, "correlate f32, 64 x 64", "ulp");
+    uint64_t rng = 62U;
+    for (int t = 0; t < NB; t++) {
+      float a[N], b[N], y[2 * N], yc[2 * N];
+      static fm_q31 w[2 * N];
+      for (int i = 0; i < N; i++) {
+        a[i] = ldexpf((float)(int32_t)test_rng_u32(&rng) * 0x1p-31f,
+                      i < N / 2 ? 0 : -drop[s]);
+        b[i] = (float)(int32_t)test_rng_u32(&rng) * 0x1p-31f;
+      }
+      fd_conv_f32(a, N, b, N, y, w);
+      arm_conv_f32(a, N, b, N, yc);
+      for (int k = 0; k < 2 * N - 1; k++) {
+        f128 e = 0;
+        for (int i = 0; i < N; i++) {
+          if (k - i >= 0 && k - i < N) {
+            e += (f128)((double)a[i] * (double)b[k - i]);
+          }
+        }
+        double ref = (double)e;
+        stats_add(&f, ref, ulp_err_f32(y[k], ref));
+        stats_add(&c, ref, ulp_err_f32(yc[k], ref));
+      }
+      /* CMSIS-DSP: lag -(N - 1) first, as fd_corr from lag0 = 1 - N */
+      fd_corr_f32(a, N, b, N, 1 - N, 2 * N - 1, y, w);
+      arm_correlate_f32(a, N, b, N, yc);
+      for (int l = 1 - N; l < N; l++) {
+        f128 e = 0;
+        for (int j = 0; j < N; j++) {
+          if (j + l >= 0 && j + l < N) {
+            e += (f128)((double)a[j + l] * (double)b[j]);
+          }
+        }
+        double ref = (double)e;
+        stats_add(&fr, ref, ulp_err_f32(y[l + N - 1], ref));
+        stats_add(&cr, ref, ulp_err_f32(yc[l + N - 1], ref));
+      }
+    }
+    row(&f, "flexdsp", what[s]);
+    row(&c, "CMSIS-DSP", what[s]);
+    row(&fr, "flexdsp", what[s]);
+    row(&cr, "CMSIS-DSP", what[s]);
+  }
+}
+
 /* order-10 predictors of AR data (coefficients under 1) against a double
  * recursion on the same q31 autocorrelation */
 static void fd_levinson_rows(void) {
@@ -1692,6 +1751,7 @@ int main(void) {
   fd_biquad_rows(0.01f, "Butterworth 4, fc 0.01", 1);
   fd_biquad_rows(0.0005f, "Butterworth 4, fc 5e-4", 0); /* Q2.14 b round to 0 */
   fd_conv_rows();
+  fd_conv_f32_rows();
   fd_levinson_rows();
   fd_resample_rows();
   fd_lms_rows();

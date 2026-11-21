@@ -139,6 +139,18 @@ the bench.
 | conv q31, 64 x 64 | CMSIS-DSP | 4000 pairs: full scale, sum abs(b) < 2 | 1 | 0.5 | -0.5 |
 | correlate q15, 64 x 64 | flexdsp | 4000 pairs, all 127 lags | 0.5 | 0.25 | +0.00054 |
 | correlate q15, 64 x 64 | CMSIS-DSP | 4000 pairs, all 127 lags | 1 | 0.5 | -0.5 |
+| conv f32, 64 x 64 | flexdsp | 4000 pairs of white noise | 9.39e+03 | 0.418 | +0.026 |
+| conv f32, 64 x 64 | CMSIS-DSP | 4000 pairs of white noise | 3.04e+05 | 6.92 | +0.097 |
+| correlate f32, 64 x 64 | flexdsp | 4000 pairs of white noise | 8.61e+03 | 0.384 | +0.0011 |
+| correlate f32, 64 x 64 | CMSIS-DSP | 4000 pairs of white noise | 2.51e+05 | 6.15 | +1.2 |
+| conv f32, 64 x 64 | flexdsp | the same, a's second half 42 dB down | 9.09e+04 | 1.35 | -0.15 |
+| conv f32, 64 x 64 | CMSIS-DSP | the same, a's second half 42 dB down | 2.02e+05 | 5.69 | -0.2 |
+| correlate f32, 64 x 64 | flexdsp | the same, a's second half 42 dB down | 4.77e+06 | 10.4 | -9.4 |
+| correlate f32, 64 x 64 | CMSIS-DSP | the same, a's second half 42 dB down | 2.58e+05 | 6.25 | +0.31 |
+| conv f32, 64 x 64 | flexdsp | the same, a's second half 120 dB down | 4.87e+08 | 7.64e+03 | -2e+02 |
+| conv f32, 64 x 64 | CMSIS-DSP | the same, a's second half 120 dB down | 4.21e+05 | 5.94 | +1 |
+| correlate f32, 64 x 64 | flexdsp | the same, a's second half 120 dB down | 5.16e+09 | 1.73e+04 | -1.1e+04 |
+| correlate f32, 64 x 64 | CMSIS-DSP | the same, a's second half 120 dB down | 2.51e+05 | 5.66 | +1.4 |
 | Levinson q31, order 10 | flexdsp | 2000 AR(2) blocks of 1024 (poles 0.3-0.7) | 7.65 | 1.12 | -0.012 |
 | Levinson q31, order 10 | CMSIS-DSP | 2000 AR(2) blocks of 1024 (poles 0.3-0.7) | 82.3 | 5.5 | -0.098 |
 | resample q15 3/2, 24 taps | flexdsp | 10^6 half-scale inputs, Hamming lowpass | 0.5 | 0.25 | -0.00036 |
