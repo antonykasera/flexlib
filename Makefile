@@ -37,6 +37,7 @@ include mk/bench.mk
 include mk/tables.mk
 include mk/release.mk
 include mk/cmake.mk
+include mk/nn.mk
 
 help:
 	@echo "make [check]         host-test, cross, lint, asm-audit"
@@ -57,6 +58,7 @@ help:
 	@echo "make dist            the release archive -> build/dist/flexlib-<version>.tar.gz"
 	@echo "make consumer        a blank project builds against that archive"
 	@echo "make cmake-check     a CMake project builds against it, host and Cortex-M3"
+	@echo "make nn-check        flexnn against the TFLite interpreter (needs uv)"
 	@echo "make clean"
 
 # compile_commands.json for clangd (needs bear)

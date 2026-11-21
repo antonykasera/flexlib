@@ -26,6 +26,17 @@ jobs:
         if: matrix.cc == 'gcc'
         run: make exhaustive
 
+  nn-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: uv
+        run: pipx install uv
+
+      - name: flexnn against the TFLite interpreter's reference kernels
+        run: make nn-check
+
   arm:
     runs-on: ubuntu-24.04
     steps:
