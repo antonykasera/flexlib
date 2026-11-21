@@ -77,6 +77,9 @@ jobs:
       - name: Release archive, built into a blank project (flex template, host gcc)
         run: make consumer
 
+      - name: Release archive, built by a CMake project (host and Cortex-M3)
+        run: make cmake-check
+
       - uses: actions/upload-artifact@v4
         with:
           name: flexlib-dist

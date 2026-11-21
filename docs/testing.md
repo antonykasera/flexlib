@@ -18,6 +18,7 @@ with clang.
 | `make bench-run` | flashes and runs each image, writes `docs/results/f103.md` |
 | `make deps` | fetches the submodules the bench needs |
 | `make dist`, `make consumer` | the release archive, and a blank project built against it |
+| `make cmake-check` | a CMake project builds against the archive, on the host and for the Cortex-M3 |
 
 ## Terms
 
