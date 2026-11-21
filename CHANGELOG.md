@@ -3,7 +3,9 @@
 Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md).
 
-## Unreleased
+## v0.6.0 (2026-11-21)
+
+flexdsp 0.4.0 and flexmath 0.2.5.
 
 - flexdsp: LMS reset and step-size setter ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
 - flexdsp: float FIR and biquad filters, FFTs, sums and element-wise operations ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).

@@ -1,6 +1,6 @@
 # flexdsp changelog
 
-## Unreleased
+## 0.4.0 (2026-11-21)
 
 - `fd_lms_reset_q15` / `_q31` clear the history and keep the weights; `fd_lms_set_mu_q15` / `_q31` change the step size.
 - `fd_biquad_f32`: float DF1 cascades, each section's exact sum rounded once; 2x faster than `arm_biquad_cascade_df2T_f32` in soft float.

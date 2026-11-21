@@ -27,9 +27,9 @@ release archive:
 
 ```sh
 git submodule add https://github.com/antonykasera/flexlib.git lib/flexlib
-git -C lib/flexlib checkout v0.5.0
+git -C lib/flexlib checkout v0.6.0
 # or
-tar xf flexlib-0.5.0.tar.gz -C lib
+tar xf flexlib-0.6.0.tar.gz -C lib
 ```
 
 With [flex](https://github.com/antonykasera/STM32F1-HAL) v1.1.2 or later,
@@ -53,7 +53,7 @@ Build with `-ffunction-sections -fdata-sections` and link with
 `FX_DISABLE_ASSERT` removes them. Each library's README lists its other
 options.
 
-`FLEXLIB_REQUIRE := 0.5.0` before the include stops the build when
+`FLEXLIB_REQUIRE := 0.6.0` before the include stops the build when
 `lib/flexlib` is older.
 
 To upgrade, read the CHANGELOGs, then check out the new tag or unpack the new
@@ -62,9 +62,9 @@ not.
 
 ## Versions
 
-Each library has its own version and tags (`flexdsp-v0.3.0`). A repository
-release (`v0.5.0`) bundles them: flexutils 0.1.2, flexmath 0.2.4, flexdsp
-0.3.0. The `fx_` prefix is the shared layer under all three.
+Each library has its own version and tags (`flexdsp-v0.4.0`). A repository
+release (`v0.6.0`) bundles them: flexutils 0.1.2, flexmath 0.2.5, flexdsp
+0.4.0. The `fx_` prefix is the shared layer under all three.
 
 Planned: flexctrl (`fct_`, control), flexcomm (`fco_`, protocols), flexnn
 (`fnn_`, int8 inference), flextrace (`ftr_`, logging).
