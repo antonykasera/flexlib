@@ -1,4 +1,5 @@
 
+include flexnn.mk
 include flexdsp.mk
 include flexmath.mk
 include flexutils.mk
@@ -10,8 +11,8 @@ endif
 ifneq ($(words $(FLEXLIB_CFLAGS)),$(words $(sort $(FLEXLIB_CFLAGS))))
 $(error flexlib fragments: an include path is listed twice)
 endif
-ifneq ($(sort $(FLEXLIB_SRCS)),$(sort $(FU_SRCS) $(FM_SRCS) $(FD_SRCS)))
-$(error flexlib fragments: FLEXLIB_SRCS is not FU_SRCS + FM_SRCS + FD_SRCS)
+ifneq ($(sort $(FLEXLIB_SRCS)),$(sort $(FU_SRCS) $(FM_SRCS) $(FD_SRCS) $(FNN_SRCS)))
+$(error flexlib fragments: FLEXLIB_SRCS is not FU_SRCS + FM_SRCS + FD_SRCS + FNN_SRCS)
 endif
 
 all:

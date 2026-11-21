@@ -248,6 +248,14 @@ void test_fm_quat(void);
 void test_fm_pid_q16(void);
 void test_fm_pid_f32(void);
 
+/* --- fnn_quant (test_fnn_quant.c) --- */
+void test_fnn_requant_grid(void);
+void test_fnn_requant_ties(void);
+void test_fnn_requant_block(void);
+void test_fnn_clamp(void);
+void test_fnn_quant_from_scale(void);
+void test_fnn_quant_from_tflite(void);
+
 int main(int argc, char **argv) {
   test_filter = argc > 1 ? argv[1] : NULL;
   TEST_RUN(test_rng_reproducible);
@@ -427,6 +435,12 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fm_quat);
   TEST_RUN(test_fm_pid_q16);
   TEST_RUN(test_fm_pid_f32);
+  TEST_RUN(test_fnn_requant_grid);
+  TEST_RUN(test_fnn_requant_ties);
+  TEST_RUN(test_fnn_requant_block);
+  TEST_RUN(test_fnn_clamp);
+  TEST_RUN(test_fnn_quant_from_scale);
+  TEST_RUN(test_fnn_quant_from_tflite);
 
   return TEST_SUMMARY();
 }

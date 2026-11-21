@@ -45,5 +45,6 @@ Every module also gets asm-audit, a bench run and a golden check.
 | `fd_` fixed point | bit-exact against 128-bit integer models of the same arithmetic |
 | `fd_` float | `__float128` references |
 | `fd_window`, `fd_tone`, `fd_noise` | `long double`; noise statistics |
+| `fnn_` | bit-exact against 64-bit models written in TFLite's, gemmlowp's and CMSIS-NN's terms, in each rounding mode; every int32 sum for requantisation |
 
 [accuracy.md](accuracy.md) has the errors next to CMSIS-DSP's.

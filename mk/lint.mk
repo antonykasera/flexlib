@@ -2,8 +2,8 @@
 
 LINT_FLAGS   = $(STD) $(WARN) -Wpedantic -Werror -fsyntax-only
 LINT_HEADERS = $(wildcard arch/*.h utils/include/*.h math/include/*.h \
-                          dsp/include/*.h utils/src/*.h math/src/*.h \
-                          dsp/src/*.h) bench/core/bench.h
+                          dsp/include/*.h nn/include/*.h utils/src/*.h \
+                          math/src/*.h dsp/src/*.h nn/src/*.h) bench/core/bench.h
 
 lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) $(BENCH_INC) $(CROSS_SRCS) \
@@ -15,6 +15,8 @@ lint:
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFM_LUT_IN_RAM $(LIB_INC) math/src/fm_tables.c
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFD_FFT_MAX=4096 -DFD_LUT_IN_RAM $(LIB_INC) \
 		dsp/src/fd_fft.c dsp/src/fd_rfft.c
+	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFNN_ROUNDING=FNN_ROUND_AWAY $(LIB_INC) nn/src/*.c
+	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFNN_ROUNDING=FNN_ROUND_GEMMLOWP $(LIB_INC) nn/src/*.c
 	@for h in $(LINT_HEADERS); do \
 		echo "  header $$h"; \
 		printf '#include "%s"\ntypedef int lint_tu;\n' $$h | $(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) \

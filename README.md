@@ -113,7 +113,7 @@ target_link_libraries(app PRIVATE flexlib::dsp)
 CMake support starts with v0.7.0.
 
 Build with `-ffunction-sections -fdata-sections` and link with
-`--gc-sections`, so the functions you don't call stay out of the image. A
+`--gc-sections`. The functions you don't call then stay out of the image. A
 failed argument check traps by default. Define `FX_ASSERT_FAIL(file, line)`
 to report it your own way, or `FX_DISABLE_ASSERT` to remove the checks. Each
 library's README lists its other options.
@@ -131,8 +131,9 @@ Each library has its own version and tags (`flexdsp-v0.5.0`). A repository
 release (`v0.7.0`) bundles one of each: flexutils 0.1.2, flexmath 0.2.5,
 flexdsp 0.5.0. The `fx_` prefix is the shared layer under all three.
 
-Planned: flexctrl (`fct_`, control), flexcomm (`fco_`, protocols), flexnn
-(`fnn_`, int8 inference), flextrace (`ftr_`, logging).
+In development: [flexnn](nn/README.md) (`fnn_`, int8 inference), not yet in
+a release. Planned: flexctrl (`fct_`, control), flexcomm (`fco_`,
+protocols), flextrace (`ftr_`, logging).
 
 ## Testing
 

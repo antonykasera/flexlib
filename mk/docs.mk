@@ -4,7 +4,7 @@
 DOCS_HEADERS := $(wildcard arch/*.h utils/include/*.h) \
   $(filter-out math/include/fm_core.h math/include/fm_sum.h, \
     $(wildcard math/include/*.h)) \
-  $(wildcard dsp/include/*.h)
+  $(wildcard dsp/include/*.h nn/include/*.h)
 
 docs-check:
 	@rm -rf build/doxygen

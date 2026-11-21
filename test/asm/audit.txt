@@ -374,3 +374,7 @@ div_acc           calls-ok !call=__aeabi_fmul !call=__aeabi_fadd !call=__aeabi_f
 fft_run           !call=__aeabi_fmul !call=__aeabi_fadd
 fd_cfft_f32       !call=__aeabi_fmul !call=__aeabi_fadd
 fd_biquad_f32     smull !call=__aeabi_fmul !call=__aeabi_fadd !udiv
+
+# fnn_quant: one SMLAL per output, 64-bit shifts inline (no libgcc calls)
+fnn_requant_s8     smlal
+fnn_requant_wide   no-calls smlal
