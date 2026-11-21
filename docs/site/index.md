@@ -17,7 +17,7 @@ release archive:
 
 ```sh
 git submodule add https://github.com/antonykasera/flexlib.git lib/flexlib
-git -C lib/flexlib checkout v0.5.0
+git -C lib/flexlib checkout v@VERSION@
 ```
 
 Include the fragment; it only sets variables:
@@ -41,6 +41,7 @@ In a [flex](https://github.com/antonykasera/STM32F1-HAL) project,
 ```{toctree}
 :hidden:
 
+get-started
 utils/index
 math/index
 dsp/index

@@ -133,7 +133,13 @@ def on_doctree_resolved(app, doctree, docname):
     flexlib_math.typeset(doctree)
 
 
+def substitute_version(app, docname, source):
+    """@VERSION@ in a page, code blocks included, is the release."""
+    source[0] = source[0].replace("@VERSION@", app.config.release)
+
+
 def setup(app):
+    app.connect("source-read", substitute_version)
     app.connect("builder-inited", load_macro_values)
     app.connect("doctree-resolved", on_doctree_resolved)
     return {"parallel_read_safe": True, "parallel_write_safe": True}
