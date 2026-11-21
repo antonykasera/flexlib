@@ -363,3 +363,9 @@ fd_cic_decim_q31   !mul !mla !udiv !call=memcpy
 fd_bfp_exp        no-calls  !udiv
 fd_bfp_to_q31     !call=__aeabi_f2iz !call=__aeabi_fmul  !udiv
 fd_bfp_to_f32     clz  !call=__aeabi_i2f !call=__aeabi_fmul  !udiv
+
+# float sums and FFTs: no soft float; the mean's one 64-bit divide
+f32_sum           smull !call=__aeabi_fmul !call=__aeabi_fadd !udiv
+div_acc           calls-ok !call=__aeabi_fmul !call=__aeabi_fadd !call=__aeabi_fdiv
+fft_run           !call=__aeabi_fmul !call=__aeabi_fadd
+fd_cfft_f32       !call=__aeabi_fmul !call=__aeabi_fadd

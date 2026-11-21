@@ -449,6 +449,15 @@ const BenchGolden bench_golden[] = {
     {"fd_fir_f32, 32 taps x 64", 0x1179A061U},
     {"fir f32 exact sum per product (B)", 0x1179A061U},
     {"fd_fir_sample_f32, 32 taps", 0x14B38993U},
+    {"fd_cfft_f32, 256", 0xFE59F1C5U},
+    {"fd_icfft_f32, 256", 0x1BA161C5U},
+    {"fd_rfft_f32, 512", 0x182F49C5U},
+    {"fd_irfft_f32, 512", 0x7781EDC5U},
+    {"fd_dot_f32, 64", 0x2E30FA61U},
+    {"fd_power_f32, 64", 0x4CCEEF4DU},
+    {"fd_sum_f32, 64", 0x23AFC573U},
+    {"fd_mean_f32, 64", 0x48A43D5BU},
+    {"fd_rms_f32, 64", 0x8F6E6225U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

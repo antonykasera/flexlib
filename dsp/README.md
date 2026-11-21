@@ -56,9 +56,14 @@ against exact references; CMSIS-DSP's are in
 | `fd_var_q15` | 1369 | 838 | 0.5 LSB | 1 LSB |
 | `fd_std_q15` / `fd_std_q31` | 1411 / 2291 | 916 | 0.5 LSB | 178 LSB |
 | `fd_max_q15`, `fd_absmax_q15` | 559, 850 | 530, 1097 | exact | exact |
+| `fd_dot_f32` / `fd_power_f32` | 4504 / 3911 | 6427 / 6318 | 0.5 ulp | 1.7e4 / 7.5 ulp |
+| `fd_sum_f32`, `fd_mean_f32` | 3597, 3799 | -, 3896 | 0.5 ulp | -, 1.3e5 ulp |
+| `fd_rms_f32` | 4176 | 7033 | 0.84 ulp | 4.3 ulp |
 
 q31 dot and power return Q16.48, CMSIS-DSP's format, saturating instead of
 wrapping past 2^15. `fd_headroom_q15` / `_q31` return a block's spare sign bits.
+The f32 sums are exact in 64 bits before one rounding; errors for 64 values
+from 2^-10 to 2^10.
 
 ## Complex vectors
 
@@ -202,6 +207,8 @@ block gives zeros and `e = 0`.
 | `fd_rfft_q31`, 512 | 81801 | | 166.7 dB | 150.8 dB |
 | `fd_icfft_q15`, 256 / `fd_irfft_q15`, 512 | 33849 / 39724 | | | |
 | `fd_fft_db_q15`, 128 bins | 15160 | | 0.5003 LSB | |
+| `fd_cfft_f32`, 256 | 85313 | 418737 | 151.8 dB | 140.5 dB |
+| `fd_rfft_f32`, 512 | 107463 | 604927 | 151.7 dB | 139.4 dB |
 
 SNR is against the exact DFT; white noise at full scale, 40 blocks
 ([docs/accuracy.md](../docs/accuracy.md) has tones, two tones and quiet input).
@@ -226,6 +233,8 @@ Layouts and scaling:
 - Magnitude and power are `fd_cmag_*` and `fd_cmag2_*`. `fd_fft_db_q15` /
   `_q31` give 10 log10 |X|^2 with the exponent folded in, 0 dB at |X| = full
   scale.
+- Float: `fd_cfft_f32` / `fd_rfft_f32` and inverses run the q31 transforms on
+  block floating point, with a caller's q31 work buffer of n values beside x.
 
 A spectrum in dB from 512 samples:
 

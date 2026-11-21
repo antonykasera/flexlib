@@ -127,6 +127,12 @@ void test_fd_fir_f32_state(void);
 void test_fd_fir_f32_coef_exp(void);
 void test_fd_fir_f32_exp_schedule(void);
 
+/* --- fd_vec, fd_fft float (test_fd_f32.c) --- */
+void test_fd_f32_sums(void);
+void test_fd_f32_sums_edges(void);
+void test_fd_f32_fft(void);
+void test_fd_f32_rfft(void);
+
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
 void test_fx_rbit_rev(void);
@@ -315,6 +321,10 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_fir_f32_state);
   TEST_RUN(test_fd_fir_f32_coef_exp);
   TEST_RUN(test_fd_fir_f32_exp_schedule);
+  TEST_RUN(test_fd_f32_sums);
+  TEST_RUN(test_fd_f32_sums_edges);
+  TEST_RUN(test_fd_f32_fft);
+  TEST_RUN(test_fd_f32_rfft);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

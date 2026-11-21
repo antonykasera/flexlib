@@ -142,6 +142,18 @@ fm_q15 fd_std_q15(const fm_q15 *x, uint32_t n);
 /** Standard deviation over $n - 1$, correctly rounded; $2 <= n < 2^24$. */
 fm_q31 fd_std_q31(const fm_q31 *x, uint32_t n);
 
+/** Sum of $a b$, exact before one rounding: within 0.5 ulp +
+ * $2^-32 sum |a b|$; a NaN or inf gives NaN. */
+float fd_dot_f32(const float *a, const float *b, uint32_t n);
+/** Sum of $x^2$, as fd_dot_f32(). */
+float fd_power_f32(const float *x, uint32_t n);
+/** Sum, as fd_dot_f32(). */
+float fd_sum_f32(const float *x, uint32_t n);
+/** Mean, the exact sum over n rounded once; $n >= 1$. */
+float fd_mean_f32(const float *x, uint32_t n);
+/** Root mean square, within 1 ulp; $n >= 1$. */
+float fd_rms_f32(const float *x, uint32_t n);
+
 /** Spare sign bits h: every value fits $16 - h$ bits. */
 uint32_t fd_headroom_q15(const fm_q15 *x, uint32_t n);
 /** Spare sign bits h: every value fits $32 - h$ bits. */

@@ -49,6 +49,24 @@ int32_t fd_irfft_q15(fm_q15 *x, uint32_t n);
  * $x[j] 2^e$. */
 int32_t fd_irfft_q31(fm_q31 *x, uint32_t n);
 
+/**
+ * @name Float
+ * Through the q31 transforms on block floating point. work holds the q31
+ * copy and must not overlap x. A NaN or inf in x: every output NaN.
+ * @{
+ */
+
+/** fd_cfft_q31() on floats, unscaled; work: n values. */
+void fd_cfft_f32(fd_cf32 *x, uint32_t n, fd_cq31 *work);
+/** fd_icfft_q31() on floats, $1/n$ included; work: n values. */
+void fd_icfft_f32(fd_cf32 *x, uint32_t n, fd_cq31 *work);
+/** fd_rfft_q31() on floats, its layout; work: n values. */
+void fd_rfft_f32(float *x, uint32_t n, fm_q31 *work);
+/** fd_irfft_q31() on floats, $1/n$ included; work: n values. */
+void fd_irfft_f32(float *x, uint32_t n, fm_q31 *work);
+
+/** @} */
+
 /** Move n bins from exponent e to exponent to, rounded (ties up) and
  * saturated; $to = log2 n$ gives $X / n$, the fixed scaling of CMSIS-DSP. */
 void fd_fft_rescale_q15(fd_cq15 *x, uint32_t n, int32_t e, int32_t to);

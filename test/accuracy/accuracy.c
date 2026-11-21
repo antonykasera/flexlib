@@ -739,9 +739,7 @@ static void fd_fir_rows(void) {
   row(&cf31, "CMSIS-DSP", "10^6 random samples, Hamming lowpass");
 }
 
-/* float FIR against the exact sums, in ulp of the exact result: steady noise,
- * and 300-sample bursts with the level dropping 42 dB (2^7: inputs still held
- * exactly) or 120 dB between them */
+/* in ulp of the exact sum; bursts 42 dB (2^7) or 120 dB apart */
 static void fd_fir_f32_rows(void) {
   __extension__ typedef __float128 f128;
   enum { T = 32, N = 64, NB = 15625 }; /* 10^6 samples */
@@ -790,6 +788,60 @@ static void fd_fir_f32_rows(void) {
     row(&f, "flexdsp", what[s]);
     row(&c, "CMSIS-DSP", what[s]);
   }
+}
+
+/* 64-value sums against the exact ones, in ulp; values 2^-10 to 2^10 */
+static void fd_sums_f32_rows(void) {
+  __extension__ typedef __float128 f128;
+  enum { N = 64, NB = 100000 };
+  ErrStats st[9];
+  static const char *const name[5] = {"dot f32, 64", "power f32, 64",
+                                      "sum f32, 64", "mean f32, 64",
+                                      "rms f32, 64"};
+  for (int k = 0; k < 9; k++) {
+    stats_init(&st[k], name[k < 5 ? k : (k == 5 ? 0 : (k == 6 ? 1 : k - 4))],
+               "ulp");
+  }
+  uint64_t rng = 64U;
+  for (int t = 0; t < NB; t++) {
+    float a[N], b[N];
+    f128 d = 0, p = 0, s = 0;
+    for (int i = 0; i < N; i++) {
+      a[i] = ldexpf((float)(int32_t)test_rng_u32(&rng) * 0x1p-31f,
+                    (int)(test_rng_u32(&rng) % 21U) - 10);
+      b[i] = ldexpf((float)(int32_t)test_rng_u32(&rng) * 0x1p-31f,
+                    (int)(test_rng_u32(&rng) % 21U) - 10);
+      d += (f128)((double)a[i] * (double)b[i]);
+      p += (f128)((double)a[i] * (double)a[i]);
+      s += (f128)a[i];
+    }
+    double ref[5] = {(double)d, (double)p, (double)s, (double)(s / N),
+                     sqrt((double)(p / N))};
+    float got[9];
+    got[0] = fd_dot_f32(a, b, N);
+    got[1] = fd_power_f32(a, N);
+    got[2] = fd_sum_f32(a, N);
+    got[3] = fd_mean_f32(a, N);
+    got[4] = fd_rms_f32(a, N);
+    arm_dot_prod_f32(a, b, N, &got[5]);
+    arm_power_f32(a, N, &got[6]);
+    arm_mean_f32(a, N, &got[7]);
+    arm_rms_f32(a, N, &got[8]);
+    for (int k = 0; k < 9; k++) {
+      int r = k < 5 ? k : (k == 5 ? 0 : (k == 6 ? 1 : k - 4));
+      stats_add(&st[k], ref[r], ulp_err_f32(got[k], ref[r]));
+    }
+  }
+  static const char *const in = "10^5 blocks, values 2^-10 to 2^10";
+  row(&st[0], "flexdsp", in);
+  row(&st[5], "CMSIS-DSP", in);
+  row(&st[1], "flexdsp", in);
+  row(&st[6], "CMSIS-DSP", in);
+  row(&st[2], "flexdsp", in);
+  row(&st[3], "flexdsp", in);
+  row(&st[7], "CMSIS-DSP", in);
+  row(&st[4], "flexdsp", in);
+  row(&st[8], "CMSIS-DSP", in);
 }
 
 /* 64 x 64 against the exact sums: a full scale, b with sum |b| < 2 (no
@@ -1354,6 +1406,65 @@ static void fd_fft_bias_rows(void) {
   }
 }
 
+/* inputs on a 2^-23 grid, so the double reference starts from them exactly */
+static void fd_fft_f32_rows(void) {
+  static const char *const kinds[4] = {"white", "tone", "two tones",
+                                       "white, -40 dB"};
+  enum { REPS = 40 };
+  static double v[2048], re[1024], im[1024];
+  static float fx[2048], cx[2048], cy[1024];
+  static fd_cq31 w[1024];
+  static fm_q31 wr[512];
+  arm_rfft_fast_instance_f32 ri;
+  (void)arm_rfft_fast_init_512_f32(&ri);
+  for (unsigned t = 0U; t < 3U; t++) {
+    unsigned n = t == 0U ? 256U : (t == 1U ? 1024U : 512U);
+    int real = t == 2U;
+    for (int kind = 0; kind < 4; kind++) {
+      FftErr e[2];
+      memset(e, 0, sizeof e);
+      uint64_t st = 299U + (uint64_t)kind;
+      for (int rep = 0; rep < REPS; rep++) {
+        unsigned len = real ? n : 2U * n;
+        fft_input(&st, kind, 8388608.0, len, v);
+        for (unsigned i = 0U; i < len; i++) {
+          fx[i] = cx[i] = (float)(v[i] / 8388608.0);
+        }
+        for (unsigned i = 0U; i < n; i++) {
+          re[i] = real ? (double)fx[i] : (double)fx[2U * i];
+          im[i] = real ? 0.0 : (double)fx[2U * i + 1U];
+        }
+        ref_fft(re, im, n, 0);
+        if (real) {
+          fd_rfft_f32(fx, n, wr);
+          arm_rfft_fast_f32(&ri, cx, cy, 0U);
+          for (unsigned k = 0U; k <= n / 2U; k++) {
+            unsigned j = k == n / 2U ? 1U : 2U * k;
+            double fi = k == 0U || k == n / 2U ? 0.0 : (double)fx[2U * k + 1U];
+            double ci = k == 0U || k == n / 2U ? 0.0 : (double)cy[2U * k + 1U];
+            fft_add(&e[0], (double)fx[j], fi, re[k], im[k]);
+            fft_add(&e[1], (double)cy[j], ci, re[k], im[k]);
+          }
+        } else {
+          fd_cfft_f32((fd_cf32 *)(void *)fx, n, w);
+          arm_cfft_f32(n == 256U ? &arm_cfft_sR_f32_len256
+                                 : &arm_cfft_sR_f32_len1024,
+                       cx, 0U, 1U);
+          for (unsigned k = 0U; k < n; k++) {
+            fft_add(&e[0], (double)fx[2U * k], (double)fx[2U * k + 1U], re[k],
+                    im[k]);
+            fft_add(&e[1], (double)cx[2U * k], (double)cx[2U * k + 1U], re[k],
+                    im[k]);
+          }
+        }
+      }
+      fft_row(real ? "rfft f32" : "cfft f32", "flexdsp", n, kinds[kind], &e[0]);
+      fft_row(real ? "rfft f32" : "cfft f32", "CMSIS-DSP", n, kinds[kind],
+              &e[1]);
+    }
+  }
+}
+
 static void fd_fft_rows(void) {
   static const char *const kinds[4] = {"white", "tone", "two tones",
                                        "white, -40 dB"};
@@ -1520,6 +1631,7 @@ int main(void) {
   fd_dot_rows();
   fd_moment_rows();
   fd_complex_rows();
+  fd_sums_f32_rows();
   fd_fir_rows();
   fd_fir_f32_rows();
   fd_biquad_rows(0.01f, "Butterworth 4, fc 0.01", 1);
@@ -1537,6 +1649,7 @@ int main(void) {
          "|---|---|--:|---|--:|--:|\n",
          40);
   fd_fft_rows();
+  fd_fft_f32_rows();
   printf("\nMean error per bin over %d blocks of full-scale white noise, in "
          "LSB of "
          "each\noutput format: the bias of the rounding (flexdsp: ties down in "

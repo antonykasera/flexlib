@@ -8,7 +8,9 @@
 
 #include "bench.h"
 #include "fd_bfp.h"
+#include "fd_fft.h"
 #include "fd_fir.h"
+#include "fd_vec.h"
 #include "fm_sum.h"
 #include "fx_arch.h"
 #ifdef BENCH_HAVE_CMSIS_DSP
@@ -28,6 +30,10 @@ static int32_t pool31[NB + 64U];
 typedef union {
   float f[2U * POOL];
   int32_t q[NB];
+  struct {
+    float x[POOL];
+    int32_t w[POOL];
+  } t;
 } Work;
 _Static_assert(sizeof(Work) <= BENCH_SCRATCH_SIZE, "work in the scratch");
 #define work (*(Work *)(void *)bench_scratch)
@@ -193,6 +199,16 @@ FX_INLINE float power(const float *a) {
   arm_power_f32(a, BLK, &r);
   return r;
 }
+FX_INLINE float mean(const float *a) {
+  float r;
+  arm_mean_f32(a, BLK, &r);
+  return r;
+}
+FX_INLINE float rms(const float *a) {
+  float r;
+  arm_rms_f32(a, BLK, &r);
+  return r;
+}
 
 CBLOCK(c_fir, arm_fir_f32(&cfir, pool + x, work.f, BLK), BLK * 4U, cprep())
 CBLOCK(c_biquad, arm_biquad_cascade_df2T_f32(&cbq, pool + x, work.f, BLK),
@@ -203,7 +219,28 @@ CBLOCK(c_rfft, arm_rfft_fast_f32(&crfft, work.f, work.f + POOL, 0U),
        POOL * 4U, cload())
 BENCH_UNARY(c_dot, uint32_t, in_off_c, float, dot(pool + x, pool + 64U + x))
 BENCH_UNARY(c_power, uint32_t, in_off_c, float, power(pool + x))
+BENCH_UNARY(c_mean, uint32_t, in_off_c, float, mean(pool + x))
+BENCH_UNARY(c_rms, uint32_t, in_off_c, float, rms(pool + x))
 #endif
+
+static void tload(void) { memcpy(work.t.x, pool, sizeof pool); }
+
+#define TBLOCK(name, call)                                                     \
+  BENCH_UNARY_DEF(name, uint32_t, in_off, uint32_t, ((call), 0U),              \
+                  h = bench_hash(h, work.t.x, sizeof work.t.x), tload())
+
+TBLOCK(b_cfft, fd_cfft_f32((fd_cf32 *)(void *)work.t.x, 256U,
+                           (fd_cq31 *)(void *)work.t.w))
+TBLOCK(b_icfft, fd_icfft_f32((fd_cf32 *)(void *)work.t.x, 256U,
+                             (fd_cq31 *)(void *)work.t.w))
+TBLOCK(b_rfft, fd_rfft_f32(work.t.x, 512U, work.t.w))
+TBLOCK(b_irfft, fd_irfft_f32(work.t.x, 512U, work.t.w))
+BENCH_UNARY(b_dot, uint32_t, in_off, float,
+            fd_dot_f32(pool + x, pool + 64U + x, BLK))
+BENCH_UNARY(b_power, uint32_t, in_off, float, fd_power_f32(pool + x, BLK))
+BENCH_UNARY(b_sum, uint32_t, in_off, float, fd_sum_f32(pool + x, BLK))
+BENCH_UNARY(b_mean, uint32_t, in_off, float, fd_mean_f32(pool + x, BLK))
+BENCH_UNARY(b_rms, uint32_t, in_off, float, fd_rms_f32(pool + x, BLK))
 
 static const BenchCase cases[] = {
     {"fd_bfp_exp, 256 floats", "flexlib", b_exp, true},
@@ -212,6 +249,15 @@ static const BenchCase cases[] = {
     {"fd_fir_f32, 32 taps x 64", "flexlib", b_fir, true},
     {"fir f32 exact sum per product (B)", "candidate", b_fir_b, true},
     {"fd_fir_sample_f32, 32 taps", "flexlib", b_fir_sample, true},
+    {"fd_cfft_f32, 256", "flexlib", b_cfft, true},
+    {"fd_icfft_f32, 256", "flexlib", b_icfft, true},
+    {"fd_rfft_f32, 512", "flexlib", b_rfft, true},
+    {"fd_irfft_f32, 512", "flexlib", b_irfft, true},
+    {"fd_dot_f32, 64", "flexlib", b_dot, true},
+    {"fd_power_f32, 64", "flexlib", b_power, true},
+    {"fd_sum_f32, 64", "flexlib", b_sum, true},
+    {"fd_mean_f32, 64", "flexlib", b_mean, true},
+    {"fd_rms_f32, 64", "flexlib", b_rms, true},
 #ifdef BENCH_HAVE_CMSIS_DSP
     {"arm_fir_f32, 32 taps x 64", "CMSIS-DSP", c_fir, false},
     {"arm_biquad_cascade_df2T_f32, 4 x 64", "CMSIS-DSP", c_biquad, false},
@@ -219,6 +265,8 @@ static const BenchCase cases[] = {
     {"arm_rfft_fast_f32, 512", "CMSIS-DSP", c_rfft, false},
     {"arm_dot_prod_f32, 64", "CMSIS-DSP", c_dot, false},
     {"arm_power_f32, 64", "CMSIS-DSP", c_power, false},
+    {"arm_mean_f32, 64", "CMSIS-DSP", c_mean, false},
+    {"arm_rms_f32, 64", "CMSIS-DSP", c_rms, false},
 #endif
 };
 
