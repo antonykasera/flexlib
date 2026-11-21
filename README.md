@@ -86,6 +86,20 @@ CFLAGS += $(FLEXLIB_CFLAGS)       # include paths only
 SRCS   += $(FLEXLIB_SRCS)
 ```
 
+With CMake, add the directory and link the library you use. Each target
+brings the ones it depends on, and your toolchain and MCU flags apply to
+flexlib as to the rest of your code:
+
+```cmake
+set(FLEXLIB_REQUIRE 0.6.0)                   # optional: stop if lib/flexlib is older
+set(FLEXLIB_DEFINES "FU_CRC_SMALL")          # optional: the build options
+add_subdirectory(lib/flexlib)
+target_link_libraries(app PRIVATE flexlib::dsp)   # or flexlib::math, flexlib::utils
+```
+
+CMake support is on master and comes with the next release. The v0.6.0
+archive does not include `CMakeLists.txt` yet.
+
 Build with `-ffunction-sections -fdata-sections` and link with
 `--gc-sections`, so the functions you don't call stay out of the image. A
 failed argument check traps by default. Define `FX_ASSERT_FAIL(file, line)`
