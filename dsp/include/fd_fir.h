@@ -73,6 +73,47 @@ fm_q15 fd_fir_sample_q15(FD_FirQ15 *f, fm_q15 x);
 fm_q31 fd_fir_sample_q31(FD_FirQ31 *f, fm_q31 x);
 
 /**
+ * @name Float
+ * Block floating point on the q31 kernel, one rounding per output:
+ * $|y - sum h x| <= 0.5 ulp(y) + 2^-31 sum |h| (X + sum |x|)$, X the largest
+ * $|x|$ within $2 (ntaps + chunk)$ inputs. A NaN or inf: ntaps outputs NaN.
+ * @{
+ */
+
+/** Float FIR state; opaque. */
+typedef struct {
+  /** @privatesection */
+  FD_FirQ31 fir;
+  float *xs;
+  int32_t eh;
+  int32_t es;
+  uint32_t since;
+  uint32_t poison;
+} FD_FirF32;
+
+/**
+ * Set up a float filter with zero history.
+ *
+ * @param f         state
+ * @param h         ntaps coefficients, finite; read only here
+ * @param hq        ntaps words for the converted coefficients; must outlive f
+ * @param ntaps     $>= 1$
+ * @param xs        state_len floats of history; must outlive f
+ * @param state     state_len words of history; must outlive f
+ * @param state_len $>= ntaps$, `FD_FIR_STATE_LEN(ntaps, chunk)`
+ */
+void fd_fir_init_f32(FD_FirF32 *f, const float *h, fm_q31 *hq, uint32_t ntaps,
+                     float *xs, fm_q31 *state, uint32_t state_len);
+/** Clear the history. */
+void fd_fir_reset_f32(FD_FirF32 *f);
+/** Filter n samples; y may be x. */
+void fd_fir_f32(FD_FirF32 *f, const float *x, float *y, uint32_t n);
+/** Filter one sample. */
+float fd_fir_sample_f32(FD_FirF32 *f, float x);
+
+/** @} */
+
+/**
  * @name Decimators
  * Every m-th output of the FIR, for any n.
  * @{

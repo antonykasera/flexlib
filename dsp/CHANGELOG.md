@@ -1,5 +1,9 @@
 # flexdsp changelog
 
+## Unreleased
+
+- `fd_fir_f32` / `fd_fir_sample_f32`: float FIR filters on the q31 kernel (block floating point, one rounding per output). 7.9x faster than `arm_fir_f32` in soft float on the Cortex-M3, and more accurate on signals within 42 dB.
+
 ## 0.3.0 (2026-11-12)
 
 - Licensed under Apache-2.0 (was MIT; earlier releases are granted under Apache-2.0 too).

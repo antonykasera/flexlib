@@ -107,11 +107,11 @@ BENCH_CALL static void conv15_inner(const fm_q15 *a, fm_q15 *y) {
 }
 
 BENCH_CALL static void conv31_inner(const fm_q31 *a, fm_q31 *y) {
-  k31(b31, 1U, false, 32U, a, y, 1U, 97U, 0U, 0U, 0U, NULL, 0);
+  k31(b31, 1U, false, 32U, a, y, 1U, 97U, 0U, 0U, 0U, NULL, 0, NULL, 0);
 }
 
 BENCH_CALL static void conv31_inner_f(const fm_q31 *a, fm_q31 *y) {
-  k31(b31f, 1U, false, 32U, a, y, 1U, 97U, 0U, 0U, 0U, NULL, 0);
+  k31(b31f, 1U, false, 32U, a, y, 1U, 97U, 0U, 0U, 0U, NULL, 0, NULL, 0);
 }
 
 /* the 64-bit kernel over full-scale coefficients, and two candidates */

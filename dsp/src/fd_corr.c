@@ -271,7 +271,8 @@ FX_INLINE void xc31(const fm_q31 *a, int32_t na, const fm_q31 *b, int32_t nb,
   while (n != 0U) {
     uint32_t m = interior(s, na, nb, n, 3U);
     if (m != 0U) {
-      k31(b, 1U, !rev, (uint32_t)nb, a + s, y, 1U, m, 0U, 0U, sh, yr, rs);
+      k31(b, 1U, !rev, (uint32_t)nb, a + s, y, 1U, m, 0U, 0U, sh, yr, rs, NULL,
+          0);
     } else if (n >= 3U || done >= 3U - n) {
       if (n < 3U) {
         uint32_t back = 3U - n;
@@ -292,7 +293,7 @@ FX_INLINE void xc31(const fm_q31 *a, int32_t na, const fm_q31 *b, int32_t nb,
       } else {
         k31(rev ? b + (nb - 1 - e.hi) : b + e.lo, 1U, !rev,
             (uint32_t)(e.hi - e.lo + 1), a + e.first, y, 1U, 3U, e.nl, e.nt, sh,
-            yr, rs);
+            yr, rs, NULL, 0);
       }
     } else {
       m = 1U;

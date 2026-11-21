@@ -101,6 +101,12 @@ the bench.
 | FIR q31, 32 taps | flexdsp | 10^6 random samples, Hamming lowpass | 0.5 | 0.25 | -8.1e-05 |
 | FIR q31, 32 taps | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 1 | 0.5 | -0.5 |
 | FIR q31, 32 taps (fast) | CMSIS-DSP | 10^6 random samples, Hamming lowpass | 17 | 2.61 | -0.005 |
+| FIR f32, 32 taps | flexdsp | 10^6 samples of white noise, Hamming lowpass | 5.42e+04 | 0.365 | -0.063 |
+| FIR f32, 32 taps | CMSIS-DSP | 10^6 samples of white noise, Hamming lowpass | 5.41e+05 | 4.38 | +0.65 |
+| FIR f32, 32 taps | flexdsp | the same in 300-sample bursts 42 dB apart | 5.42e+04 | 0.761 | -0.07 |
+| FIR f32, 32 taps | CMSIS-DSP | the same in 300-sample bursts 42 dB apart | 5.41e+05 | 4.42 | +0.62 |
+| FIR f32, 32 taps | flexdsp | the same in 300-sample bursts 120 dB apart | 1.12e+08 | 3.39e+03 | -1.6e+02 |
+| FIR f32, 32 taps | CMSIS-DSP | the same in 300-sample bursts 120 dB apart | 5.41e+05 | 4.44 | +0.7 |
 | biquad q31, Butterworth 4, fc 0.01 | flexdsp | 10^6 samples of half-scale noise | 79.7 | 15 | -0.008 |
 | biquad q31, Butterworth 4, fc 0.01 | flexdsp error feedback | 10^6 samples of half-scale noise | 4.98 | 0.842 | -3e-06 |
 | biquad q31, Butterworth 4, fc 0.01 | CMSIS-DSP | 10^6 samples of half-scale noise | 349 | 264 | -2.6e+02 |

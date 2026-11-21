@@ -1,6 +1,6 @@
 /**
  * @file test_fd_bfp.c
- * @brief Host tests for the block floating point conversions (fd_bfp.h)
+ * @brief Host tests for fd_bfp.h
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0
@@ -32,7 +32,6 @@ static int32_t ref_exp(const float *x, uint32_t n) {
   return e;
 }
 
-/* blocks of mixed magnitudes: loud values next to ones 2^-30 below */
 void test_fd_bfp_blocks(void) {
   uint64_t r = 0xBF9U;
   float x[N], y[N];
@@ -42,7 +41,7 @@ void test_fd_bfp_blocks(void) {
     uint32_t spread = test_rng_u32(&r) % 40U;
     for (uint32_t i = 0U; i < N; i++) {
       uint32_t ex = base - test_rng_u32(&r) % (spread + 1U);
-      ex = (int32_t)ex < 0 ? 0U : ex; /* subnormals near the bottom */
+      ex = (int32_t)ex < 0 ? 0U : ex;
       x[i] = f_of((test_rng_u32(&r) & 0x807FFFFFU) | (ex << 23));
     }
     if (blk % 7U == 0U) {
@@ -66,7 +65,6 @@ void test_fd_bfp_blocks(void) {
       }
     }
 
-    /* in place, both ways */
     memcpy(y, x, sizeof y);
     fd_bfp_to_q31(y, (int32_t *)(void *)y, N, e);
     ASSERT_TRUE(memcmp(y, q, sizeof q) == 0);
@@ -85,10 +83,9 @@ void test_fd_bfp_edges(void) {
   ASSERT_EQ(fd_bfp_exp(x, 4U), FD_BFP_BAD);
   x[2] = -NAN;
   ASSERT_EQ(fd_bfp_exp(x, 4U), FD_BFP_BAD);
-  x[2] = f_of(1U); /* the smallest subnormal */
+  x[2] = f_of(1U);
   ASSERT_EQ(fd_bfp_exp(x + 2, 2U), -125);
 
-  /* the largest magnitude at its own exponent: m 2^7, exact */
   float big = f_of(0x7F7FFFFFU);
   int32_t q;
   fd_bfp_to_q31(&big, &q, 1U, fd_bfp_exp(&big, 1U));
@@ -97,14 +94,13 @@ void test_fd_bfp_edges(void) {
   fd_bfp_to_q31(&neg, &q, 1U, 128);
   ASSERT_EQ(q, -0x7FFFFF80);
 
-  /* ties to even at the half bit, in both directions */
-  float t = 1.5f; /* at e = 31: 1.5 exactly between 1 and 2 */
+  float t = 1.5f;
   fd_bfp_to_q31(&t, &q, 1U, 31);
   ASSERT_EQ(q, 2);
   t = 2.5f;
   fd_bfp_to_q31(&t, &q, 1U, 31);
   ASSERT_EQ(q, 2);
-  int32_t v = 0x01000001; /* 2^24 + 1: a tie, to even */
+  int32_t v = 0x01000001;
   float y;
   fd_bfp_to_f32(&v, &y, 1U, 31);
   ASSERT_TRUE(y == 16777216.0f);
@@ -112,7 +108,6 @@ void test_fd_bfp_edges(void) {
   fd_bfp_to_f32(&v, &y, 1U, 31);
   ASSERT_TRUE(y == 16777220.0f);
 
-  /* overflow to infinity, underflow through the subnormals to signed zero */
   v = INT32_MIN;
   fd_bfp_to_f32(&v, &y, 1U, 129);
   ASSERT_TRUE(isinf(y) && y < 0.0f);
@@ -120,11 +115,10 @@ void test_fd_bfp_edges(void) {
   fd_bfp_to_f32(&v, &y, 1U, -150);
   ASSERT_TRUE(memcmp(&y, &(float){f_of(0U)}, sizeof y) == 0);
   v = -3;
-  fd_bfp_to_f32(&v, &y, 1U, -119); /* 1.5 smallest subnormals: a tie, to 2 */
+  fd_bfp_to_f32(&v, &y, 1U, -119); /* 1.5 subnormal units: tie */
   ASSERT_TRUE(y == -f_of(2U));
 }
 
-/* 2^24 random bit patterns both ways: the exhaustive check's sample */
 void test_fd_bfp_sampled(void) {
   uint64_t r = 0x5A3U;
   unsigned long bad = 0U;
@@ -148,4 +142,29 @@ void test_fd_bfp_sampled(void) {
     bad += memcmp(&y, &want, sizeof y) != 0;
   }
   ASSERT_EQ(bad, 0);
+}
+
+/* long double holds int64 exactly */
+void test_fd_bfp_s64(void) {
+  uint64_t r = 0x564U;
+  unsigned long bad = 0U;
+  for (unsigned i = 0U; i < (1U << 22); i++) {
+    uint64_t u = ((uint64_t)test_rng_u32(&r) << 32) | test_rng_u32(&r);
+    unsigned top = 1U + test_rng_u32(&r) % 63U;
+    u &= (1ULL << top) - 1U;
+    u |= 1ULL << (top - 1U);
+    if (top > 25U && (i & 3U) == 0U) { /* ties and near ties */
+      unsigned cut = top - 24U;
+      u &= ~((1ULL << cut) - 1U);
+      u |= (1ULL << (cut - 1U)) + (uint64_t)(i % 3U) - 1U;
+    }
+    int64_t a = (i & 1U) != 0U ? -(int64_t)u : (int64_t)u;
+    int32_t e = (int32_t)(test_rng_u32(&r) % 420U) - 300;
+    float got = fd_bfp_f32_of_s64(a, e);
+    float want = (float)ldexpl((long double)a, e);
+    bad += memcmp(&got, &want, sizeof got) != 0;
+  }
+  ASSERT_EQ(bad, 0);
+  ASSERT_TRUE(fd_bfp_f32_of_s64(0, 50) == 0.0f);
+  ASSERT_TRUE(fd_bfp_f32_of_s64(INT64_MIN + 1, 70) == -INFINITY);
 }

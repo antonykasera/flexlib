@@ -56,6 +56,8 @@ ACC_CMSIS = $(addprefix $(CMSIS_DSP_DIR)/Source/, \
               FilteringFunctions/arm_fir_q31.c \
               FilteringFunctions/arm_fir_fast_q31.c \
               FilteringFunctions/arm_fir_init_q31.c \
+              FilteringFunctions/arm_fir_f32.c \
+              FilteringFunctions/arm_fir_init_f32.c \
               FilteringFunctions/arm_biquad_cascade_df1_q15.c \
               FilteringFunctions/arm_biquad_cascade_df1_init_q15.c \
               FilteringFunctions/arm_biquad_cascade_df1_q31.c \

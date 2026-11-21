@@ -739,6 +739,59 @@ static void fd_fir_rows(void) {
   row(&cf31, "CMSIS-DSP", "10^6 random samples, Hamming lowpass");
 }
 
+/* float FIR against the exact sums, in ulp of the exact result: steady noise,
+ * and 300-sample bursts with the level dropping 42 dB (2^7: inputs still held
+ * exactly) or 120 dB between them */
+static void fd_fir_f32_rows(void) {
+  __extension__ typedef __float128 f128;
+  enum { T = 32, N = 64, NB = 15625 }; /* 10^6 samples */
+  static const int drop[3] = {0, 7, 20};
+  static const char *const what[3] = {
+      "10^6 samples of white noise, Hamming lowpass",
+      "the same in 300-sample bursts 42 dB apart",
+      "the same in 300-sample bursts 120 dB apart"};
+  float hf[T], rf[T];
+  (void)fd_fir_design(hf, T, FD_LOWPASS, 0.1f, 0.0f, FD_WIN_HAMMING);
+  for (int k = 0; k < T; k++) {
+    rf[k] = hf[T - 1 - k];
+  }
+  for (int s = 0; s < 3; s++) {
+    ErrStats f, c;
+    stats_init(&f, "FIR f32, 32 taps", "ulp");
+    stats_init(&c, "FIR f32, 32 taps", "ulp");
+    static fm_q31 hq[T], st[T - 1 + N];
+    static float xs[T - 1 + N], cs[T - 1 + N], hx[T - 1 + N];
+    FD_FirF32 a;
+    arm_fir_instance_f32 ci;
+    fd_fir_init_f32(&a, hf, hq, T, xs, st, T - 1 + N);
+    arm_fir_init_f32(&ci, T, rf, cs, N);
+    memset(hx, 0, sizeof hx);
+    uint64_t rng = 27U;
+    for (int b = 0; b < NB; b++) {
+      float x[N], y[N], yc[N];
+      for (int i = 0; i < N; i++) {
+        int k = ((b * N + i) / 300) % 2 != 0 ? -drop[s] : 0;
+        x[i] = ldexpf((float)(int32_t)test_rng_u32(&rng) * 0x1p-31f, k);
+      }
+      fd_fir_f32(&a, x, y, N);
+      arm_fir_f32(&ci, x, yc, N);
+      memmove(hx, hx + N, (T - 1) * sizeof hx[0]);
+      memcpy(hx + T - 1, x, sizeof x);
+      for (int i = 0; i < N; i++) {
+        f128 e = 0;
+        for (int k = 0; k < T; k++) {
+          e += (f128)((double)hf[k] * (double)hx[i + T - 1 - k]);
+        }
+        double ref = (double)e; /* exact: within 2^-53, far below an ulp */
+        stats_add(&f, ref, ulp_err_f32(y[i], ref));
+        stats_add(&c, ref, ulp_err_f32(yc[i], ref));
+      }
+    }
+    row(&f, "flexdsp", what[s]);
+    row(&c, "CMSIS-DSP", what[s]);
+  }
+}
+
 /* 64 x 64 against the exact sums: a full scale, b with sum |b| < 2 (no
  * output saturates); correlation over all 127 lags */
 static void fd_conv_rows(void) {
@@ -1468,6 +1521,7 @@ int main(void) {
   fd_moment_rows();
   fd_complex_rows();
   fd_fir_rows();
+  fd_fir_f32_rows();
   fd_biquad_rows(0.01f, "Butterworth 4, fc 0.01", 1);
   fd_biquad_rows(0.0005f, "Butterworth 4, fc 5e-4", 0); /* Q2.14 b round to 0 */
   fd_conv_rows();

@@ -446,6 +446,9 @@ const BenchGolden bench_golden[] = {
     {"fd_bfp_exp, 256 floats", 0x1F116DC5U},
     {"fd_bfp_to_q31, 256 floats", 0xC7B63B6BU},
     {"fd_bfp_to_f32, 256 floats", 0xB8F7B4C5U},
+    {"fd_fir_f32, 32 taps x 64", 0x1179A061U},
+    {"fir f32 exact sum per product (B)", 0x1179A061U},
+    {"fd_fir_sample_f32, 32 taps", 0x14B38993U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);

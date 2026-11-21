@@ -10,6 +10,7 @@
 #ifndef FD_FIR_CORE_H
 #define FD_FIR_CORE_H
 
+#include "fd_bfp.h"
 #include "fd_fir.h"
 #include "fd_wide.h"
 #include "fm_fixed.h"
@@ -85,8 +86,8 @@ FX_INLINE int32_t outr(int64_t a, int32_t rs) {
   return (int32_t)(((a >> (uint32_t)(rs - 1)) + 1) >> 1);
 }
 
-/* ---- kernels: output i of m sums h[k hs] b[i + t - 1 - k] (up: b[i + k])
- * into y[i ys], or outr(sum, rs) into yr; nl / nt edge samples are 0 ---- */
+/* kernels: output i of m sums h[k hs] b[i + t - 1 - k] (up: b[i + k]) into
+ * y[i ys], outr(sum, rs) into yr or (k31) sum 2^fe into yf; nl / nt edges 0 */
 
 #define FIR_H(n) h[up ? i + (n) * hs : i - (n) * hs]
 #define FIR_STEP(n) (i = up ? i + (n) * hs : i - (n) * hs)
@@ -250,7 +251,7 @@ FX_INLINE void k15w2(const fm_q15 *h, uint32_t hs, bool up, uint32_t t,
 FX_INLINE void k31(const fm_q31 *h, uint32_t hs, bool up, uint32_t t,
                    const fm_q31 *b, fm_q31 *y, uint32_t ys, uint32_t m,
                    uint32_t nl, uint32_t nt, uint32_t sh, int32_t *yr,
-                   int32_t rs) {
+                   int32_t rs, float *yf, int32_t fe) {
   const uint32_t top = up ? 0U : (t - 1U) * hs;
   for (; m >= 3U; m -= 3U) {
     int64_t a0 = 0, a1 = 0, a2 = 0;
@@ -281,7 +282,12 @@ FX_INLINE void k31(const fm_q31 *h, uint32_t hs, bool up, uint32_t t,
       x0 = x1;
       x1 = 0;
     }
-    if (yr != NULL) {
+    if (yf != NULL) {
+      yf[0] = fd_bfp_f32_of_s64(a0, fe);
+      yf[ys] = fd_bfp_f32_of_s64(a1, fe);
+      yf[2U * ys] = fd_bfp_f32_of_s64(a2, fe);
+      yf += 3U * ys;
+    } else if (yr != NULL) {
       yr[0] = outr(a0, rs);
       yr[ys] = outr(a1, rs);
       yr[2U * ys] = outr(a2, rs);
@@ -301,7 +307,10 @@ FX_INLINE void k31(const fm_q31 *h, uint32_t hs, bool up, uint32_t t,
       a = fx_smlal(a, FIR_H(0U), b[k]);
       FIR_STEP(1U);
     }
-    if (yr != NULL) {
+    if (yf != NULL) {
+      *yf = fd_bfp_f32_of_s64(a, fe);
+      yf += ys;
+    } else if (yr != NULL) {
       *yr = outr(a, rs);
       yr += ys;
     } else {

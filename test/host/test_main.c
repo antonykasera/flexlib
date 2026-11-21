@@ -117,6 +117,15 @@ void test_fd_resample_cic_comp(void);
 void test_fd_bfp_blocks(void);
 void test_fd_bfp_edges(void);
 void test_fd_bfp_sampled(void);
+void test_fd_bfp_s64(void);
+
+/* --- fd_fir_f32 (test_fd_fir_f32.c) --- */
+void test_fd_fir_f32_bound(void);
+void test_fd_fir_f32_coefs(void);
+void test_fd_fir_f32_nonfinite(void);
+void test_fd_fir_f32_state(void);
+void test_fd_fir_f32_coef_exp(void);
+void test_fd_fir_f32_exp_schedule(void);
 
 /* --- arch (test_fx_arch.c) --- */
 void test_fx_clz_ctz(void);
@@ -299,6 +308,13 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_bfp_blocks);
   TEST_RUN(test_fd_bfp_edges);
   TEST_RUN(test_fd_bfp_sampled);
+  TEST_RUN(test_fd_bfp_s64);
+  TEST_RUN(test_fd_fir_f32_bound);
+  TEST_RUN(test_fd_fir_f32_coefs);
+  TEST_RUN(test_fd_fir_f32_nonfinite);
+  TEST_RUN(test_fd_fir_f32_state);
+  TEST_RUN(test_fd_fir_f32_coef_exp);
+  TEST_RUN(test_fd_fir_f32_exp_schedule);
 
   TEST_RUN(test_fx_clz_ctz);
   TEST_RUN(test_fx_rbit_rev);

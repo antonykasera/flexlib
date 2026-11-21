@@ -86,6 +86,8 @@ wider ones otherwise. `h[0]` multiplies the newest sample.
 | `fd_fir_decim_q15` by 4 | 3686 | 4854 | 0.5 LSB | |
 | `fd_fir_interp_q15` by 4 | 12522 | 20806 | 0.5 LSB | |
 | `fd_fir_sample_q15` | 453 | | 0.5 LSB | |
+| `fd_fir_f32` | 22735 | 180335 (soft float) | mean 0.37 ulp | mean 4.4 ulp |
+| `fd_fir_sample_f32` | 686 | | | |
 
 The state holds `ntaps - 1` history samples plus a chunk of any size
 (`FD_FIR_STATE_LEN`); a block is processed in chunk-sized pieces, and the
@@ -93,6 +95,11 @@ history moves once per chunk. Decimators take any `n` and return the outputs
 written. `fd_fir_design` builds windowed-sinc lowpass, highpass, bandpass and
 bandstop filters in float (rectangular, Hann, Hamming, Blackman,
 Blackman-Harris), and `fd_fir_quantize_q15` / `_q31` round them.
+
+`fd_fir_f32` runs the q31 kernel on block floating point, one rounding per
+output (bound in `fd_fir.h`). Inputs within 42 dB of the chunk's loudest are
+held exactly; after a larger drop, about a chunk of outputs keeps fewer bits
+than float. Errors on white noise; `docs/accuracy.md` has the bursts.
 
 ## Biquads (`fd_biquad.h`)
 

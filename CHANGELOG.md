@@ -5,6 +5,7 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 
 ## Unreleased
 
+- flexdsp: float FIR filters, `fd_fir_f32` ([dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
 - arch: `fx_fmaf`, a fused multiply-add (VFMA), on targets with an FPU.
 - Bench: the report can go over SWD with SEGGER RTT (`BENCH_REPORT=rtt`), for boards without USB.
 - Bench: an STM32F405 port (`BENCH_TARGET=f405`); CMSIS 6 and ST's F4 device headers are new submodules for it.
