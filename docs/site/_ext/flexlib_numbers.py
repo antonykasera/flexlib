@@ -5,14 +5,21 @@ cold with `case @ cold`. {acc}`a; b; ...` is the max of the row of
 docs/accuracy.md whose leading cells are a, b, ...; `@ column` names another
 column. A table with a ratio column gets each ratio as the column before it
 over the cycles column. A key that matches no row, or more than one, fails
-the build.
+the build. {bm}`build` is the rest of a line of the bench conditions.
+
+The bench-rows directive lists the rows of one header's functions, and of
+the cases whose names start with a line of its content (a line ending in $
+must match whole). Every row but candidates and kernels must appear on
+exactly one page.
 """
 
 import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from docutils import nodes
 from sphinx.util import logging
+from sphinx.util.docutils import SphinxDirective
 
 logger = logging.getLogger(__name__)
 
@@ -143,8 +150,165 @@ def ratios(doctree):
                 para += nodes.Text(f"{base / ours:.2f}")
 
 
+def bench_meta(key):
+    """The rest of the first `- key ...` line of the bench file."""
+    for line in BENCH.read_text().splitlines():
+        if line.startswith(f"- {key}"):
+            return [line[len(key) + 2:].lstrip(": ")]
+    return []
+
+
+# ---- results pages
+
+SKIP_IMPL = {"candidate", "kernel"}
+_FIRST = re.compile(r"f[udmx]_[a-z0-9_]+")
+
+
+def bench_rows():
+    """(id, cells, cold) for every case row; id is its place in the file."""
+    out = []
+    for t, (header, rows) in enumerate(_data(BENCH)):
+        if header[:2] != ["case", "impl"]:
+            continue
+        cold = "warm median" in header
+        out += [((t, r), dict(zip(header, cells)), cold)
+                for r, cells in enumerate(rows)]
+    return out
+
+
+def load_owners(app):
+    """Function name to the header that declares it, from the Doxygen XML."""
+    xml_dir = Path(app.config.breathe_projects[app.config.breathe_default_project])
+    owners = {}
+    for f in xml_dir.glob("*_8h.xml"):
+        root = ET.parse(f).getroot()
+        name = root.findtext("compounddef/compoundname")
+        for m in root.iter("memberdef"):
+            if m.get("kind") == "function":
+                owners[m.findtext("name")] = name
+    app.env.fl_owners = owners
+
+
+def _case_cell(case):
+    m = _FIRST.match(case)
+    para = nodes.paragraph()
+    if m:
+        para += nodes.literal(m.group(0), m.group(0), classes=["fl-fn"])
+        para += nodes.Text(case[m.end():])
+    else:
+        para += nodes.Text(case)
+    return para
+
+
+def _table(columns, rows):
+    table = nodes.table(classes=["fl-bench"])
+    group = nodes.tgroup(cols=len(columns))
+    table += group
+    for _ in columns:
+        group += nodes.colspec(colwidth=1)
+    head, body = nodes.thead(), nodes.tbody()
+    group += head
+    group += body
+    row = nodes.row()
+    head += row
+    for title, _key, numeric in columns:
+        entry = nodes.entry(classes=["text-right"] if numeric else [])
+        entry += nodes.paragraph(text=title)
+        row += entry
+    for cells in rows:
+        row = nodes.row()
+        body += row
+        for _title, key, numeric in columns:
+            entry = nodes.entry(classes=["text-right"] if numeric else [])
+            entry += (_case_cell(cells[key]) if key == "case"
+                      else nodes.paragraph(text=cells[key]))
+            row += entry
+    return table
+
+
+WARM = [("case", "case", False), ("impl", "impl", False),
+        ("min", "min", True), ("median", "median", True), ("max", "max", True)]
+COLD = [("case", "case", False), ("impl", "impl", False),
+        ("warm", "warm median", True), ("cold min", "min", True),
+        ("cold median", "median", True), ("cold max", "max", True)]
+
+
+class BenchRows(SphinxDirective):
+    optional_arguments = 1
+    has_content = True
+
+    def run(self):
+        env = self.env
+        env.note_dependency(str(BENCH))
+        header = self.arguments[0] if self.arguments else None
+        lines = [l.strip() for l in self.content if l.strip()]
+        used = set()
+        owners = getattr(env, "fl_owners", {})
+        warm, cold = [], []
+        claims = env.fl_claims.setdefault(env.docname, [])
+        for rid, cells, is_cold in bench_rows():
+            if cells["impl"] in SKIP_IMPL:
+                continue
+            case = cells["case"]
+            m = _FIRST.match(case)
+            hit = [l for l in lines if (case == l[:-1] if l.endswith("$")
+                                        else case.startswith(l))]
+            used.update(hit)
+            if not hit and not (header and m and owners.get(m.group(0)) == header):
+                continue
+            (cold if is_cold else warm).append(cells)
+            claims.append(rid)
+        for l in lines:
+            if l not in used:
+                logger.warning(f"bench-rows: no row for {l!r}",
+                               location=self.get_location())
+        if not warm and not cold:
+            logger.warning(f"bench-rows: no rows for {header!r}",
+                           location=self.get_location())
+        out = [_table(WARM, warm)] if warm else []
+        if cold:
+            para = nodes.paragraph(text="Cold: the flash cache flushed before "
+                                        "each call.")
+            out += [para, _table(COLD, cold)]
+        return out
+
+
+def purge_claims(app, env, docname):
+    getattr(env, "fl_claims", {}).pop(docname, None)
+
+
+def merge_claims(app, env, docnames, other):
+    for d in docnames:
+        if d in getattr(other, "fl_claims", {}):
+            env.fl_claims[d] = other.fl_claims[d]
+
+
+def init_claims(app, env, docnames):
+    if not hasattr(env, "fl_claims"):
+        env.fl_claims = {}
+
+
+def check_claims(app, env):
+    count = {}
+    for ids in env.fl_claims.values():
+        for rid in ids:
+            count[rid] = count.get(rid, 0) + 1
+    for rid, cells, _cold in bench_rows():
+        if cells["impl"] in SKIP_IMPL or count.get(rid, 0) == 1:
+            continue
+        logger.warning(f"bench row {cells['case']!r} ({cells['impl']}) is on "
+                       f"{count.get(rid, 0)} results tables, not 1")
+
+
 def setup(app):
     app.add_role("cy", _role(bench, BENCH))
     app.add_role("acc", _role(accuracy, ACCURACY))
+    app.add_role("bm", _role(bench_meta, BENCH))
+    app.add_directive("bench-rows", BenchRows)
+    app.connect("builder-inited", load_owners)
+    app.connect("env-before-read-docs", init_claims)
+    app.connect("env-purge-doc", purge_claims)
+    app.connect("env-merge-info", merge_claims)
+    app.connect("env-check-consistency", check_claims)
     app.connect("doctree-read", lambda app, doctree: ratios(doctree))
     return {"parallel_read_safe": True, "parallel_write_safe": True}
