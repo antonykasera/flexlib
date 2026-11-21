@@ -28,28 +28,33 @@ BENCH_PORTABLE = bench/core/bench_core.c $(BENCH_CASES_utils) \
                  $(BENCH_CASES_dsp2) $(BENCH_CASES_dsp3) $(BENCH_CASES_dsp4) \
                  $(BENCH_CASES_dsp5) $(BENCH_CASES_dsp6) $(BENCH_CASES_nn)
 
-GOLDEN_BUILD = $(BUILD)/golden
+GOLDEN_BUILD        = $(BUILD)/golden
+GOLDEN_CFLAGS       = $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST $(LIB_INC) $(BENCH_INC)
+GOLDEN_SRCS         = bench/core/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS)
+GOLDEN_BUILDS       = plain dsp fpu fpu_dsp
+GOLDEN_DEFS_dsp     = -DFX_EMULATE_DSP
+GOLDEN_DEFS_fpu     = -DFX_EMULATE_FPU
+GOLDEN_DEFS_fpu_dsp = -DFX_EMULATE_FPU -DFX_EMULATE_DSP
 
-golden:
-	@mkdir -p $(GOLDEN_BUILD)
-	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST $(LIB_INC) $(BENCH_INC) \
-		bench/core/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS) -lm \
-		-o $(GOLDEN_BUILD)/golden_gen
-	./$(GOLDEN_BUILD)/golden_gen > $(GOLDEN_BUILD)/golden.c
+define GOLDEN_GEN
+$(GOLDEN_BUILD)/$(1)/%.o: %.c
+	@mkdir -p $$(@D)
+	$$(HOST_CC) $$(GOLDEN_CFLAGS) $$(GOLDEN_DEFS_$(1)) -MMD -MP -c $$< -o $$@
+
+$(GOLDEN_BUILD)/$(1)/golden_gen: $(patsubst %.c,$(GOLDEN_BUILD)/$(1)/%.o,$(GOLDEN_SRCS))
+	$$(HOST_CC) $$^ -lm -o $$@
+endef
+$(foreach g,$(GOLDEN_BUILDS),$(eval $(call GOLDEN_GEN,$(g))))
+
+golden: $(foreach g,$(GOLDEN_BUILDS),$(GOLDEN_BUILD)/$(g)/golden_gen)
+	$(GOLDEN_BUILD)/plain/golden_gen > $(GOLDEN_BUILD)/golden.c
 	mv $(GOLDEN_BUILD)/golden.c bench/core/golden.c
-	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST -DFX_EMULATE_DSP $(LIB_INC) \
-		$(BENCH_INC) bench/core/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS) -lm \
-		-o $(GOLDEN_BUILD)/golden_gen_dsp
-	./$(GOLDEN_BUILD)/golden_gen_dsp | cmp - bench/core/golden.c
-	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST -DFX_EMULATE_FPU $(LIB_INC) \
-		$(BENCH_INC) bench/core/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS) -lm \
-		-o $(GOLDEN_BUILD)/golden_gen_fpu
-	./$(GOLDEN_BUILD)/golden_gen_fpu > $(GOLDEN_BUILD)/golden_fpu.c
+	$(GOLDEN_BUILD)/dsp/golden_gen | cmp - bench/core/golden.c
+	$(GOLDEN_BUILD)/fpu/golden_gen > $(GOLDEN_BUILD)/golden_fpu.c
 	mv $(GOLDEN_BUILD)/golden_fpu.c bench/core/golden_fpu.c
-	$(HOST_CC) $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST -DFX_EMULATE_FPU -DFX_EMULATE_DSP \
-		$(LIB_INC) $(BENCH_INC) bench/core/golden_gen.c $(BENCH_PORTABLE) $(LIB_SRCS) -lm \
-		-o $(GOLDEN_BUILD)/golden_gen_fpu_dsp
-	./$(GOLDEN_BUILD)/golden_gen_fpu_dsp | cmp - bench/core/golden_fpu.c
+	$(GOLDEN_BUILD)/fpu_dsp/golden_gen | cmp - bench/core/golden_fpu.c
+
+-include $(wildcard $(GOLDEN_BUILD)/*/*/*/*.d)
 
 BENCH_SETS     = utils math struct dsp dsp2 dsp3 dsp4 dsp5 dsp6 nn
 BENCH_SET     ?=
@@ -82,7 +87,7 @@ CMSIS_DSP_DEFS = $(if $(filter dsp dsp2 dsp3 dsp4 dsp5 dsp6,$(BENCH_SET)),-DARM_
 endif
 endif
 
-# CMSIS-NN as it ships: no options, so its gemmlowp rounding
+# CMSIS-NN as it ships, with no options and its gemmlowp rounding
 ifeq ($(BENCH_SET),nn)
 ifneq ($(wildcard $(CMSIS_NN_DIR)/Include/arm_nnfunctions.h),)
 BENCH_DEFS    += -DBENCH_HAVE_CMSIS_NN
@@ -251,8 +256,12 @@ bench bench-run bench-windows:
 	@echo "$(BENCH_MISSING)"
 	@exit 1
 else ifeq ($(BENCH_SET),)
-# each image in turn
-bench bench-windows:
+bench: $(addprefix bench-image-,$(BENCH_SETS))
+
+$(addprefix bench-image-,$(BENCH_SETS)): bench-image-%:
+	@$(MAKE) --no-print-directory bench BENCH_SET=$*
+
+bench-windows:
 	@set -e; for s in $(BENCH_SETS); do \
 		$(MAKE) --no-print-directory $@ BENCH_SET=$$s; done
 
@@ -283,4 +292,4 @@ endif
 
 -include $(BENCH_OBJS:.o=.d) $(EXT_OBJS:.o=.d) $(CMSIS_OBJS:.o=.d)
 
-.PHONY: golden bench bench-run bench-windows
+.PHONY: golden bench bench-run bench-windows $(addprefix bench-image-,$(BENCH_SETS))

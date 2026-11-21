@@ -2,6 +2,10 @@
 
 BUILD = build
 
+ifeq ($(filter -j%,$(MAKEFLAGS)),)
+MAKEFLAGS += -j$(shell nproc)
+endif
+
 ARM_CC      = arm-none-eabi-gcc
 ARM_OBJCOPY = arm-none-eabi-objcopy
 ARM_OBJDUMP = arm-none-eabi-objdump

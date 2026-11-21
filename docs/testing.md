@@ -4,6 +4,12 @@
 the disassembly checks. CI runs them with GCC 13, and the host tests again
 with clang.
 
+Make uses every core unless you pass `-j` yourself, and keeps each build's
+objects: after a change, only what depends on it is compiled again. The host
+tests print one summary line per runner. A runner's full output, error
+statistics included, is in its log under `build/host-<compiler>/`, and a
+failing runner prints it.
+
 ## Commands
 
 | command | what it does |
