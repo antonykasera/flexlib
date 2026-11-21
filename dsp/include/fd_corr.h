@@ -50,9 +50,9 @@ void fd_corr_q31(const fm_q31 *a, uint32_t na, const fm_q31 *b, uint32_t nb,
  * $a[k] 2^e = sum a[(j + k) mod n] b[j]$.
  *
  * With both blocks zero-padded to $n >= na + nb - 1$ it is the linear
- * correlation, lag k in slot k and lag -k in slot n - k. The error is about
- * 45 dB below the output's power (41 dB at worst on noise, chirps and
- * delays); fd_corr_q15() is exact.
+ * correlation, lag k in slot k and lag -k in slot n - k. The error is at
+ * least 41 dB below the output's power on noise, chirps and delays, 46 dB on
+ * average on full-scale noise. fd_corr_q15() is exact.
  *
  * @param a n samples, 4-byte aligned; the result out
  * @param b n samples, 4-byte aligned; overwritten
