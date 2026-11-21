@@ -33,12 +33,12 @@ typedef struct {
   fm_q15 *state;
   uint32_t ntaps;
   uint32_t len;
-  uint32_t pos;    /* samples in state; the newest at pos - 1 */
-  uint32_t mode;   /* FD_LmsMode */
-  fm_q15 mu;       /* >= 0 */
-  int32_t step;    /* the update owed by the last sample */
-  int32_t res;     /* PLAIN: what rounding left off mu e, carried on */
-  uint64_t energy; /* NORM: x'x over the last ntaps samples */
+  uint32_t pos;
+  uint32_t mode;
+  fm_q15 mu;
+  int32_t step;
+  int32_t res;
+  uint64_t energy;
 } FD_LmsQ15;
 
 /**
@@ -73,9 +73,9 @@ typedef struct {
   uint32_t len;
   uint32_t pos;
   uint32_t mode;
-  fm_q31 mu; /* >= 0 */
+  fm_q31 mu;
   int32_t step;
-  uint64_t energy[2]; /* NORM: x'x, 128 bits (hi, lo) */
+  uint64_t energy[2];
 } FD_LmsQ31;
 
 /** q31 form of fd_lms_init_q15(). */
