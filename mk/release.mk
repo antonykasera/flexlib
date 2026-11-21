@@ -1,4 +1,4 @@
-# deps: the submodules for the bench and accuracy (projects using flexlib skip them)
+# deps: the submodules for the bench and accuracy
 # dist: the release archive, only what you need
 # consumer: a blank project builds against that archive (flex's template, host gcc)
 
@@ -9,7 +9,7 @@ DIST_FILES = LICENSE NOTICE README.md CHANGELOG.md flexlib.mk flexutils.mk flexm
              $(wildcard arch/*.h utils/*.md utils/include/*.h utils/src/*.[ch] \
                         math/*.md math/include/*.h math/src/*.[ch] \
                         dsp/*.md dsp/include/*.h dsp/src/*.[ch]) \
-             docs/README.md docs/accuracy.md $(wildcard docs/results/*.md)
+             docs/README.md docs/accuracy.md docs/testing.md $(wildcard docs/results/*.md)
 
 CONSUMER = $(BUILD)/consumer
 
