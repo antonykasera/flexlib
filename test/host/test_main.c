@@ -276,6 +276,13 @@ void test_fnn_softmax_edges(void);
 void test_fnn_softmax_ties(void);
 void test_fnn_argmax(void);
 
+/* --- fnn_convert (test_fnn_convert.c) --- */
+void test_fnn_quantize_q15(void);
+void test_fnn_quantize_q31(void);
+void test_fnn_quantize_f32(void);
+void test_fnn_dequantize_q15(void);
+void test_fnn_dequantize_f32(void);
+
 int main(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     if (sscanf(argv[i], "--shard=%u/%u", &test_shard, &test_shards) == 2) {
@@ -483,6 +490,11 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fnn_softmax_edges);
   TEST_RUN(test_fnn_softmax_ties);
   TEST_RUN(test_fnn_argmax);
+  TEST_RUN(test_fnn_quantize_q15);
+  TEST_RUN(test_fnn_quantize_q31);
+  TEST_RUN(test_fnn_quantize_f32);
+  TEST_RUN(test_fnn_dequantize_q15);
+  TEST_RUN(test_fnn_dequantize_f32);
 
   return TEST_SUMMARY();
 }

@@ -74,7 +74,9 @@ exh_bins = $(patsubst test/exhaustive/%.c,$(EXH_BUILD)/plain/%,$(1))
 EXH_FAST = $(call exh_bins,$(filter-out $(EXHAUSTIVE_SLOW),$(EXHAUSTIVE_ALL))) \
            $(EXH_BUILD)/fft4096/exhaustive_fd_fft \
            $(EXH_BUILD)/round_away/exhaustive_fnn_quant \
-           $(EXH_BUILD)/round_gemmlowp/exhaustive_fnn_quant
+           $(EXH_BUILD)/round_gemmlowp/exhaustive_fnn_quant \
+           $(EXH_BUILD)/round_away/exhaustive_fnn_convert \
+           $(EXH_BUILD)/round_gemmlowp/exhaustive_fnn_convert
 
 exhaustive: $(EXH_FAST)
 	@set -e; for b in $^; do echo "--- $$b"; ./$$b; done

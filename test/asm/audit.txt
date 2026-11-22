@@ -392,3 +392,10 @@ fnn_lut_s8         no-calls ldrb strb !ldrsb !bfi !str
 fnn_softmax_s8     udiv !umull
 exact              no-calls umull
 fnn_argmax_s8      no-calls
+
+# fnn_convert: SMLAL per value; the float multiply only in the cold fallback
+fnn_quantize_q15_s8   smlal !udiv
+fnn_quantize_q31_s8   smlal !udiv
+fnn_quantize_f32_s8   smlal !udiv
+fnn_dequantize_s8_q15 smlal !udiv
+fnn_dequantize_s8_f32 clz mul !udiv

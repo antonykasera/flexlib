@@ -7,8 +7,8 @@ flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It is in development and not part
 of a release yet. What is here so far: fully connected layers, activation
-functions as tables, softmax and argmax, and the step every layer ends with,
-turning its int32 sums into int8 outputs.
+functions as tables, softmax and argmax, conversions in and out of int8, and
+the step every layer ends with, turning its int32 sums into int8 outputs.
 
 ## Fully connected layers (`fnn_dense.h`)
 
@@ -192,6 +192,77 @@ right or one too small, and the remainder shows which: a 64-bit check runs
 only when the remainder is too close to tell, at most about once in 8000
 outputs.
 
+## A model's inputs and outputs (`fnn_convert.h`)
+
+Your sensor data arrives as q15, q31 or float, and a model's first layer takes
+int8 at the scale and zero point the model was trained with. The quantise
+functions convert it, and the dequantise functions turn the last layer's
+outputs back into q15 or float:
+
+```c
+#include <stdio.h>
+
+#include "fnn_convert.h"
+#include "fnn_quant.h"
+
+int main(void) {
+  /* the model's input: a scale of 0.05 and a zero point of -3 */
+  int32_t mult;
+  int8_t rsh;
+  if (fnn_quant_from_scale(1.0 / 0.05, &mult, &rsh) != FNN_OK) {
+    return 1;
+  }
+  const float in[4] = {0.0f, 1.0f, -2.57f, 100.0f};
+  int8_t q[4];
+  fnn_quantize_f32_s8(in, q, 4U, mult, rsh, -3);
+  printf("%d %d %d %d\n", q[0], q[1], q[2], q[3]);
+
+  /* and back */
+  float out[4];
+  fnn_dequantize_s8_f32(q, out, 4U, 0.05f, -3);
+  printf("%g %g %g %g\n", (double)out[0], (double)out[1], (double)out[2],
+         (double)out[3]);
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+-3 17 -54 127
+0 1 -2.55 6.5
+```
+
+Zero lands on the zero point. 1.0 / 0.05 is 20, which with the zero point
+gives 17, and -2.57 / 0.05 = -51.4 rounds to -51, which gives -54. 100 is far
+past the int8 range and saturates at 127, which back in float can only stand
+for 6.5.
+
+The quantise functions take the scale as a multiplier from
+`fnn_quant_from_scale`: 1 / s for float input, 2^-15 / s for q15 and
+2^-31 / s for q31. Each value is then rounded once from its exact product with
+that multiplier, the way `FNN_ROUNDING` says, with no float division. Infinities
+saturate and a NaN gives -128. Dequantising to float gives exactly the float
+product s (q - z), rounded to nearest, ties to even, and for ordinary scales
+without a soft-float multiply. Dequantising to q15 takes the multiplier for 2^15 s.
+
+TFLite's QUANTIZE from int16 rounds twice, as gemmlowp does: build with
+`FNN_ROUND_GEMMLOWP` to match it bit for bit. From float, TFLite divides in
+float32 and then rounds the quotient, a second rounding: a value such as
+-13.4999995 becomes -13.5 and then -14, where flexnn gives -13. Otherwise
+`FNN_ROUND_AWAY` matches it.
+
+Cycles on an STM32F103 at 72 MHz (`-O2`), against TFLite's formulas compiled
+for the Cortex-M3, where float arithmetic is software:
+
+| conversion | values | flexnn | per value | TFLite's formula |
+| --- | --: | --: | --: | --: |
+| float to int8 | 128 | 5199 | 41 | 26154 |
+| q15 to int8 | 256 | 5739 | 22 | - |
+| q31 to int8 | 256 | 5971 | 23 | - |
+| int8 to float | 128 | 3901 | 30 | 9694 |
+| int8 to q15 | 256 | 6032 | 24 | - |
+
 ## Requantisation (`fnn_quant.h`)
 
 A layer multiplies int8 inputs by int8 weights and adds the products in
@@ -289,6 +360,13 @@ to sit just off a rounding tie, where the cheap division is closest to wrong.
 Against the TFLite interpreter, 58,000 outputs at four scales and betas, all
 equal. Argmax against a plain loop at every length to 300 and against TFLite
 on 1500 runs, half of them full of ties.
+
+Conversions: every q15 input and every float bit pattern, at several scales and
+in each rounding mode, against a model built on the requantisation reference.
+Dequantising to float on every scale mantissa against every q - z, bit for bit
+with the float multiply. Against the TFLite interpreter: QUANTIZE from int16
+and float at five scales, and DEQUANTIZE at four, scales near the float limits
+included.
 
 Requantisation: every int32 sum, for 15 multiplier and shift pairs at the ends of their
 ranges, in each rounding mode, against an exact 64-bit model. Random sums,

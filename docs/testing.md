@@ -16,7 +16,7 @@ failing runner prints it.
 | --- | --- |
 | `make` | host tests, cross builds, lint, asm-audit (`make help` lists every target) |
 | `make host-test [HOST_CC=clang]` | host tests with ASan and UBSan |
-| `make exhaustive` | every 32-bit input where that is possible (~13 min) |
+| `make exhaustive` | every 32-bit input where that is possible (~14 min) |
 | `make exhaustive-slow` | the same for text formatting and the float block conversions (~15 min) |
 | `make accuracy` | errors of flexlib and CMSIS-DSP, written to `docs/accuracy.md` (~3 min) |
 | `make golden` | the bench cases run on the host, written to `bench/core/golden*.c` |
@@ -52,6 +52,6 @@ Every module also gets asm-audit, a bench run and a golden check.
 | `fd_` fixed point | bit-exact against 128-bit integer models of the same arithmetic |
 | `fd_` float | `__float128` references |
 | `fd_window`, `fd_tone`, `fd_noise` | `long double`; noise statistics |
-| `fnn_` | bit-exact against 64-bit models written in TFLite's, gemmlowp's and CMSIS-NN's terms, in each rounding mode; every int32 sum for requantisation |
+| `fnn_` | bit-exact against 64-bit models written in TFLite's, gemmlowp's and CMSIS-NN's terms, in each rounding mode; every int32 sum for requantisation, and every float for quantising |
 
 [accuracy.md](accuracy.md) has the errors next to CMSIS-DSP's.
