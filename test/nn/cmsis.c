@@ -11,6 +11,7 @@
 #include "fnn_conv.h"
 #include "fnn_dense.h"
 #include "fnn_dwconv.h"
+#include "fnn_pool.h"
 #include "fnn_quant.h"
 #include "fnn_softmax.h"
 #include <math.h>
@@ -259,6 +260,65 @@ static unsigned long dwconv_cases(unsigned long *outputs) {
   return bad;
 }
 
+/* Compares max pools, or average pools when avg is set. */
+static unsigned long pool_cases(int avg, unsigned long *outputs) {
+  unsigned long bad = 0U;
+  for (unsigned rep = 0U; rep < 600U; rep++) {
+    uint32_t ih = 1U + rnd() % 12U, iw = 1U + rnd() % 12U;
+    uint32_t c = 1U + rnd() % 24U, kh = 1U + rnd() % 5U, kw = 1U + rnd() % 5U;
+    uint32_t s = 1U + rnd() % 3U, same = rnd() % 2U, oh, ow, pt = 0U, pl = 0U;
+    if (same) {
+      oh = (ih + s - 1U) / s;
+      ow = (iw + s - 1U) / s;
+      uint32_t nh = (oh - 1U) * s + kh, nw = (ow - 1U) * s + kw;
+      pt = nh > ih ? (nh - ih) / 2U : 0U;
+      pl = nw > iw ? (nw - iw) / 2U : 0U;
+    } else {
+      if (ih < kh || iw < kw) {
+        continue;
+      }
+      oh = (ih - kh) / s + 1U;
+      ow = (iw - kw) / s + 1U;
+    }
+    if (ih * iw * c > XMAX || oh * ow * c > XMAX) {
+      continue;
+    }
+    for (uint32_t i = 0U; i < ih * iw * c; i++) {
+      x[i] = (int8_t)rnd();
+    }
+    int32_t lo = rnd() % 3U == 0U ? range(-128, 0) : -128;
+    int32_t hi = rnd() % 3U == 0U ? range(lo, 127) : 127;
+    const cmsis_nn_pool_params p = {{(int32_t)s, (int32_t)s},
+                                    {(int32_t)pl, (int32_t)pt},
+                                    {lo, hi}};
+    const cmsis_nn_dims id = {1, (int32_t)ih, (int32_t)iw, (int32_t)c},
+                        fd = {1, (int32_t)kh, (int32_t)kw, 1},
+                        od = {1, (int32_t)oh, (int32_t)ow, (int32_t)c};
+    const cmsis_nn_context ctx = {cbuf, (int32_t)sizeof cbuf};
+    arm_cmsis_nn_status st =
+        avg ? arm_avgpool_s8(&ctx, &p, &id, x, &fd, &od, want)
+            : arm_max_pool_s8(&ctx, &p, &id, x, &fd, &od, want);
+    if (st != ARM_CMSIS_NN_SUCCESS) {
+      continue;
+    }
+    const FNN_Pool l = {{ih, iw, c}, {oh, ow, c}, kh, kw, s, s, pt, pl, lo, hi};
+    if (fnn_pool_check(&l) != FNN_OK) {
+      bad++;
+      continue;
+    }
+    if (avg) {
+      fnn_avgpool_s8(&l, x, y);
+    } else {
+      fnn_maxpool_s8(&l, x, y);
+    }
+    for (uint32_t i = 0U; i < oh * ow * c; i++) {
+      bad += y[i] != want[i];
+    }
+    *outputs += oh * ow * c;
+  }
+  return bad;
+}
+
 /* Compares softmax at an input scale of 1/16, with TFLite's parameters. */
 static unsigned long softmax_cases(unsigned long *outputs) {
   static uint32_t tab[256];
@@ -288,5 +348,11 @@ int main(void) {
   printf("depthwise:       %lu of %lu outputs differ from CMSIS-NN\n", bw, nw);
   unsigned long ns = 0U, ds = softmax_cases(&ns);
   printf("softmax:         %lu of %lu outputs differ from CMSIS-NN\n", ds, ns);
-  return bd == 0U && bc == 0U && bw == 0U && ds == 0U ? 0 : 1;
+  unsigned long nm = 0U, bm = pool_cases(0, &nm);
+  printf("max pool:        %lu of %lu outputs differ from CMSIS-NN\n", bm, nm);
+  unsigned long na = 0U, ba = pool_cases(1, &na);
+  printf("average pool:    %lu of %lu outputs differ from CMSIS-NN\n", ba, na);
+  return bd == 0U && bc == 0U && bw == 0U && ds == 0U && bm == 0U && ba == 0U
+             ? 0
+             : 1;
 }
