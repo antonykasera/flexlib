@@ -394,6 +394,75 @@ def case_concat(libs, shapes, axis, seed, runs=10):
     return name, runs * out.size, bad
 
 
+# The reference models made only of fully connected layers: (inputs, outputs,
+# fused activation) per layer, and whether a softmax ends the model.
+MODELS = (
+    ("R0, XOR MLP 2 -> 4 -> 1", ((2, 4, RELU), (4, 1, 0)), False),
+    ("R1, MLP 64 -> 32 -> 16 -> 4, softmax",
+     ((64, 32, RELU), (32, 16, RELU), (16, 4, 0)), True),
+    ("R4, autoencoder 64 -> 32 -> 8 -> 32 -> 64",
+     ((64, 32, RELU), (32, 8, RELU), (8, 32, RELU), (32, 64, 0)), False),
+)
+
+
+def case_model(libs, name, layers, softmax, seed, runs=500):
+    """A whole model in the interpreter against flexnn's layers chained by hand,
+    each layer's output the next one's input."""
+    rng = np.random.default_rng(seed)
+    f32 = np.float32
+    m = tfl.Model()
+    s_x, z_x = 0.05, int(rng.integers(-128, 128))
+    x = m.tensor("x", [1, layers[0][0]], tfl.INT8, scale=s_x, zp=z_x)
+    cur, plan = x, []
+    for i, (n_in, n_out, act) in enumerate(layers):
+        s_w = float(rng.uniform(0.002, 0.01))
+        # an output scale that spreads the sums over most of int8
+        s_y = s_x * s_w * 127.0 * math.sqrt(n_in) / 3.0
+        z_y = -128 if act == RELU else int(rng.integers(-128, 128))
+        w = rng.integers(-127, 128, (n_out, n_in), dtype=np.int8)
+        bias = rng.integers(-2000, 2000, n_out, dtype=np.int32)
+        wt = m.tensor(f"w{i}", [n_out, n_in], tfl.INT8, scale=s_w, zp=0, data=w)
+        b = m.tensor(f"b{i}", [n_out], tfl.INT32,
+                     scale=float(f32(s_x) * f32(s_w)), zp=0, data=bias)
+        y = m.tensor(f"y{i}", [1, n_out], tfl.INT8, scale=s_y, zp=z_y)
+        m.op("FULLY_CONNECTED", [cur, wt, b], [y], FusedActivationFunction=act)
+        eff = float(f32(s_x) * f32(s_w)) / float(f32(s_y))
+        plan.append((np.ascontiguousarray(w), bias, z_x, eff, z_y)
+                    + act_range(act, s_y, z_y))
+        cur, s_x, z_x = y, s_y, z_y
+    if softmax:
+        out_t = m.tensor("p", [1, layers[-1][1]], tfl.INT8, scale=1.0 / 256.0, zp=-128)
+        m.op("SOFTMAX", [cur], [out_t], Beta=1.0)
+        cur = out_t
+    xs = [rng.integers(-128, 128, (1, layers[0][0]), dtype=np.int8)
+          for _ in range(runs)]
+    got = tfl.run_reference(m.build(inputs=[x], outputs=[cur]), xs)
+    tab = np.zeros(256, np.uint32)
+    bad = []
+    for lib in libs:
+        if softmax:
+            assert lib.fnn_softmax_s8_build(1.0, float(f32(s_x)), tab.ctypes.data) == 0
+        wrong = 0
+        for k, (xv, ref) in enumerate(zip(xs, got)):
+            a = np.ascontiguousarray(xv[0])
+            for w, bias, zx, eff, zy, lo, hi in plan:
+                n_out, n_in = w.shape
+                out = np.zeros(n_out, np.int8)
+                packed = np.zeros(n_in * n_out, np.int8)
+                bf = np.zeros(n_out, np.int32)
+                lib.shim_dense_s8(a.ctypes.data, w.ctypes.data, packed.ctypes.data,
+                                  n_in, n_out, bias.ctypes.data, zx, eff, zy, lo, hi,
+                                  k % 2, bf.ctypes.data, out.ctypes.data)
+                a = out
+            if softmax:
+                p = np.zeros(a.size, np.int8)
+                lib.fnn_softmax_s8(a.ctypes.data, p.ctypes.data, a.size, tab.ctypes.data)
+                a = p
+            wrong += int(np.count_nonzero(a != ref[0]))
+        bad.append(wrong)
+    return name, runs * layers[-1][1], bad
+
+
 def case_table(lib, op, s_in, zx, s_out, zy, f, seed, **options):
     """A one-input operator, as an exact table and as one read back from TFLite."""
     m = tfl.Model()
@@ -592,9 +661,14 @@ def main():
         name, n, bad = case_concat(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
         failed |= any(bad)
+    for i, c in enumerate(MODELS):
+        name, n, bad = case_model(libs, *c, 90 + i)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= bad[AWAY] != 0
     print("\nmismatches per rounding mode: fully connected layers must match"
-          "\nFNN_ROUND_AWAY, convolutions, means and adds FNN_ROUND_GEMMLOWP, the"
-          "\ninterpreter's rules; pools and concatenations must match in every mode\n")
+          "\nFNN_ROUND_AWAY, as must the models built from them; convolutions, means"
+          "\nand adds FNN_ROUND_GEMMLOWP, the interpreter's rules; pools and"
+          "\nconcatenations must match in every mode\n")
 
     tables = [
         ("LOGISTIC", 1.0 / 16.0, 0, 1.0 / 256.0, -128, logistic, 5),
