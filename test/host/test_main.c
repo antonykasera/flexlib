@@ -283,6 +283,11 @@ void test_fnn_quantize_f32(void);
 void test_fnn_dequantize_q15(void);
 void test_fnn_dequantize_f32(void);
 
+/* --- fnn_conv (test_fnn_conv.c) --- */
+void test_fnn_conv_random(void);
+void test_fnn_conv_shapes(void);
+void test_fnn_conv_check(void);
+
 int main(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     if (sscanf(argv[i], "--shard=%u/%u", &test_shard, &test_shards) == 2) {
@@ -495,6 +500,9 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fnn_quantize_f32);
   TEST_RUN(test_fnn_dequantize_q15);
   TEST_RUN(test_fnn_dequantize_f32);
+  TEST_RUN(test_fnn_conv_random);
+  TEST_RUN(test_fnn_conv_shapes);
+  TEST_RUN(test_fnn_conv_check);
 
   return TEST_SUMMARY();
 }

@@ -23,10 +23,11 @@
 /** Round once, ties up. The default, and what CMSIS-NN does when built with
  * `CMSIS_NN_USE_SINGLE_ROUNDING`. */
 #define FNN_ROUND_UP 0
-/** Round once, ties away from zero, as the TFLite reference kernels do. */
+/** Round once, ties away from zero, as the TFLite interpreter's reference
+ * fully connected kernel does. */
 #define FNN_ROUND_AWAY 1
-/** Round twice, the way gemmlowp does: CMSIS-NN's default build and TFLite
- * Micro on Cortex-M. */
+/** Round twice, the way gemmlowp does: CMSIS-NN's default build, TFLite Micro
+ * on Cortex-M, and the TFLite interpreter's reference convolution. */
 #define FNN_ROUND_GEMMLOWP 2
 /** @} */
 
@@ -59,5 +60,12 @@ typedef struct {
   int32_t lo; /**< smallest output, $[-128, hi]$ */
   int32_t hi; /**< largest output, $[lo, 127]$ */
 } FNN_Out;
+
+/** A tensor's height, width and channels, stored height-major (NHWC). */
+typedef struct {
+  uint32_t h; /**< rows */
+  uint32_t w; /**< columns */
+  uint32_t c; /**< channels */
+} FNN_Shape;
 
 #endif /* FNN_TYPES_H */

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `fnn_conv_s8`, `fnn_conv_check`: convolution in TFLite's NHWC layout with its filter order, any filter size, stride and padding, 1 x 1 and conv1d windows read in place. Packed, it takes 12 to 18% fewer cycles than CMSIS-NN on the Cortex-M3.
+- The rounding modes' documentation now says which TFLite reference kernel each matches: the interpreter's fully connected layer rounds like `FNN_ROUND_AWAY`, its convolution like `FNN_ROUND_GEMMLOWP`.
 - `fnn_quantize_q15_s8`, `fnn_quantize_q31_s8`, `fnn_quantize_f32_s8`, `fnn_dequantize_s8_q15`, `fnn_dequantize_s8_f32`: a model's inputs and outputs in and out of int8, each value rounded once. Float input takes 41 cycles a value on the Cortex-M3, against 204 for `roundf(x / s)` in soft float.
 - `fnn_softmax_s8`, `fnn_argmax_s8`: softmax in TFLite's int8 format, every output rounded once from a 1 KB table of exponentials that `fnn_softmax_s8_build` fills; 602 cycles for 12 scores on the Cortex-M3 against CMSIS-NN's 8159. Argmax picks the first of equal scores, as TFLite does.
 - `fnn_lut_s8`: any int8 activation function as a 256-entry table, 3.4 cycles per value on the Cortex-M3. `fnn_lut_s8_build` fills a table from a C function such as `tanh`, every entry the exact value rounded once.

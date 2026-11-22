@@ -64,6 +64,38 @@ void ref_fully_connected(const int8_t *x, uint32_t n_in, const int8_t *w,
   }
 }
 
+void ref_conv2d(const int8_t *x, uint32_t ih, uint32_t iw, uint32_t ic,
+                const int8_t *w, uint32_t kh, uint32_t kw, uint32_t sh,
+                uint32_t sw, uint32_t pt, uint32_t pl, uint32_t oh, uint32_t ow,
+                uint32_t oc, const int32_t *b, int32_t zx, const int32_t *mult,
+                const int32_t *shift, int per_channel, int32_t zy, int32_t lo,
+                int32_t hi, RefRound mode, int8_t *y) {
+  for (uint32_t oy = 0U; oy < oh; oy++) {
+    for (uint32_t ox = 0U; ox < ow; ox++) {
+      for (uint32_t o = 0U; o < oc; o++) {
+        int64_t acc = b != NULL ? b[o] : 0;
+        for (uint32_t ky = 0U; ky < kh; ky++) {
+          for (uint32_t kx = 0U; kx < kw; kx++) {
+            int64_t iy = (int64_t)(oy * sh + ky) - pt;
+            int64_t ix = (int64_t)(ox * sw + kx) - pl;
+            if (iy < 0 || ix < 0 || iy >= ih || ix >= iw) {
+              continue;
+            }
+            for (uint32_t c = 0U; c < ic; c++) {
+              int64_t xv = x[((uint64_t)iy * iw + (uint64_t)ix) * ic + c];
+              acc += (xv - zx) * w[((o * kh + ky) * kw + kx) * ic + c];
+            }
+          }
+        }
+        uint32_t q = per_channel ? o : 0U;
+        int64_t v =
+            (int64_t)ref_requant((int32_t)acc, mult[q], shift[q], mode) + zy;
+        y[(oy * ow + ox) * oc + o] = (int8_t)(v < lo ? lo : (v > hi ? hi : v));
+      }
+    }
+  }
+}
+
 void ref_quantize_multiplier(double scale, int32_t *mult, int32_t *shift) {
   if (scale == 0.0) {
     *mult = 0;

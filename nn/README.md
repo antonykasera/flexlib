@@ -6,9 +6,10 @@
 flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It is in development and not part
-of a release yet. What is here so far: fully connected layers, activation
-functions as tables, softmax and argmax, conversions in and out of int8, and
-the step every layer ends with, turning its int32 sums into int8 outputs.
+of a release yet. What is here so far: fully connected and convolution
+layers, activation functions as tables, softmax and argmax, conversions in and
+out of int8, and the step every layer ends with, turning its int32 sums into
+int8 outputs.
 
 ## Fully connected layers (`fnn_dense.h`)
 
@@ -74,6 +75,85 @@ Cycles on an STM32F103 at 72 MHz (`-O2`, weights in flash), against CMSIS-NN
 That is 5.1 cycles per multiply-accumulate packed, against CMSIS-NN's 7.6. On
 the Cortex-M3 the multiply-accumulate itself takes 2 of those cycles, and
 splitting four weights out of a word takes one more per weight.
+
+## Convolution (`fnn_conv.h`)
+
+A convolution slides a small filter over an image or a signal, and each output
+pixel is a fully connected layer over the patch under the filter. Here a 3 x 3
+filter that responds to vertical edges runs over a 4 x 4 image with SAME
+padding, which keeps the output the size of the input:
+
+```c
+#include <stdio.h>
+
+#include "fnn_conv.h"
+#include "fnn_dense.h"
+#include "fnn_quant.h"
+
+int main(void) {
+  /* a 4 x 4 image, one channel, and a 3 x 3 filter that finds vertical edges */
+  static const int8_t img[4 * 4] = {0, 0, 9, 9, 0, 0, 9, 9,
+                                    0, 0, 9, 9, 0, 0, 9, 9};
+  static const int8_t w[1 * 3 * 3 * 1] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
+  int32_t bias[1], mult;
+  int8_t rsh;
+  fnn_fold_bias_s8(w, 9U, 1U, NULL, 0, bias);
+  if (fnn_quant_from_scale(1.0 / 4.0, &mult, &rsh) != FNN_OK) {
+    return 1;
+  }
+  /* SAME padding: one row above and one column to the left */
+  const FNN_Conv layer = {w,  bias, {4U, 4U, 1U}, {4U, 4U, 1U}, 3U, 3U,
+                          1U, 1U,   1U,           1U,           0U, 0,
+                          {&mult, &rsh, 1U},      {0, -128, 127}};
+  if (fnn_conv_check(&layer) != FNN_OK) {
+    return 1;
+  }
+  int8_t scratch[FNN_CONV_SCRATCH(3, 3, 1)], out[4 * 4];
+  fnn_conv_s8(&layer, img, out, scratch);
+  for (int r = 0; r < 4; r++) {
+    printf("%3d %3d %3d %3d\n", out[4 * r], out[4 * r + 1], out[4 * r + 2],
+           out[4 * r + 3]);
+  }
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+  0   7   7  -7
+  0   9   9  -9
+  0   9   9  -9
+  0   7   7  -7
+```
+
+In the middle rows each window sees 0, 0 and 9 across, which the filter sums
+to 9 + 2 x 9 + 9 = 36, and 36 / 4 = 9. At the top the window overhangs the image
+and the padding row adds nothing: 27 / 4 = 6.75 rounds to 7. On the right the
+padding column reads as 0 and the sum turns negative.
+
+Tensors are NHWC, as in TFLite, and the filter keeps TFLite's
+`[c_out][kh][kw][c_in]` order. That is a dense layer's rows of kh kw c_in
+inputs, which is why `fnn_fold_bias_s8` takes it as it is, and why
+`fnn_dense_pack_s8` packs it for the same faster kernel. Padded taps read the
+input zero point, and with the folded bias they add exactly nothing, as in
+TFLite. The kernel copies a window into the scratch only where it overhangs the
+input or spans more than one run of memory: a 1 x 1 filter, or a 1-row filter
+over a signal, reads the input in place. `fnn_conv_check` tells you whether a
+layer's shapes, strides and padding fit together.
+
+Cycles on an STM32F103 at 72 MHz (`-O2`, weights in the flash cache), against
+CMSIS-NN 8.0.0 built the same way, with a multiplier per output channel:
+
+| layer | flexnn, packed | flexnn, rows | CMSIS-NN |
+| --- | --: | --: | --: |
+| 1 x 1, 64 -> 64 channels, 5 x 5 | 519941 | 649601 | 591662 |
+| 3 x 3, 8 -> 16 channels, 12 x 12, SAME | 970973 | 1179952 | 1135991 |
+| 5 taps, 16 -> 32 channels, 64 long | 802694 | 1007647 | 979578 |
+
+Packed, that is 4.9 to 5.9 cycles per multiply-accumulate, 12 to 18% fewer
+cycles than CMSIS-NN. In TFLite's order the filter takes 3 to 10% more than
+CMSIS-NN: pack it when you can.
 
 ## Activation functions (`fnn_lut.h`)
 
@@ -322,15 +402,17 @@ in some outputs. You pick one for the whole build with `FNN_ROUNDING`:
 | `FNN_ROUNDING` | rounding | matches |
 | --- | --- | --- |
 | `FNN_ROUND_UP` (default) | once, ties up | CMSIS-NN built with `CMSIS_NN_USE_SINGLE_ROUNDING` |
-| `FNN_ROUND_AWAY` | once, ties away from zero | the TFLite (LiteRT) interpreter's reference kernels |
-| `FNN_ROUND_GEMMLOWP` | twice (gemmlowp) | CMSIS-NN's default build, TFLite Micro on Cortex-M |
+| `FNN_ROUND_AWAY` | once, ties away from zero | the TFLite (LiteRT) interpreter's reference fully connected layer |
+| `FNN_ROUND_GEMMLOWP` | twice (gemmlowp) | CMSIS-NN's default build, TFLite Micro on Cortex-M, the interpreter's reference convolution |
 
 In the example only -384 changes: `FNN_ROUND_AWAY` and `FNN_ROUND_GEMMLOWP`
 give -12. Rounding once from the exact product is the flexlib rule and the
-default. Use `FNN_ROUND_AWAY` when you check the board's outputs against the
-TFLite interpreter on your PC. Its optimised kernels, which it uses unless you
-ask for the reference ones, round differently again (half to even, through
-float). Compare against the reference kernels.
+default. To check the board's outputs against the TFLite interpreter on your
+PC, compare against its reference kernels, and note that they do not agree
+with each other: its fully connected layer rounds like `FNN_ROUND_AWAY`, its
+convolution and its QUANTIZE from int16 like `FNN_ROUND_GEMMLOWP`. Its
+optimised kernels, which it uses unless you ask for the reference ones, round
+differently again (half to even, through float).
 
 Every input gives a defined result. Where TFLite's arithmetic would overflow
 int32 (scales of 1/2 and above with large sums), flexnn saturates.
@@ -343,6 +425,15 @@ random layers of 0 to 256 inputs and 1 to 70 outputs, weights and inputs at
 their extremes, per-tensor and per-channel scales, fused clamps, and a folded
 bias that wraps past int32 while the true sum fits. Four layers, up to 256
 inputs and 70 outputs, against the TFLite interpreter, bit for bit.
+
+Convolutions against a reference written in TFLite's terms, which subtracts
+the zero point per tap and skips the taps outside the input: 3000 random layers
+with filters up to 5 x 5, strides 1 and 2, VALID and SAME padding, 1 to 16
+input and 1 to 17 output channels, in both layouts and every rounding mode,
+plus the bench's layers and a 10 x 4 filter. Against the TFLite interpreter,
+five layers including a stride-2 SAME layer and a filter larger than its
+input, bit for bit in `FNN_ROUND_GEMMLOWP`, the interpreter's rule for
+convolution.
 
 Activation tables: every entry of tanh, logistic, hard-swish, exp and
 exact-tie tables within half a step of the exact value, ties up, with clamping
