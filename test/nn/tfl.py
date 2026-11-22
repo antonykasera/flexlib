@@ -50,6 +50,8 @@ OPTIONS = {
     "ADD": ("AddOptions", "AddOptions", 2, {"FusedActivationFunction": 0}),
     "CONCATENATION": ("ConcatenationOptions", "ConcatenationOptions", 2,
                       {"Axis": 0, "FusedActivationFunction": 0}),
+    "RESHAPE": (None, None, 1, {}),
+    "TRANSPOSE": (None, None, 1, {}),
     "QUANTIZE": (None, None, 2, {}),
     "DEQUANTIZE": (None, None, 2, {}),
 }

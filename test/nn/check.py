@@ -10,6 +10,9 @@ import numpy as np
 
 import tfl
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "nn" / "tools"))
+import fnn_tflite  # noqa: E402
+
 MODES = ("FNN_ROUND_UP", "FNN_ROUND_AWAY", "FNN_ROUND_GEMMLOWP")
 AWAY, GEMMLOWP = 1, 2
 RELU, RELU6 = 1, 3
@@ -405,10 +408,9 @@ MODELS = (
 )
 
 
-def case_model(libs, name, layers, softmax, seed, runs=500):
-    """A whole model in the interpreter against flexnn's layers chained by hand,
-    each layer's output the next one's input."""
-    rng = np.random.default_rng(seed)
+def build_model(layers, softmax, rng):
+    """Writes a model of fully connected layers, and returns it with what the
+    hand-built chain needs for each layer and the last layer's output scale."""
     f32 = np.float32
     m = tfl.Model()
     s_x, z_x = 0.05, int(rng.integers(-128, 128))
@@ -434,9 +436,18 @@ def case_model(libs, name, layers, softmax, seed, runs=500):
         out_t = m.tensor("p", [1, layers[-1][1]], tfl.INT8, scale=1.0 / 256.0, zp=-128)
         m.op("SOFTMAX", [cur], [out_t], Beta=1.0)
         cur = out_t
+    return m.build(inputs=[x], outputs=[cur]), plan, s_x
+
+
+def case_model(libs, name, layers, softmax, seed, runs=500):
+    """A whole model in the interpreter against flexnn's layers chained by hand,
+    each layer's output the next one's input."""
+    rng = np.random.default_rng(seed)
+    f32 = np.float32
+    blob, plan, s_x = build_model(layers, softmax, rng)
     xs = [rng.integers(-128, 128, (1, layers[0][0]), dtype=np.int8)
           for _ in range(runs)]
-    got = tfl.run_reference(m.build(inputs=[x], outputs=[cur]), xs)
+    got = tfl.run_reference(blob, xs)
     tab = np.zeros(256, np.uint32)
     bad = []
     for lib in libs:
@@ -461,6 +472,123 @@ def case_model(libs, name, layers, softmax, seed, runs=500):
             wrong += int(np.count_nonzero(a != ref[0]))
         bad.append(wrong)
     return name, runs * layers[-1][1], bad
+
+
+def case_converted(name, layers, softmax, seed, out_dir, runs=500):
+    """The same model through fnn_tflite: the generated C, built in each
+    rounding mode, against the interpreter."""
+    blob, _, _ = build_model(layers, softmax, np.random.default_rng(seed))
+    path = Path(out_dir) / f"r{seed}.tflite"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(blob)
+    cname, _ = fnn_tflite.convert(path, out_dir)
+    bad = [fnn_tflite.check(path, out_dir, cname, mode, runs=runs, seed=seed)[1]
+           for mode in ("up", "away", "gemmlowp")]
+    return name + ", converted", runs * layers[-1][1], bad
+
+
+def case_reshape(out_dir, runs=500):
+    """RESHAPE on both sides of a fully connected layer, as exporters write it:
+    the converter turns each into an alias of the same bytes."""
+    rng = np.random.default_rng(97)
+    m = tfl.Model()
+    x = m.tensor("x", [1, 4, 16], tfl.INT8, scale=0.05, zp=-3)
+    s1 = m.tensor("s1", [2], tfl.INT32, data=[1, 64])
+    flat = m.tensor("flat", [1, 64], tfl.INT8, scale=0.05, zp=-3)
+    w = m.tensor("w", [8, 64], tfl.INT8, scale=0.004, zp=0,
+                 data=rng.integers(-127, 128, (8, 64), dtype=np.int8))
+    b = m.tensor("b", [8], tfl.INT32, scale=float(np.float32(0.05) * np.float32(0.004)),
+                 zp=0, data=rng.integers(-2000, 2000, 8, dtype=np.int32))
+    h = m.tensor("h", [1, 8], tfl.INT8, scale=0.02, zp=-128)
+    s2 = m.tensor("s2", [3], tfl.INT32, data=[1, 2, 4])
+    y = m.tensor("y", [1, 2, 4], tfl.INT8, scale=0.02, zp=-128)
+    m.op("RESHAPE", [x, s1], [flat])
+    m.op("FULLY_CONNECTED", [flat, w, b], [h], FusedActivationFunction=RELU)
+    m.op("RESHAPE", [h, s2], [y])
+    path = Path(out_dir) / "reshape.tflite"
+    path.write_bytes(m.build(inputs=[x], outputs=[y]))
+    cname, _ = fnn_tflite.convert(path, out_dir)
+    bad = [fnn_tflite.check(path, out_dir, cname, mode, runs=runs, seed=97)[1]
+           for mode in ("up", "away", "gemmlowp")]
+    return "reshape -> fully connected 64 -> 8 -> reshape, converted", runs * 8, bad
+
+
+def case_exported(path, out_dir, runs=500):
+    """A model TensorFlow's converter wrote, through fnn_tflite."""
+    cname, _ = fnn_tflite.convert(path, out_dir)
+    n = 0
+    bad = []
+    for mode in ("up", "away", "gemmlowp"):
+        n, b = fnn_tflite.check(path, out_dir, cname, mode, runs=runs, seed=98)
+        bad.append(b)
+    return f"{Path(path).name}, exported by TensorFlow, converted", n, bad
+
+
+def case_converter_arith(lib, seed=99):
+    """The converter's arithmetic against flexnn's own: multipliers against
+    fnn_quant_from_scale(), softmax tables against fnn_softmax_s8_build(), and
+    clamps against act_range(). Returns the number compared and differing."""
+    rng = np.random.default_rng(seed)
+    scales = list(rng.uniform(0.0, 1.0, 50000) * 2.0 ** rng.integers(-40, 40, 50000))
+    scales += [2.0 ** e for e in range(-40, 40)] + [0.0, 1.0 - 2.0 ** -53, 0.5]
+    n = bad = 0
+    mult, rsh = ctypes.c_int32(), ctypes.c_int8()
+    for sc in scales:
+        lib.fnn_quant_from_scale(float(sc), ctypes.byref(mult), ctypes.byref(rsh))
+        n += 1
+        bad += fnn_tflite.quantize_multiplier(float(sc)) != (mult.value, rsh.value)
+    tab = np.zeros(256, np.uint32)
+    for _ in range(200):
+        beta, s_x = float(rng.uniform(0.1, 3.0)), float(rng.uniform(0.001, 0.5))
+        lib.fnn_softmax_s8_build(beta, s_x, tab.ctypes.data)
+        n += 1
+        bad += fnn_tflite.lower_softmax_table(beta * s_x) != [int(v) for v in tab]
+    for _ in range(5000):
+        act = int(rng.choice([0, RELU, 2, RELU6]))
+        sc, zp = float(np.float32(rng.uniform(0.001, 0.2))), int(rng.integers(-128, 128))
+        n += 1
+        if act == 2:
+            q = lambda f: zp + tfl_round(float(np.float32(f) / np.float32(sc)))
+            want = (max(-128, q(-1.0)), min(127, q(1.0)))
+        else:
+            want = act_range(act, sc, zp)
+        bad += fnn_tflite.act_range(act, sc, zp) != want
+    return n, bad
+
+
+def case_convert_errors(out_dir):
+    """Models the converter must refuse, and the words its message must hold."""
+    cases = []
+    m = tfl.Model()
+    x = m.tensor("x", [2, 3], tfl.INT8, scale=0.1, zp=0)
+    perm = m.tensor("perm", [2], tfl.INT32, data=[1, 0])
+    y = m.tensor("y", [3, 2], tfl.INT8, scale=0.1, zp=0)
+    m.op("TRANSPOSE", [x, perm], [y])
+    cases.append(("transpose", m.build(inputs=[x], outputs=[y]),
+                  "op 0 (TRANSPOSE) is not supported"))
+    m = tfl.Model()
+    x = m.tensor("x", [1, 4], tfl.FLOAT32)
+    y = m.tensor("y", [1, 4], tfl.INT8, scale=0.1, zp=0)
+    m.op("QUANTIZE", [x], [y])
+    cases.append(("float input", m.build(inputs=[x], outputs=[y]),
+                  "input 'x' is FLOAT32"))
+    m = tfl.Model()
+    x = m.tensor("x", [1, 4], tfl.INT8, scale=0.1, zp=0)
+    y = m.tensor("y", [1, 4], tfl.INT8, scale=0.1, zp=0)
+    m.op("SOFTMAX", [x], [y], Beta=1.0)
+    cases.append(("softmax output scale", m.build(inputs=[x], outputs=[y]),
+                  "scale of 1/256"))
+    wrong = []
+    for name, blob, words in cases:
+        path = Path(out_dir) / "refused.tflite"
+        path.write_bytes(blob)
+        try:
+            fnn_tflite.convert(path, out_dir)
+            wrong.append(f"{name}: converted")
+        except fnn_tflite.ConvertError as e:
+            if words not in str(e):
+                wrong.append(f"{name}: {e}")
+    return len(cases), wrong
 
 
 def case_table(lib, op, s_in, zx, s_out, zy, f, seed, **options):
@@ -665,6 +793,26 @@ def main():
         name, n, bad = case_model(libs, *c, 90 + i)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
         failed |= bad[AWAY] != 0
+        name, n, bad = case_converted(*c, 90 + i, Path(sys.argv[1] if len(sys.argv) > 1
+                                                       else "build/nn-check") / "models")
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= bad[AWAY] != 0
+    models = Path(sys.argv[1] if len(sys.argv) > 1 else "build/nn-check") / "models"
+    name, n, bad = case_reshape(models)
+    print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+    failed |= bad[AWAY] != 0
+    for path in sorted((Path(__file__).parent / "models").glob("*.tflite")):
+        name, n, bad = case_exported(path, models)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= bad[AWAY] != 0
+    n, bad = case_converter_arith(libs[AWAY])
+    print(f"{'converter multipliers, softmax tables and clamps':58} {n:8}  {bad:8} differ")
+    failed |= bad != 0
+    n, wrong = case_convert_errors(models)
+    print(f"{'models the converter must refuse':58} {n:8}  {len(wrong):8} converted or wrongly worded")
+    for w in wrong:
+        print("  " + w)
+    failed |= bool(wrong)
     print("\nmismatches per rounding mode: fully connected layers must match"
           "\nFNN_ROUND_AWAY, as must the models built from them; convolutions, means"
           "\nand adds FNN_ROUND_GEMMLOWP, the interpreter's rules; pools and"
