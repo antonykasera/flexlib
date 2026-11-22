@@ -40,9 +40,10 @@ int8_t shim_requant_s8(int32_t acc, int32_t mult, int32_t rsh, int32_t zp,
 
 int32_t shim_rounding(void) { return FNN_ROUNDING; }
 
+/* check.py runs its one-input fully connected layers through this. */
 int8_t shim_requant_s8(int32_t acc, int32_t mult, int32_t rsh, int32_t zp,
                        int32_t lo, int32_t hi) {
-  return fnn_clamp_s8(fnn_requant(acc, mult, rsh), zp, lo, hi);
+  return fnn_clamp_s8(fnn_requant_as(acc, mult, rsh, FNN_RULE_FC), zp, lo, hi);
 }
 
 void shim_dense_s8(const int8_t *x, const int8_t *w, int8_t *packed,

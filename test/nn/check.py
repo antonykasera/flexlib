@@ -13,8 +13,8 @@ import tfl
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "nn" / "tools"))
 import fnn_tflite  # noqa: E402
 
-MODES = ("FNN_ROUND_UP", "FNN_ROUND_AWAY", "FNN_ROUND_GEMMLOWP")
-AWAY, GEMMLOWP = 1, 2
+MODES = ("FNN_ROUND_UP", "FNN_ROUND_AWAY", "FNN_ROUND_GEMMLOWP", "FNN_ROUND_TFLITE")
+AWAY, GEMMLOWP, TFLITE = 1, 2, 3
 RELU, RELU6 = 1, 3
 UNARY = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double)
 
@@ -397,8 +397,8 @@ def case_concat(libs, shapes, axis, seed, runs=10):
     return name, runs * out.size, bad
 
 
-# The reference models made only of fully connected layers: (inputs, outputs,
-# fused activation) per layer, and whether a softmax ends the model.
+# The reference models made of fully connected layers. Each layer gives its
+# inputs, outputs and fused activation, and the flag adds a softmax at the end.
 MODELS = (
     ("R0, XOR MLP 2 -> 4 -> 1", ((2, 4, RELU), (4, 1, 0)), False),
     ("R1, MLP 64 -> 32 -> 16 -> 4, softmax",
@@ -483,13 +483,13 @@ def case_converted(name, layers, softmax, seed, out_dir, runs=500):
     path.write_bytes(blob)
     cname, _ = fnn_tflite.convert(path, out_dir)
     bad = [fnn_tflite.check(path, out_dir, cname, mode, runs=runs, seed=seed)[1]
-           for mode in ("up", "away", "gemmlowp")]
+           for mode in ("up", "away", "gemmlowp", "tflite")]
     return name + ", converted", runs * layers[-1][1], bad
 
 
 def case_reshape(out_dir, runs=500):
-    """RESHAPE on both sides of a fully connected layer, as exporters write it:
-    the converter turns each into an alias of the same bytes."""
+    """RESHAPE on both sides of a fully connected layer, as exporters write it,
+    which the converter must turn into aliases of the same bytes."""
     rng = np.random.default_rng(97)
     m = tfl.Model()
     x = m.tensor("x", [1, 4, 16], tfl.INT8, scale=0.05, zp=-3)
@@ -509,7 +509,7 @@ def case_reshape(out_dir, runs=500):
     path.write_bytes(m.build(inputs=[x], outputs=[y]))
     cname, _ = fnn_tflite.convert(path, out_dir)
     bad = [fnn_tflite.check(path, out_dir, cname, mode, runs=runs, seed=97)[1]
-           for mode in ("up", "away", "gemmlowp")]
+           for mode in ("up", "away", "gemmlowp", "tflite")]
     return "reshape -> fully connected 64 -> 8 -> reshape, converted", runs * 8, bad
 
 
@@ -518,16 +518,16 @@ def case_exported(path, out_dir, runs=500):
     cname, _ = fnn_tflite.convert(path, out_dir)
     n = 0
     bad = []
-    for mode in ("up", "away", "gemmlowp"):
+    for mode in ("up", "away", "gemmlowp", "tflite"):
         n, b = fnn_tflite.check(path, out_dir, cname, mode, runs=runs, seed=98)
         bad.append(b)
     return f"{Path(path).name}, exported by TensorFlow, converted", n, bad
 
 
 def case_converter_arith(lib, seed=99):
-    """The converter's arithmetic against flexnn's own: multipliers against
-    fnn_quant_from_scale(), softmax tables against fnn_softmax_s8_build(), and
-    clamps against act_range(). Returns the number compared and differing."""
+    """Compares the converter's multipliers with fnn_quant_from_scale(), its
+    softmax tables with fnn_softmax_s8_build() and its clamps with act_range(),
+    and returns how many it compared and how many differ."""
     rng = np.random.default_rng(seed)
     scales = list(rng.uniform(0.0, 1.0, 50000) * 2.0 ** rng.integers(-40, 40, 50000))
     scales += [2.0 ** e for e in range(-40, 40)] + [0.0, 1.0 - 2.0 ** -53, 0.5]
@@ -739,11 +739,11 @@ def main():
     for c in cases:
         name, n, bad = case_fc_requant(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[AWAY] != 0
+        failed |= bad[AWAY] != 0 or bad[TFLITE] != 0
     for c in ((256, 64, 0, 1), (64, 12, RELU, 2), (17, 13, RELU6, 3), (1, 70, 0, 4)):
         name, n, bad = case_dense(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[AWAY] != 0
+        failed |= bad[AWAY] != 0 or bad[TFLITE] != 0
     for c in ((5, 5, 64, 64, 1, 1, 1, 0, 0, True, 31),
               (12, 12, 8, 16, 3, 3, 1, 1, RELU, True, 32),
               (1, 68, 16, 32, 1, 5, 1, 0, 0, False, 33),
@@ -751,14 +751,14 @@ def main():
               (3, 3, 2, 3, 5, 5, 1, 1, 0, False, 35)):
         name, n, bad = case_conv(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[GEMMLOWP] != 0
+        failed |= bad[GEMMLOWP] != 0 or bad[TFLITE] != 0
     for c in ((5, 5, 64, 1, 3, 3, 1, 1, 0, True, 41),
               (12, 12, 16, 1, 3, 3, 2, 1, RELU6, True, 42),
               (6, 6, 5, 3, 3, 3, 1, 0, RELU, True, 43),
               (1, 40, 8, 1, 1, 9, 1, 1, 0, False, 44)):
         name, n, bad = case_dwconv(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[GEMMLOWP] != 0
+        failed |= bad[GEMMLOWP] != 0 or bad[TFLITE] != 0
     for c in (("MAX_POOL_2D", 16, 16, 16, 2, 2, 2, False, 0, 51),
               ("MAX_POOL_2D", 7, 9, 5, 3, 3, 2, True, RELU, 52),
               ("MAX_POOL_2D", 6, 6, 8, 3, 3, 1, True, RELU6, 53),
@@ -775,13 +775,13 @@ def main():
               (20, 20, 8, 0.05, 0.05, 65)):
         name, n, bad = case_mean(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[GEMMLOWP] != 0
+        failed |= bad[GEMMLOWP] != 0 or bad[TFLITE] != 0
     for c in (([1, 32], 0.05, 0.05, 0.05, 0, 71), ([1, 4, 4, 16], 0.1, 0.03, 0.12, 0, 72),
               ([1, 8, 8, 8], 0.02, 0.5, 0.4, RELU, 73), ([1, 64], 0.25, 0.125, 1.0, 0, 74),
               ([1, 6, 6, 4], 0.07, 0.07, 0.05, RELU6, 75)):
         name, n, bad = case_add(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[GEMMLOWP] != 0
+        failed |= bad[GEMMLOWP] != 0 or bad[TFLITE] != 0
     for c in (([[1, 4, 4, 8], [1, 4, 4, 16]], 3, 81),
               ([[1, 2, 5, 3], [1, 2, 5, 1], [1, 2, 5, 6]], 3, 82),
               ([[1, 3, 4, 8], [1, 5, 4, 8]], 1, 83),
@@ -792,19 +792,19 @@ def main():
     for i, c in enumerate(MODELS):
         name, n, bad = case_model(libs, *c, 90 + i)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[AWAY] != 0
+        failed |= bad[AWAY] != 0 or bad[TFLITE] != 0
         name, n, bad = case_converted(*c, 90 + i, Path(sys.argv[1] if len(sys.argv) > 1
                                                        else "build/nn-check") / "models")
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[AWAY] != 0
+        failed |= bad[AWAY] != 0 or bad[TFLITE] != 0
     models = Path(sys.argv[1] if len(sys.argv) > 1 else "build/nn-check") / "models"
     name, n, bad = case_reshape(models)
     print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-    failed |= bad[AWAY] != 0
+    failed |= bad[AWAY] != 0 or bad[TFLITE] != 0
     for path in sorted((Path(__file__).parent / "models").glob("*.tflite")):
         name, n, bad = case_exported(path, models)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[AWAY] != 0
+        failed |= bad[AWAY] != 0 or bad[TFLITE] != 0
     n, bad = case_converter_arith(libs[AWAY])
     print(f"{'converter multipliers, softmax tables and clamps':58} {n:8}  {bad:8} differ")
     failed |= bad != 0
@@ -815,8 +815,8 @@ def main():
     failed |= bool(wrong)
     print("\nmismatches per rounding mode: fully connected layers must match"
           "\nFNN_ROUND_AWAY, as must the models built from them; convolutions, means"
-          "\nand adds FNN_ROUND_GEMMLOWP, the interpreter's rules; pools and"
-          "\nconcatenations must match in every mode\n")
+          "\nand adds FNN_ROUND_GEMMLOWP, the interpreter's rules; FNN_ROUND_TFLITE"
+          "\nall of them; pools and concatenations every mode\n")
 
     tables = [
         ("LOGISTIC", 1.0 / 16.0, 0, 1.0 / 256.0, -128, logistic, 5),
@@ -848,7 +848,8 @@ def main():
               ("float", 0.0371, 3, 23), ("float", 0.5, -10, 24), ("float", 0.003, 0, 25)):
         name, n, bad, far = case_quantize(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[GEMMLOWP] != 0 if c[0] == "int16" else far[AWAY] != 0
+        failed |= (bad[GEMMLOWP] != 0 or bad[TFLITE] != 0 if c[0] == "int16"
+                   else far[AWAY] != 0 or far[GEMMLOWP] != 0 or far[TFLITE] != 0)
     for s_, zp in ((0.0371, 3), (1.0 / 256.0, -128), (1e-30, 7), (3.0e35, 0)):
         name, n, wrong = case_dequantize(libs[AWAY], s_, zp)
         print(f"{name:58} {n:8}  {wrong:8}")

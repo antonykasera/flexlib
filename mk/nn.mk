@@ -6,7 +6,7 @@ NN_PY   := $(NN_VENV)/bin/python
 # bin/python links to uv's interpreter, so the stamp is a file of its own
 NN_DONE := $(NN_VENV)/.installed
 NN_SRCS  = test/nn/shim.c $(filter nn/% math/% utils/%,$(LIB_SRCS))
-NN_LIBS  = $(foreach m,0 1 2,$(BUILD)/nn-check/libfnn$(m).so)
+NN_LIBS  = $(foreach m,0 1 2 3,$(BUILD)/nn-check/libfnn$(m).so)
 
 $(NN_DONE): test/nn/requirements.txt
 	uv venv -q --allow-existing --python 3.12 $(NN_VENV)

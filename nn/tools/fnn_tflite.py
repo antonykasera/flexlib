@@ -130,19 +130,22 @@ def quantize_multiplier(scale):
     return int(m), -1 - e
 
 
+NONE, RELU, RELU_N1_TO_1, RELU6 = 0, 1, 2, 3
+
+
 def act_range(act, scale, zp):
     """TFLite's CalculateActivationRangeQuantized for int8, in float32."""
     def quant(f):
         v = float(np.float32(f) / np.float32(scale))
         return zp + int(math.floor(abs(v) + 0.5)) * (1 if v >= 0 else -1)
     lo, hi = -128, 127
-    if act == 1:                                    # RELU
+    if act == RELU:
         lo = max(lo, quant(0.0))
-    elif act == 2:                                  # RELU_N1_TO_1
+    elif act == RELU_N1_TO_1:
         lo, hi = max(lo, quant(-1.0)), min(hi, quant(1.0))
-    elif act == 3:                                  # RELU6
+    elif act == RELU6:
         lo, hi = max(lo, quant(0.0)), min(hi, quant(6.0))
-    elif act != 0:
+    elif act != NONE:
         raise ConvertError(f"fused activation {act} is not supported")
     return lo, hi
 
@@ -153,8 +156,8 @@ def wrap32(v):
 
 
 class Layer:
-    """One flexnn call: its kind, the tensors it reads and writes, and what the
-    emitter needs to write it out."""
+    """One flexnn call, with the tensors it reads and writes and whatever else
+    the emitter needs."""
 
     def __init__(self, op, kind, reads, writes, **f):
         self.op, self.kind, self.reads, self.writes, self.f = op, kind, reads, writes, f
@@ -391,13 +394,14 @@ def emit(name, src, tensors, layers, where, arena, inputs, outputs):
          f"#ifndef {up}_H\n#define {up}_H\n\n#include <stdint.h>\n\n",
          f"#define {up}_IN_LEN {tin.size()}u\n",
          f"#define {up}_OUT_LEN {tout.size()}u\n",
-         f"/* bytes, 4-byte aligned */\n#define {up}_ARENA_SIZE {max(arena, 4)}u\n",
+         f"/* Bytes of working memory the model needs, 4-byte aligned. */\n"
+         f"#define {up}_ARENA_SIZE {max(arena, 4)}u\n",
          f"#define {up}_IN_SCALE {_float(tin.scale[0])}\n",
          f"#define {up}_IN_ZERO_POINT ({tin.zp[0]})\n",
          f"#define {up}_OUT_SCALE {_float(tout.scale[0])}\n",
          f"#define {up}_OUT_ZERO_POINT ({tout.zp[0]})\n\n",
-         f"/* Runs the model on {up}_IN_LEN values into {up}_OUT_LEN; arena holds\n"
-         f" * {up}_ARENA_SIZE bytes, 4-byte aligned. */\n",
+         f"/* Runs the model on the {up}_IN_LEN values at in and writes {up}_OUT_LEN\n"
+         f" * values to out, using the {up}_ARENA_SIZE bytes at arena. */\n",
          f"void {name}_run(const int8_t *in, int8_t *out, uint8_t *arena);\n\n",
          f"#endif /* {up}_H */\n"]
     c = [banner, f'#include "{name}.h"\n#include "fnn.h"\n\n']
@@ -476,7 +480,7 @@ def convert(path, out_dir, name=None):
 
 
 
-ROUNDING = {"up": 0, "away": 1, "gemmlowp": 2}
+ROUNDING = {"up": 0, "away": 1, "gemmlowp": 2, "tflite": 3}
 
 
 def build(c_dir, name, rounding, lib_dir):
@@ -496,7 +500,7 @@ def build(c_dir, name, rounding, lib_dir):
     return lib
 
 
-def check(path, c_dir, name, rounding="away", runs=200, seed=0, feeds=None):
+def check(path, c_dir, name, rounding="tflite", runs=200, seed=0, feeds=None):
     """Runs the model in the TFLite interpreter's reference kernels and in the
     generated C; returns (outputs compared, outputs that differ)."""
     import ctypes
@@ -533,9 +537,9 @@ def main(argv=None):
     ap.add_argument("--name", help="the C prefix; the file name by default")
     ap.add_argument("--check", action="store_true",
                     help="compare the C with the TFLite interpreter")
-    ap.add_argument("--rounding", choices=ROUNDING, default="away",
-                    help="FNN_ROUNDING for --check (away: the interpreter's "
-                         "fully connected rule)")
+    ap.add_argument("--rounding", choices=ROUNDING, default="tflite",
+                    help="FNN_ROUNDING for --check (tflite: the interpreter's "
+                         "rule for each operator)")
     ap.add_argument("--inputs", help="a .npy file of inputs for --check")
     a = ap.parse_args(argv)
     try:
