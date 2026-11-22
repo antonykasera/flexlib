@@ -68,7 +68,7 @@ Cycles on an STM32F103 at 72 MHz (`-O2`, weights in flash), against CMSIS-NN
 
 | layer | flexnn, packed | flexnn, rows | CMSIS-NN |
 | --- | --: | --: | --: |
-| 256 inputs, 64 outputs | 86519 | 102673 | 121513 |
+| 256 inputs, 64 outputs | 85036 | 102779 | 121177 |
 | 64 inputs, 12 outputs | 4156 | 4936 | 5492 |
 
 That is 5.0 cycles per multiply-accumulate packed, against CMSIS-NN's 7.4. On
