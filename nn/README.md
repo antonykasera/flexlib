@@ -658,11 +658,11 @@ For a small Keras classifier, a `Flatten` of 4 x 16 features, two hidden
 `Dense` layers with ReLU and a softmax over 4 classes, it prints:
 
 ```text
-mlp: 8 operators, 3 of them only shapes; arena 48 B (live tensors peak at 48 B), constants 4116 B
-    4  FULLY_CONNECTED    dense         2048 MACs     2336 B   -> 0
-    5  FULLY_CONNECTED    dense          512 MACs      656 B   -> 32
-    6  FULLY_CONNECTED    dense           64 MACs      100 B   -> 0
-    7  SOFTMAX            softmax          0 MACs     1024 B   -> out
+mlp: 8 operators, 3 of them only shapes and 0 paddings; arena 48 B (live tensors peak at 48 B), constants 4116 B
+    4  FULLY_CONNECTED    dense          2048 MACs     2336 B   -> 0
+    5  FULLY_CONNECTED    dense           512 MACs      656 B   -> 32
+    6  FULLY_CONNECTED    dense            64 MACs      100 B   -> 0
+    7  SOFTMAX            softmax           0 MACs     1024 B   -> out
 check (tflite): 0 of 800 outputs differ from the TFLite interpreter
 ```
 
@@ -744,10 +744,19 @@ for each operator. `--rounding gemmlowp` builds as TFLite Micro rounds, and
 then some outputs differ from the interpreter's, as TFLite Micro's do. Build
 your firmware in the mode whose results you want.
 
-The converter takes fully connected layers, softmax and reshapes, and the
-shape arithmetic exporters put around them. Anything else stops it with the
+The converter takes fully connected, convolution and depthwise layers, max and
+average pooling, MEAN over height and width, ADD of two tensors of one shape,
+concatenation, softmax, and LOGISTIC, TANH, HARD_SWISH, LEAKY_RELU, RELU and
+RELU6 as tables. A PAD in front of a convolution becomes the convolution's own
+padding, a RESHAPE costs nothing, and the shape arithmetic exporters write
+around them is worked out at conversion. Anything else stops it with the
 operator's index and name, as does a float input or output: convert with
 `inference_input_type` and `inference_output_type` set to `tf.int8`.
+
+The tables are the exact function, rounded once. For HARD_SWISH and
+LEAKY_RELU that differs from the interpreter's own kernel by 1 on a few
+inputs; `--tflite-tables` reads the interpreter's table instead, which needs
+`ai-edge-litert` at conversion.
 
 ## Requantisation (`fnn_quant.h`)
 
@@ -811,7 +820,7 @@ in some outputs of a layer. You pick one for the whole build with
 | `FNN_ROUND_UP` (default) | once, ties up | CMSIS-NN built with `CMSIS_NN_USE_SINGLE_ROUNDING` |
 | `FNN_ROUND_AWAY` | once, ties away from zero | the TFLite (LiteRT) interpreter's reference fully connected layer |
 | `FNN_ROUND_GEMMLOWP` | twice (gemmlowp) | CMSIS-NN's default build and TFLite Micro, bit for bit |
-| `FNN_ROUND_TFLITE` | fully connected layers as `FNN_ROUND_AWAY`, the rest as `FNN_ROUND_GEMMLOWP` | the TFLite interpreter's reference kernels, a whole model bit for bit |
+| `FNN_ROUND_TFLITE` | fully connected layers as `FNN_ROUND_AWAY`, the rest as `FNN_ROUND_GEMMLOWP` | the TFLite interpreter's reference kernels, a whole model |
 
 In the example only -384 changes: `FNN_ROUND_AWAY` and `FNN_ROUND_GEMMLOWP`
 give -12. Rounding once from the exact product is the flexlib rule and the
@@ -823,16 +832,20 @@ with `FNN_ROUND_GEMMLOWP`. The fully connected, convolution, depthwise and
 softmax layers are checked against CMSIS-NN compiled on the PC in that mode,
 output for output.
 
-The TFLite interpreter on your PC does not share one rule across its
-reference kernels: its fully connected layer rounds like `FNN_ROUND_AWAY`, and
-its convolution, depthwise convolution, mean, add and QUANTIZE like
-`FNN_ROUND_GEMMLOWP`. `FNN_ROUND_TFLITE` follows it layer by layer, so a
-whole model gives the interpreter's integers. Build with it when the numbers
-you trust are the ones you checked on the PC. QUANTIZE from float is the one
-exception: the interpreter divides in float and rounds twice, so a few inputs
-next to a tie can differ by 1. The interpreter's optimised kernels, which it
-uses unless you ask for the reference ones, round differently again (half to
-even, through float).
+The TFLite interpreter on your PC does not share one rule across its reference
+kernels: its fully connected layer rounds like `FNN_ROUND_AWAY`, and its
+convolution, depthwise convolution, mean, add and QUANTIZE like
+`FNN_ROUND_GEMMLOWP`. `FNN_ROUND_TFLITE` follows it layer by layer, and a whole
+model then gives the interpreter's integers. Build with it when the numbers you
+trust are the ones you checked on the PC. Two limits remain. The interpreter's
+fully connected layer scales in double precision, by the input scale times the
+weight scale over the output scale: the converter writes its multiplier from
+that double product for this mode, and a sum would then have to fall within
+about 2^-32 of a tie to round differently (none did in 171 million). And
+QUANTIZE from float divides in float and rounds twice: a few inputs next to a
+tie can differ by 1. The interpreter's optimised kernels, which it uses unless
+you ask for the reference ones, round differently again (half to even, through
+float).
 
 Every input gives a defined result. Where TFLite's arithmetic would overflow
 int32 (scales of 1/2 and above with large sums), flexnn saturates.
@@ -887,12 +900,18 @@ fully connected layers, and in `FNN_ROUND_TFLITE`, with each layer taking the
 previous one's output.
 
 The converter against the TFLite interpreter: R0, R1 and R4 written as models
-and converted, a model with a RESHAPE before and after its layer, and a model
-exported by TensorFlow 2.21's own converter (a Keras `Flatten`, three `Dense`
-layers with per-channel weights, a softmax), 500 random inputs each, every
-output bit for bit in `FNN_ROUND_AWAY` and `FNN_ROUND_TFLITE`. Three models it
-must refuse, each with the message that says why: an unsupported operator, a
-float input, and a softmax whose output is not at TFLite's scale.
+and converted; R2 (three 1-D convolutions, pools, a mean and a dense layer), R5
+(a 28 x 28 CNN) and R3 (keyword spotting, 2.66 million MACs); a model with
+every operator, a PAD, a residual ADD, a concatenation and four kinds of table
+among them; a model with a RESHAPE before and after its layer; and two models
+exported by TensorFlow 2.21's own converter, a Keras MLP and a CNN with a
+ZeroPadding2D, a residual add and GlobalAveragePooling2D. Every output bit for
+bit in `FNN_ROUND_TFLITE`. Three fully connected layers at scales where the
+interpreter's double-precision rounding and a multiplier from the float32
+product part, every sum from -16384 to 16383, bit for bit in `FNN_ROUND_AWAY`
+and `FNN_ROUND_TFLITE`. The converter's multipliers, softmax and activation
+tables, clamps, mean and add setup against flexnn's own functions on 64,583
+values, and eight models it must refuse, each with the message that says why.
 
 Adds against a reference in TFLite's terms for `FNN_ROUND_GEMMLOWP` and an
 exact 64-bit sum for the other modes: all 65,536 pairs of int8 inputs at nine
