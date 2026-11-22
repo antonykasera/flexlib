@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `fnn_maxpool_s8`, `fnn_avgpool_s8`, `fnn_pool_check`: max and average pooling in TFLite's layout with any window, stride and padding, bit-exact with TFLite and CMSIS-NN in every rounding mode. On the Cortex-M3 the max pool takes 15% fewer cycles than CMSIS-NN's and the average a third as many.
+- `fnn_mean_s8`, `fnn_mean_check`, `fnn_mean_quant`: TFLite's MEAN over height and width, the layer Keras's global average pooling converts to, bit-exact with the TFLite interpreter in `FNN_ROUND_GEMMLOWP`.
 - `fnn_dwconv_s8`, `fnn_dwconv_check`, `fnn_dwconv_fold_bias_s8`: depthwise convolution in TFLite's layout, with any filter size, stride, padding and channel multiplier, about a third fewer cycles than CMSIS-NN on the Cortex-M3.
 - `fnn_conv_s8`, `fnn_conv_check`: convolution in TFLite's NHWC layout with its filter order, any filter size, stride and padding, 1 x 1 and conv1d windows read in place. Packed, it takes 12 to 18% fewer cycles than CMSIS-NN on the Cortex-M3.
 - The rounding modes' documentation now says which TFLite reference kernel each matches: the interpreter's fully connected layer rounds like `FNN_ROUND_AWAY`, its convolution like `FNN_ROUND_GEMMLOWP`.

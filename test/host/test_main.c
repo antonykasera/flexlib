@@ -293,6 +293,13 @@ void test_fnn_dwconv_random(void);
 void test_fnn_dwconv_shapes(void);
 void test_fnn_dwconv_check(void);
 
+/* --- fnn_pool (test_fnn_pool.c) --- */
+void test_fnn_pool_random(void);
+void test_fnn_pool_shapes(void);
+void test_fnn_pool_check(void);
+void test_fnn_mean_random(void);
+void test_fnn_mean_shapes(void);
+
 int main(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     if (sscanf(argv[i], "--shard=%u/%u", &test_shard, &test_shards) == 2) {
@@ -511,6 +518,11 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fnn_dwconv_random);
   TEST_RUN(test_fnn_dwconv_shapes);
   TEST_RUN(test_fnn_dwconv_check);
+  TEST_RUN(test_fnn_pool_random);
+  TEST_RUN(test_fnn_pool_shapes);
+  TEST_RUN(test_fnn_pool_check);
+  TEST_RUN(test_fnn_mean_random);
+  TEST_RUN(test_fnn_mean_shapes);
 
   return TEST_SUMMARY();
 }

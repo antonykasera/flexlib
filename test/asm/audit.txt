@@ -402,3 +402,8 @@ fnn_dequantize_s8_f32 clz mul !udiv
 
 # fnn_dwconv: one MLA per product (the general path divides for the channel)
 fnn_dwconv_s8         mla
+
+# fnn_pool: the max pool compares four bytes a word; one division per average
+fnn_maxpool_s8        bic
+fnn_avgpool_s8        sdiv
+fnn_mean_s8           smlal !sdiv !udiv
