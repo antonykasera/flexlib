@@ -73,7 +73,7 @@ to 32 KB: a layer whose weights fit is timed with them in the cache, and the
 | --- | --- | --: | --: | --: |
 | 64 inputs, 12 outputs | in the cache | 4156 | 4936 | 5492 |
 | 128 inputs, 64 outputs | in the cache | 37417 | 47457 | 53136 |
-| 256 inputs, 64 outputs | from flash | 132016 | 150677 | 164876 |
+| 256 inputs, 64 outputs | from flash | 131903 | 150677 | 164891 |
 
 With its weights in the cache the packed kernel takes 4.6 cycles per
 multiply-accumulate, against CMSIS-NN's 6.5. On the Cortex-M3 the
