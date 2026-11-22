@@ -8,6 +8,7 @@
  */
 
 #include "bench.h"
+#include "fnn_conv.h"
 #include "fnn_convert.h"
 #include "fnn_dense.h"
 #include "fnn_lut.h"
@@ -152,6 +153,92 @@ BLOCK(b_fc64p, dense(x, &fc64p), 12U)
                   OUT(bytes), bench_cold_flush())
 BLOCK_COLD(b_fc256_cold, dense(x, &fc256), 64U)
 BLOCK_COLD(b_fc256p_cold, dense(x, &fc256p), 64U)
+
+/* These are the CMSIS-NN rows' layers, with weights at the same offsets. */
+#define CONV(name, ih, iw, ic, oh, ow, oc, k_h, k_w, p_t, p_l, woff, pk)       \
+  static const FNN_Conv name = {                                              \
+      wpool + (woff), bias, {ih, iw, ic}, {oh, ow, oc},    k_h,                \
+      k_w,            1U,   1U,           p_t,             p_l,                \
+      pk,             ZX,   {mult, rsh, oc}, {ZY, -128, 127}}
+CONV(pw64, 5U, 5U, 64U, 5U, 5U, 64U, 1U, 1U, 0U, 0U, 300U, 0U);
+CONV(pw64p, 5U, 5U, 64U, 5U, 5U, 64U, 1U, 1U, 0U, 0U, 300U, 1U);
+CONV(cv3, 12U, 12U, 8U, 12U, 12U, 16U, 3U, 3U, 1U, 1U, 5000U, 0U);
+CONV(cv3p, 12U, 12U, 8U, 12U, 12U, 16U, 3U, 3U, 1U, 1U, 5000U, 1U);
+CONV(cv1d, 1U, 68U, 16U, 1U, 64U, 32U, 1U, 5U, 0U, 0U, 7000U, 0U);
+CONV(cv1dp, 1U, 68U, 16U, 1U, 64U, 32U, 1U, 5U, 0U, 0U, 7000U, 1U);
+/* The patch sits between the float inputs and the table. */
+#define cscr ((int8_t *)(void *)(bench_scratch + 7040U))
+_Static_assert(6464U + 4U * (FN + 16U) <= 7040U &&
+                   7040U + FNN_CONV_SCRATCH(3U, 3U, 8U) <= 7168U,
+               "patch clear of the float inputs and the table");
+
+static uint32_t conv(uint32_t off, const FNN_Conv *l) {
+  fnn_conv_s8(l, xin + off, yout, cscr);
+  return 0U;
+}
+BLOCK(b_pw64, conv(x, &pw64), 1600U)
+BLOCK(b_pw64p, conv(x, &pw64p), 1600U)
+BLOCK(b_cv3, conv(x, &cv3), 2304U)
+BLOCK(b_cv3p, conv(x, &cv3p), 2304U)
+BLOCK(b_cv1d, conv(x, &cv1d), 2048U)
+BLOCK(b_cv1dp, conv(x, &cv1dp), 2048U)
+
+BENCH_CALL static void k_px2(const int8_t *xa, const int8_t *xb,
+                             const int8_t *w, uint32_t half, uint32_t n,
+                             uint32_t *sa, uint32_t *sb) {
+  const uint32_t *q = (const uint32_t *)(const void *)w + half;
+  uint32_t a0 = sa[0], a1 = sa[1], a2 = sa[2], a3 = sa[3];
+  uint32_t b0 = sb[0], b1 = sb[1], b2 = sb[2], b3 = sb[3];
+  for (uint32_t i = 0U; i < n; i++) {
+    int32_t u = xa[i], v = xb[i];
+    uint32_t r = q[2U * i];
+    int32_t w0 = (int8_t)r, w1 = (int8_t)(r >> 8), w2 = (int8_t)(r >> 16);
+    int32_t w3 = (int32_t)r >> 24;
+    a0 += (uint32_t)(u * w0);
+    b0 += (uint32_t)(v * w0);
+    a1 += (uint32_t)(u * w1);
+    b1 += (uint32_t)(v * w1);
+    a2 += (uint32_t)(u * w2);
+    b2 += (uint32_t)(v * w2);
+    a3 += (uint32_t)(u * w3);
+    b3 += (uint32_t)(v * w3);
+  }
+  sa[0] = a0;
+  sa[1] = a1;
+  sa[2] = a2;
+  sa[3] = a3;
+  sb[0] = b0;
+  sb[1] = b1;
+  sb[2] = b2;
+  sb[3] = b3;
+}
+
+static uint32_t pw_px2(uint32_t off) {
+  const int8_t *x = xin + off, *w = wpool + 300U;
+  int8_t *y = yout;
+  for (uint32_t p = 0U; p < 25U; p += 2U) {
+    const int8_t *xa = x + p * 64U, *xb = p + 1U < 25U ? xa + 64U : xa;
+    for (uint32_t o = 0U; o < 64U; o += 8U) {
+      uint32_t sa[8], sb[8];
+      for (uint32_t j = 0U; j < 8U; j++) {
+        sa[j] = sb[j] = (uint32_t)bias[o + j];
+      }
+      k_px2(xa, xb, w + o * 64U, 0U, 64U, sa, sb);
+      k_px2(xa, xb, w + o * 64U, 1U, 64U, sa + 4, sb + 4);
+      for (uint32_t j = 0U; j < 8U; j++) {
+        uint32_t c = o + j;
+        y[p * 64U + c] = fnn_clamp_s8(
+            fnn_requant((int32_t)sa[j], mult[c], rsh[c]), ZY, -128, 127);
+        if (p + 1U < 25U) {
+          y[(p + 1U) * 64U + c] = fnn_clamp_s8(
+              fnn_requant((int32_t)sb[j], mult[c], rsh[c]), ZY, -128, 127);
+        }
+      }
+    }
+  }
+  return 0U;
+}
+BLOCK(b_pw_px2, pw_px2(x), 1600U)
 
 /* candidates the packed kernel was chosen over, in a copy of its driver */
 typedef void Rows(const int8_t *x, const int8_t *w, uint32_t n, uint32_t *sum);
@@ -777,6 +864,14 @@ static const BenchCase cases[] = {
      true},
     {"dense 128 -> 32, two rows per multiply (16-bit halves)", "candidate",
      b_fc32_pairs, true},
+    {"fnn_conv_s8, 1 x 1, 64 -> 64, 5 x 5", "flexlib", b_pw64, true},
+    {"fnn_conv_s8, 1 x 1, 64 -> 64, 5 x 5, packed", "flexlib", b_pw64p, true},
+    {"fnn_conv_s8, 3 x 3, 8 -> 16, 12 x 12", "flexlib", b_cv3, true},
+    {"fnn_conv_s8, 3 x 3, 8 -> 16, 12 x 12, packed", "flexlib", b_cv3p, true},
+    {"fnn_conv_s8, 5 taps, 16 -> 32, 64", "flexlib", b_cv1d, true},
+    {"fnn_conv_s8, 5 taps, 16 -> 32, 64, packed", "flexlib", b_cv1dp, true},
+    {"conv 1 x 1, 64 -> 64, 5 x 5, two pixels x four rows", "candidate",
+     b_pw_px2, true},
     {"fnn_lut_s8, 1024", "flexlib", b_lut, true},
     {"table 1024, eight a pass, each looked up and stored in turn",
      "candidate", b_lut8, true},
