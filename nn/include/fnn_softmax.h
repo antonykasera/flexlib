@@ -17,9 +17,9 @@
 #include <stdint.h>
 
 /**
- * Fill the table of exponentials softmax uses. Entry d is $2^{31} e^{-beta s d}$
- * rounded to the nearest integer, ties up. It uses floating point: call it at
- * setup.
+ * Fill the table of exponentials softmax uses. Entry d is
+ * $2^{31} e^{-beta s d}$ rounded to the nearest integer, ties up. It uses
+ * floating point: call it at setup.
  *
  * @param beta    the model's softmax beta, usually 1
  * @param s_x     the input scale
@@ -31,8 +31,8 @@ FNN_Status fnn_softmax_s8_build(double beta, double s_x, uint32_t exp_tab[256]);
 /**
  * Softmax of n scores. With $e_i$ the table entry for $max x - x_i$, output i
  * is $256 e_i / sum e$ rounded once, ties up, less 128 and clamped to 127.
- * That is within half a step plus $(n + 1) 2^{-32}$ of the exact softmax, except
- * that a probability above 255.5 / 256 gives 127.
+ * That is within half a step plus $(n + 1) 2^{-32}$ of the exact softmax,
+ * except that a probability above 255.5 / 256 gives 127.
  *
  * @param x       n scores
  * @param y       n outputs; may be x

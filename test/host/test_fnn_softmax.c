@@ -92,7 +92,7 @@ void test_fnn_softmax_build(void) {
 
 void test_fnn_softmax_random(void) {
   static const double ks[] = {1.0 / 16.0, 0.01, 0.2, 1.0, 1e-4};
-  static const uint32_t ns[] = {1,  2,  3,  5,  10,  12,  16,
+  static const uint32_t ns[] = {1,  2,  3,  5,   10,  12,   16,
                                 17, 64, 65, 255, 256, 1000, 1100};
   uint64_t r = 0x50F7AU;
   unsigned bad = 0U;
