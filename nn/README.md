@@ -473,16 +473,25 @@ in some outputs. You pick one for the whole build with `FNN_ROUNDING`:
 | --- | --- | --- |
 | `FNN_ROUND_UP` (default) | once, ties up | CMSIS-NN built with `CMSIS_NN_USE_SINGLE_ROUNDING` |
 | `FNN_ROUND_AWAY` | once, ties away from zero | the TFLite (LiteRT) interpreter's reference fully connected layer |
-| `FNN_ROUND_GEMMLOWP` | twice (gemmlowp) | CMSIS-NN's default build, TFLite Micro on Cortex-M, the interpreter's reference convolution |
+| `FNN_ROUND_GEMMLOWP` | twice (gemmlowp) | CMSIS-NN's default build and TFLite Micro, bit for bit |
 
 In the example only -384 changes: `FNN_ROUND_AWAY` and `FNN_ROUND_GEMMLOWP`
 give -12. Rounding once from the exact product is the flexlib rule and the
-default. To check the board's outputs against the TFLite interpreter on your
-PC, compare against its reference kernels, and note that they do not agree
-with each other: its fully connected layer rounds like `FNN_ROUND_AWAY`, its
-convolution and its QUANTIZE from int16 like `FNN_ROUND_GEMMLOWP`. Its
-optimised kernels, which it uses unless you ask for the reference ones, round
-differently again (half to even, through float).
+default.
+
+When the board has to give exactly the outputs a model gives under TFLite
+Micro or CMSIS-NN, which is how TFLite models run on a Cortex-M today, build
+with `FNN_ROUND_GEMMLOWP`. The fully connected, convolution, depthwise and
+softmax layers are checked against CMSIS-NN compiled on the PC in that mode,
+output for output.
+
+The TFLite interpreter on your PC is a looser match, because its reference
+kernels do not share one rule: its fully connected layer rounds like
+`FNN_ROUND_AWAY`, and its convolution, depthwise convolution and QUANTIZE from
+int16 like `FNN_ROUND_GEMMLOWP`. In any one mode a whole model can then differ
+from it by 1 in a few outputs. Its optimised kernels, which it uses unless you
+ask for the reference ones, round differently again (half to even, through
+float).
 
 Every input gives a defined result. Where TFLite's arithmetic would overflow
 int32 (scales of 1/2 and above with large sums), flexnn saturates.
@@ -495,6 +504,15 @@ random layers of 0 to 256 inputs and 1 to 70 outputs, weights and inputs at
 their extremes, per-tensor and per-channel scales, fused clamps, and a folded
 bias that wraps past int32 while the true sum fits. Four layers, up to 256
 inputs and 70 outputs, against the TFLite interpreter, bit for bit.
+
+Against CMSIS-NN 8.0.0 compiled on the PC, in `FNN_ROUND_GEMMLOWP`: 400 random
+fully connected layers, per tensor and per channel, and 600 random
+convolutions through `arm_convolve_wrapper_s8`, which picks CMSIS-NN's 1 x 1,
+1 x n and general paths, in both weight layouts, 600 depthwise layers through
+`arm_depthwise_conv_wrapper_s8`, and 2000 softmax rows at an input scale of
+1/16. A quarter of the layers use a power-of-two scale, which makes exact ties;
+built with `FNN_ROUND_UP` instead, the same check finds hundreds of
+differences.
 
 Depthwise layers against a reference in TFLite's terms: 3000 random layers with
 filters up to 5 x 5, channel multipliers 1 to 3, strides 1 and 2, VALID and
