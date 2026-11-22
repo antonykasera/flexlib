@@ -407,3 +407,7 @@ fnn_dwconv_s8         mla
 fnn_maxpool_s8        bic
 fnn_avgpool_s8        sdiv
 fnn_mean_s8           smlal !sdiv !udiv
+
+# fnn_elem: two SMLALs per add; fnn_shape: copies by word, with no memcpy call
+fnn_add_s8            smlal !udiv !sdiv
+fnn_concat_s8         no-calls ldr str

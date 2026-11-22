@@ -51,6 +51,12 @@ void ref_mean(const int8_t *x, uint32_t h, uint32_t w, uint32_t c, int32_t zx,
               double scale, int32_t zy, int32_t lo, int32_t hi, RefRound mode,
               int8_t *y);
 
+/* TFLite's ADD in REF_ROUND_GEMMLOWP; in the other modes both multipliers
+ * at the larger one's shift and the exact sum rounded once */
+void ref_add(const int8_t *x1, int32_t z1, double s1, const int8_t *x2,
+             int32_t z2, double s2, double sy, int32_t zy, int32_t lo,
+             int32_t hi, RefRound mode, uint32_t n, int8_t *y);
+
 /* TFLite's QuantizeMultiplier on libm's frexp and round, shift capped at 30 */
 void ref_quantize_multiplier(double scale, int32_t *mult, int32_t *shift);
 

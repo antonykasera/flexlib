@@ -178,6 +178,40 @@ void ref_mean(const int8_t *x, uint32_t h, uint32_t w, uint32_t c, int32_t zx,
   }
 }
 
+void ref_add(const int8_t *x1, int32_t z1, double s1, const int8_t *x2,
+             int32_t z2, double s2, double sy, int32_t zy, int32_t lo,
+             int32_t hi, RefRound mode, uint32_t n, int8_t *y) {
+  double big = s1 > s2 ? s1 : s2;
+  int32_t m1, m2, mo, e1, e2, eo;
+  if (mode == REF_ROUND_GEMMLOWP) {
+    double twice = 2.0 * big;
+    ref_quantize_multiplier(s1 / twice, &m1, &e1);
+    ref_quantize_multiplier(s2 / twice, &m2, &e2);
+    ref_quantize_multiplier(twice / (1048576.0 * sy), &mo, &eo);
+  } else {
+    ref_quantize_multiplier(big / sy, &mo, &eo);
+    int64_t k = 31 - eo;
+    int64_t ms = (int64_t)floor((s1 > s2 ? s2 : s1) / sy * ldexp(1.0, (int)k) + 0.5);
+    m1 = s1 > s2 ? mo : (int32_t)ms;
+    m2 = s1 > s2 ? (int32_t)ms : mo;
+    e1 = (int32_t)k;
+  }
+  for (uint32_t i = 0U; i < n; i++) {
+    int64_t d1 = x1[i] - z1, d2 = x2[i] - z2, v;
+    if (mode == REF_ROUND_GEMMLOWP) {
+      int32_t a = ref_requant((int32_t)(d1 * 1048576), m1, e1, mode);
+      int32_t b = ref_requant((int32_t)(d2 * 1048576), m2, e2, mode);
+      v = ref_requant(a + b, mo, eo, mode);
+    } else {
+      int64_t num = m1 * d1 + m2 * d2, h = 1LL << (e1 - 1);
+      v = mode == REF_ROUND_AWAY && num < 0 ? -((-num + h) >> e1)
+                                            : (num + h) >> e1;
+    }
+    v += zy;
+    y[i] = (int8_t)(v < lo ? lo : (v > hi ? hi : v));
+  }
+}
+
 void ref_quantize_multiplier(double scale, int32_t *mult, int32_t *shift) {
   if (scale == 0.0) {
     *mult = 0;

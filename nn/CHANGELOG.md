@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `fnn_add_s8`, `fnn_add_init`: element-wise add of two int8 tensors with their own scales, in place if you like. In `FNN_ROUND_GEMMLOWP` it is TFLite's ADD bit for bit; the other modes round the exact sum once. 30 cycles a value on the Cortex-M3 against CMSIS-NN's 108.
+- `fnn_concat_s8`: concatenation along any axis, as TFLite's int8 CONCATENATION, copying by word.
 - `fnn_maxpool_s8`, `fnn_avgpool_s8`, `fnn_pool_check`: max and average pooling in TFLite's layout with any window, stride and padding, bit-exact with TFLite and CMSIS-NN in every rounding mode. On the Cortex-M3 the max pool takes 15% fewer cycles than CMSIS-NN's and the average a third as many.
 - `fnn_mean_s8`, `fnn_mean_check`, `fnn_mean_quant`: TFLite's MEAN over height and width, the layer Keras's global average pooling converts to, bit-exact with the TFLite interpreter in `FNN_ROUND_GEMMLOWP`.
 - `fnn_dwconv_s8`, `fnn_dwconv_check`, `fnn_dwconv_fold_bias_s8`: depthwise convolution in TFLite's layout, with any filter size, stride, padding and channel multiplier, about a third fewer cycles than CMSIS-NN on the Cortex-M3.
