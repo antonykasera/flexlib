@@ -1,15 +1,17 @@
 # flexnn
 
 [![CI](https://github.com/antonykasera/flexlib/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/antonykasera/flexlib/actions/workflows/ci.yml?query=branch%3Amaster)
+[![Release](https://img.shields.io/github/v/tag/antonykasera/flexlib?filter=flexnn-v%2A&sort=semver&label=release)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
 
 flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
-PC gives the same integers on the board. It is in development and not part
-of a release yet. What is here so far: fully connected, convolution and
-depthwise layers, pooling and mean, add and concatenation, activation
+PC gives the same integers on the board. It has fully connected, convolution
+and depthwise layers, pooling and mean, add and concatenation, activation
 functions as tables, softmax and argmax, conversions in and out of int8, and
-the step every layer ends with, turning its int32 sums into int8 outputs.
+the step every layer ends with, turning its int32 sums into int8 outputs. You
+put a model together from these layers by hand, as
+[A whole model, by hand](#a-whole-model-by-hand) shows.
 
 ## Fully connected layers (`fnn_dense.h`)
 

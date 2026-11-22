@@ -4,9 +4,13 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md),
 [nn/CHANGELOG.md](nn/CHANGELOG.md).
 
-## Unreleased
+## v0.8.0 (2026-11-22)
 
-- flexnn (`fnn_`), int8 inference, in development: requantisation so far ([nn/CHANGELOG.md](nn/CHANGELOG.md)). `flexnn.mk`, the `flexlib::nn` CMake target, and `nn` in the default `FLEXLIB_LIBS`.
+flexnn 0.1.0.
+
+- flexnn (`fnn_`), a new library: int8 inference with TFLite's arithmetic. Fully connected, convolution, depthwise, pooling, mean, add and concatenation layers, activation tables, softmax, argmax, and conversions in and out of int8, in three rounding modes, one of them bit-exact with TFLite Micro and CMSIS-NN ([nn/CHANGELOG.md](nn/CHANGELOG.md)). `flexnn.mk`, the `flexlib::nn` CMake target, and `nn` in the default `FLEXLIB_LIBS`.
+- Tests: `make nn-check` runs flexnn against the TFLite interpreter, and `make nn-cmsis` against CMSIS-NN built for the host. CMSIS-NN 8.0.0 is a new submodule.
+- Bench: a tenth image, `nn`, with CMSIS-NN baselines and three whole models.
 
 ## v0.7.0 (2026-11-21)
 

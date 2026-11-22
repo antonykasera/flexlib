@@ -1,6 +1,6 @@
 # flexnn changelog
 
-## Unreleased
+## 0.1.0 (2026-11-22)
 
 - `fnn_add_s8`, `fnn_add_init`: element-wise add of two int8 tensors with their own scales, in place if you like. In `FNN_ROUND_GEMMLOWP` it is TFLite's ADD bit for bit; the other modes round the exact sum once. 30 cycles a value on the Cortex-M3 against CMSIS-NN's 108.
 - `fnn_concat_s8`: concatenation along any axis, as TFLite's int8 CONCATENATION, copying by word.
