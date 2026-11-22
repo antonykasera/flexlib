@@ -11,6 +11,7 @@
 #include "fnn_conv.h"
 #include "fnn_dense.h"
 #include "fnn_dwconv.h"
+#include "fnn_elem.h"
 #include "fnn_pool.h"
 #include "fnn_quant.h"
 #include "fnn_softmax.h"
@@ -319,6 +320,41 @@ static unsigned long pool_cases(int avg, unsigned long *outputs) {
   return bad;
 }
 
+/* Compares adds, with the multipliers fnn_add_init() derives as TFLite does. */
+static unsigned long add_cases(unsigned long *outputs) {
+  unsigned long bad = 0U;
+  for (unsigned rep = 0U; rep < 1000U; rep++) {
+    double s1 = 0.001 + (double)(rnd() % 100000U) / 100000.0;
+    double s2 = rnd() % 4U == 0U ? s1 : 0.001 + (double)(rnd() % 100000U) / 100000.0;
+    double sy = (s1 + s2) * (0.3 + (double)(rnd() % 3000U) / 1000.0);
+    sy = rnd() % 4U == 0U ? 2.0 * s1 : sy;
+    int32_t z1 = range(-128, 127), z2 = range(-128, 127), zy = range(-128, 127);
+    int32_t lo = rnd() % 3U == 0U ? zy : -128;
+    uint32_t n = 1U + rnd() % 4096U;
+    for (uint32_t i = 0U; i < n; i++) {
+      x[i] = (int8_t)rnd();
+      w[i] = (int8_t)rnd();
+    }
+    FNN_Add a;
+    if (fnn_add_init(&a, s1, z1, s2, z2, sy, (FNN_Out){zy, lo, 127}) !=
+        FNN_OK) {
+      bad++;
+      continue;
+    }
+    if (arm_elementwise_add_s8(x, w, -z1, a.m[0], -a.sh[0], -z2, a.m[1],
+                               -a.sh[1], 20, want, zy, a.m[2], -a.sh[2], lo,
+                               127, (int32_t)n) != ARM_CMSIS_NN_SUCCESS) {
+      continue;
+    }
+    fnn_add_s8(&a, x, w, y, n);
+    for (uint32_t i = 0U; i < n; i++) {
+      bad += y[i] != want[i];
+    }
+    *outputs += n;
+  }
+  return bad;
+}
+
 /* Compares softmax at an input scale of 1/16, with TFLite's parameters. */
 static unsigned long softmax_cases(unsigned long *outputs) {
   static uint32_t tab[256];
@@ -352,7 +388,10 @@ int main(void) {
   printf("max pool:        %lu of %lu outputs differ from CMSIS-NN\n", bm, nm);
   unsigned long na = 0U, ba = pool_cases(1, &na);
   printf("average pool:    %lu of %lu outputs differ from CMSIS-NN\n", ba, na);
-  return bd == 0U && bc == 0U && bw == 0U && ds == 0U && bm == 0U && ba == 0U
+  unsigned long ne = 0U, be = add_cases(&ne);
+  printf("add:             %lu of %lu outputs differ from CMSIS-NN\n", be, ne);
+  return bd == 0U && bc == 0U && bw == 0U && ds == 0U && bm == 0U &&
+                 ba == 0U && be == 0U
              ? 0
              : 1;
 }
