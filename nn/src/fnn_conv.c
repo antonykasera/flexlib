@@ -7,9 +7,9 @@
  */
 
 #include "fnn_conv.h"
+#include "fnn_copy.h"
 #include "fnn_dense.h"
 #include "fx_arch.h"
-#include <string.h>
 
 static int fits(uint32_t in, uint32_t out, uint32_t k, uint32_t s, uint32_t p) {
   if (in == 0U || out == 0U || k == 0U || s == 0U || p >= k) {
@@ -31,25 +31,27 @@ FNN_Status fnn_conv_check(const FNN_Conv *l) {
   return FNN_OK;
 }
 
-/* Copies the patch under the filter, with the zero point where it overhangs. */
+static int32_t clampi(int32_t v, int32_t lo, int32_t hi) {
+  return v < lo ? lo : (v > hi ? hi : v);
+}
+
+/* Copies the patch under the filter, one run per row, with the zero point
+ * where it overhangs. */
 static void patch(const FNN_Conv *l, const int8_t *x, int32_t iy, int32_t ix,
                   int8_t *p) {
   uint32_t c = l->in.c, run = l->kw * c;
+  uint32_t kx0 = (uint32_t)clampi(-ix, 0, (int32_t)l->kw);
+  uint32_t kx1 = (uint32_t)clampi((int32_t)l->in.w - ix, 0, (int32_t)l->kw);
   for (uint32_t ky = 0U; ky < l->kh; ky++, p += run) {
     int32_t y = iy + (int32_t)ky;
     if (y < 0 || y >= (int32_t)l->in.h) {
-      memset(p, (int)l->zx, run);
+      fnn_fill(p, l->zx, run);
       continue;
     }
-    const int8_t *row = x + (uint32_t)y * l->in.w * c;
-    for (uint32_t kx = 0U; kx < l->kw; kx++) {
-      int32_t xx = ix + (int32_t)kx;
-      if (xx < 0 || xx >= (int32_t)l->in.w) {
-        memset(p + kx * c, (int)l->zx, c);
-      } else {
-        memcpy(p + kx * c, row + (uint32_t)xx * c, c);
-      }
-    }
+    const int8_t *row = x + ((uint32_t)y * l->in.w + (uint32_t)(ix + (int32_t)kx0)) * c;
+    fnn_fill(p, l->zx, kx0 * c);
+    fnn_copy(p + kx0 * c, row, (kx1 - kx0) * c);
+    fnn_fill(p + kx1 * c, l->zx, (l->kw - kx1) * c);
   }
 }
 

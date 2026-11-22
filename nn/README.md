@@ -151,13 +151,13 @@ CMSIS-NN 8.0.0 built the same way, with a multiplier per output channel:
 
 | layer | flexnn, packed | flexnn, rows | CMSIS-NN |
 | --- | --: | --: | --: |
-| 1 x 1, 64 -> 64 channels, 5 x 5 | 519941 | 649601 | 591662 |
-| 3 x 3, 8 -> 16 channels, 12 x 12, SAME | 970973 | 1179952 | 1135991 |
-| 5 taps, 16 -> 32 channels, 64 long | 802694 | 1007647 | 979578 |
+| 1 x 1, 64 -> 64 channels, 5 x 5 | 520256 | 649666 | 591662 |
+| 3 x 3, 8 -> 16 channels, 12 x 12, SAME | 902661 | 1111050 | 1135991 |
+| 5 taps, 16 -> 32 channels, 64 long | 802725 | 1007294 | 979578 |
 
-Packed, that is 4.9 to 5.9 cycles per multiply-accumulate, 12 to 18% fewer
-cycles than CMSIS-NN. In TFLite's order the filter takes 3 to 10% more than
-CMSIS-NN: pack it when you can.
+Packed, that is 4.9 to 5.4 cycles per multiply-accumulate, 12 to 20% fewer
+cycles than CMSIS-NN. In TFLite's order the filter takes from 2% fewer to 10%
+more than CMSIS-NN: pack it when you can.
 
 ## Depthwise convolution (`fnn_dwconv.h`)
 
