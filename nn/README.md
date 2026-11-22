@@ -68,10 +68,10 @@ Cycles on an STM32F103 at 72 MHz (`-O2`, weights in flash), against CMSIS-NN
 
 | layer | flexnn, packed | flexnn, rows | CMSIS-NN |
 | --- | --: | --: | --: |
-| 256 inputs, 64 outputs | 85489 | 101317 | 123988 |
+| 256 inputs, 64 outputs | 84250 | 101874 | 124240 |
 | 64 inputs, 12 outputs | 4156 | 4936 | 5492 |
 
-That is 5.2 cycles per multiply-accumulate packed, against CMSIS-NN's 7.6. On
+That is 5.1 cycles per multiply-accumulate packed, against CMSIS-NN's 7.6. On
 the Cortex-M3 the multiply-accumulate itself takes 2 of those cycles, and
 splitting four weights out of a word takes one more per weight.
 
