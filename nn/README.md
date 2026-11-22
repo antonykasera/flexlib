@@ -554,10 +554,11 @@ product s (q - z), rounded to nearest, ties to even, and for ordinary scales
 without a soft-float multiply. Dequantising to q15 takes the multiplier for 2^15 s.
 
 TFLite's QUANTIZE from int16 rounds twice, as gemmlowp does: build with
-`FNN_ROUND_GEMMLOWP` to match it bit for bit. From float, TFLite divides in
-float32 and then rounds the quotient, a second rounding: a value such as
--13.4999995 becomes -13.5 and then -14, where flexnn gives -13. Otherwise
-`FNN_ROUND_AWAY` matches it.
+`FNN_ROUND_GEMMLOWP` or `FNN_ROUND_TFLITE` to match it bit for bit. From
+float, TFLite divides in float32 and then rounds the quotient, a second
+rounding: a value such as -13.4999995 becomes -13.5 and then -14, where flexnn
+gives -13. Otherwise `FNN_ROUND_AWAY`, `FNN_ROUND_GEMMLOWP` and
+`FNN_ROUND_TFLITE` match it.
 
 Cycles on an STM32F103 at 72 MHz (`-O2`), against TFLite's formulas compiled
 for the Cortex-M3, where float arithmetic is software:
@@ -662,7 +663,7 @@ mlp: 8 operators, 3 of them only shapes; arena 48 B (live tensors peak at 48 B),
     5  FULLY_CONNECTED    dense          512 MACs      656 B   -> 32
     6  FULLY_CONNECTED    dense           64 MACs      100 B   -> 0
     7  SOFTMAX            softmax          0 MACs     1024 B   -> out
-check (away): 0 of 800 outputs differ from the TFLite interpreter
+check (tflite): 0 of 800 outputs differ from the TFLite interpreter
 ```
 
 and writes `src/mlp.c` and this `src/mlp.h`:
@@ -676,15 +677,15 @@ and writes `src/mlp.c` and this `src/mlp.h`:
 
 #define MLP_IN_LEN 64u
 #define MLP_OUT_LEN 4u
-/* bytes, 4-byte aligned */
+/* Bytes of working memory the model needs, 4-byte aligned. */
 #define MLP_ARENA_SIZE 48u
 #define MLP_IN_SCALE 0.029791297f
 #define MLP_IN_ZERO_POINT (1)
 #define MLP_OUT_SCALE 0.00390625f
 #define MLP_OUT_ZERO_POINT (-128)
 
-/* Runs the model on MLP_IN_LEN values into MLP_OUT_LEN; arena holds
- * MLP_ARENA_SIZE bytes, 4-byte aligned. */
+/* Runs the model on the MLP_IN_LEN values at in and writes MLP_OUT_LEN
+ * values to out, using the MLP_ARENA_SIZE bytes at arena. */
 void mlp_run(const int8_t *in, int8_t *out, uint8_t *arena);
 
 #endif /* MLP_H */
@@ -738,10 +739,10 @@ of exponentials, written out so that the board never calls `exp`.
 `--check` builds the generated C with flexnn on your PC, runs it and the TFLite
 interpreter on 200 random inputs, or on the inputs in a `.npy` file given with
 `--inputs`, and counts the outputs that differ. It needs `ai-edge-litert` and a
-C compiler. It builds in `FNN_ROUND_AWAY` by default, the interpreter's rule
-for fully connected layers. `--rounding gemmlowp` builds as TFLite Micro
-rounds, and then some outputs differ from the interpreter's, as TFLite Micro's
-do. Build your firmware in the mode whose results you want.
+C compiler. It builds in `FNN_ROUND_TFLITE` by default, the interpreter's rule
+for each operator. `--rounding gemmlowp` builds as TFLite Micro rounds, and
+then some outputs differ from the interpreter's, as TFLite Micro's do. Build
+your firmware in the mode whose results you want.
 
 The converter takes fully connected layers, softmax and reshapes, and the
 shape arithmetic exporters put around them. Anything else stops it with the
@@ -802,13 +803,15 @@ ReLU or ReLU6 goes: it raises `lo` to the zero point, or lowers `hi`.
 ## Rounding
 
 Three integer arithmetics are in use for int8 networks, and they differ by 1
-in some outputs. You pick one for the whole build with `FNN_ROUNDING`:
+in some outputs of a layer. You pick one for the whole build with
+`FNN_ROUNDING`:
 
 | `FNN_ROUNDING` | rounding | matches |
 | --- | --- | --- |
 | `FNN_ROUND_UP` (default) | once, ties up | CMSIS-NN built with `CMSIS_NN_USE_SINGLE_ROUNDING` |
 | `FNN_ROUND_AWAY` | once, ties away from zero | the TFLite (LiteRT) interpreter's reference fully connected layer |
 | `FNN_ROUND_GEMMLOWP` | twice (gemmlowp) | CMSIS-NN's default build and TFLite Micro, bit for bit |
+| `FNN_ROUND_TFLITE` | fully connected layers as `FNN_ROUND_AWAY`, the rest as `FNN_ROUND_GEMMLOWP` | the TFLite interpreter's reference kernels, a whole model bit for bit |
 
 In the example only -384 changes: `FNN_ROUND_AWAY` and `FNN_ROUND_GEMMLOWP`
 give -12. Rounding once from the exact product is the flexlib rule and the
@@ -820,13 +823,16 @@ with `FNN_ROUND_GEMMLOWP`. The fully connected, convolution, depthwise and
 softmax layers are checked against CMSIS-NN compiled on the PC in that mode,
 output for output.
 
-The TFLite interpreter on your PC is a looser match, because its reference
-kernels do not share one rule: its fully connected layer rounds like
-`FNN_ROUND_AWAY`, and its convolution, depthwise convolution and QUANTIZE from
-int16 like `FNN_ROUND_GEMMLOWP`. In any one mode a whole model can then differ
-from it by 1 in a few outputs. Its optimised kernels, which it uses unless you
-ask for the reference ones, round differently again (half to even, through
-float).
+The TFLite interpreter on your PC does not share one rule across its
+reference kernels: its fully connected layer rounds like `FNN_ROUND_AWAY`, and
+its convolution, depthwise convolution, mean, add and QUANTIZE like
+`FNN_ROUND_GEMMLOWP`. `FNN_ROUND_TFLITE` follows it layer by layer, so a
+whole model gives the interpreter's integers. Build with it when the numbers
+you trust are the ones you checked on the PC. QUANTIZE from float is the one
+exception: the interpreter divides in float and rounds twice, so a few inputs
+next to a tie can differ by 1. The interpreter's optimised kernels, which it
+uses unless you ask for the reference ones, round differently again (half to
+even, through float).
 
 Every input gives a defined result. Where TFLite's arithmetic would overflow
 int32 (scales of 1/2 and above with large sums), flexnn saturates.
@@ -877,15 +883,16 @@ Whole models: R0 (2 -> 4 -> 1), R1 (64 -> 32 -> 16 -> 4 with a softmax) and R4
 (64 -> 32 -> 8 -> 32 -> 64), written as TFLite models with random weights and
 ReLU on the hidden layers, against the interpreter on 500 random inputs each:
 every output bit for bit in `FNN_ROUND_AWAY`, the interpreter's rule for
-fully connected layers, with each layer taking the previous one's output.
+fully connected layers, and in `FNN_ROUND_TFLITE`, with each layer taking the
+previous one's output.
 
 The converter against the TFLite interpreter: R0, R1 and R4 written as models
 and converted, a model with a RESHAPE before and after its layer, and a model
 exported by TensorFlow 2.21's own converter (a Keras `Flatten`, three `Dense`
 layers with per-channel weights, a softmax), 500 random inputs each, every
-output bit for bit in `FNN_ROUND_AWAY`. Three models it must refuse, each with
-the message that says why: an unsupported operator, a float input, and a
-softmax whose output is not at TFLite's scale.
+output bit for bit in `FNN_ROUND_AWAY` and `FNN_ROUND_TFLITE`. Three models it
+must refuse, each with the message that says why: an unsupported operator, a
+float input, and a softmax whose output is not at TFLite's scale.
 
 Adds against a reference in TFLite's terms for `FNN_ROUND_GEMMLOWP` and an
 exact 64-bit sum for the other modes: all 65,536 pairs of int8 inputs at nine
