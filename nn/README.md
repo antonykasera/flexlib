@@ -7,8 +7,8 @@ flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It is in development and not part
 of a release yet. What is here so far: fully connected layers, activation
-functions as tables, and the step every layer ends with, turning its int32
-sums into int8 outputs.
+functions as tables, softmax and argmax, and the step every layer ends with,
+turning its int32 sums into int8 outputs.
 
 ## Fully connected layers (`fnn_dense.h`)
 
@@ -129,6 +129,69 @@ table, at index `(uint8_t)q` for input q.
 A table applied to 1024 values takes 3434 cycles on an STM32F103 at 72 MHz
 (`-O2`), 3.4 cycles per value.
 
+## Softmax and argmax (`fnn_softmax.h`)
+
+A classifier ends with one score per class. To report the class, take the
+index of the largest score with `fnn_argmax_s8`. To report how sure the model
+is, turn the scores into probabilities with `fnn_softmax_s8`. Here four scores
+at a scale of 1/16 go through both:
+
+```c
+#include <stdio.h>
+
+#include "fnn_softmax.h"
+
+int main(void) {
+  /* four class scores at a scale of 1/16, beta 1 */
+  static uint32_t exp_tab[256];
+  if (fnn_softmax_s8_build(1.0, 1.0 / 16.0, exp_tab) != FNN_OK) {
+    return 1;
+  }
+
+  const int8_t score[4] = {20, 52, 36, 4};
+  int8_t p[4];
+  fnn_softmax_s8(score, p, 4U, exp_tab);
+  for (int i = 0; i < 4; i++) {
+    printf("%d ", p[i]);
+  }
+  printf("\nclass %u\n", (unsigned)fnn_argmax_s8(score, 4U));
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+-106 37 -67 -120
+class 1
+```
+
+The scores stand for 1.25, 3.25, 2.25 and 0.25. Their softmax is 0.087, 0.644,
+0.237 and 0.032, and the outputs use TFLite's int8 softmax format: a scale of
+1/256 and a zero point of -128. The first output, -106, is 22/256, and 0.087 ×
+256 = 22.3 rounds to 22. `fnn_argmax_s8` returns 1, the index of 52. Of equal
+scores it picks the first, as TFLite does.
+
+`fnn_softmax_s8_build` fills a 1 KB table of exponentials for one input scale
+and beta, in floating point, at startup. Each output is then the table's
+exponentials divided by their sum, rounded once: within half a step of the
+exact softmax, plus at most $(n + 1) 2^{-32}$. The one exception is a
+probability above 255.5/256, which the format cannot hold and which gives 127.
+The output can overwrite the scores.
+
+Cycles on an STM32F103 at 72 MHz (`-O2`), against CMSIS-NN 8.0.0's
+`arm_softmax_s8` built the same way:
+
+| scores | `fnn_softmax_s8` | CMSIS-NN | `fnn_argmax_s8` |
+| --- | --: | --: | --: |
+| 12 | 602 | 8159 | 122 |
+| 256 | 11436 | - | 2319 |
+
+The division per output is a 32-bit `udiv` on a shortened sum. Its quotient is
+right or one too small, and the remainder shows which: a 64-bit check runs
+only when the remainder is too close to tell, at most about once in 8000
+outputs.
+
 ## Requantisation (`fnn_quant.h`)
 
 A layer multiplies int8 inputs by int8 weights and adds the products in
@@ -218,6 +281,14 @@ output. Against the TFLite interpreter for LOGISTIC, TANH, HARD_SWISH and
 LEAKY_RELU: the exact tables for LOGISTIC and TANH equal TFLite's on every
 entry, the other two differ on some entries by 1, and a table read back from
 the interpreter reproduces it on every output.
+
+Softmax against an exact model of its own arithmetic and against the true
+softmax, at 1 to 1100 scores and five input scales: equal scores, the
+certain case, the far end of the table, sums past 2^40, and 100,000 sums built
+to sit just off a rounding tie, where the cheap division is closest to wrong.
+Against the TFLite interpreter, 58,000 outputs at four scales and betas, all
+equal. Argmax against a plain loop at every length to 300 and against TFLite
+on 1500 runs, half of them full of ties.
 
 Requantisation: every int32 sum, for 15 multiplier and shift pairs at the ends of their
 ranges, in each rounding mode, against an exact 64-bit model. Random sums,

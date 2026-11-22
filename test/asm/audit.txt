@@ -387,3 +387,8 @@ fnn_dense_s8       smlal !udiv
 
 # fnn_lut: byte loads and stores, none merged into unaligned words
 fnn_lut_s8         no-calls ldrb strb !ldrsb !bfi !str
+
+# fnn_softmax: one UDIV per output, and the 64-bit check kept out of the loop
+fnn_softmax_s8     udiv !umull
+exact              no-calls umull
+fnn_argmax_s8      no-calls

@@ -269,6 +269,13 @@ void test_fnn_lut_build(void);
 void test_fnn_lut_build_edges(void);
 void test_fnn_lut_apply(void);
 
+/* --- fnn_softmax (test_fnn_softmax.c) --- */
+void test_fnn_softmax_build(void);
+void test_fnn_softmax_random(void);
+void test_fnn_softmax_edges(void);
+void test_fnn_softmax_ties(void);
+void test_fnn_argmax(void);
+
 int main(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     if (sscanf(argv[i], "--shard=%u/%u", &test_shard, &test_shards) == 2) {
@@ -471,6 +478,11 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fnn_lut_build);
   TEST_RUN(test_fnn_lut_build_edges);
   TEST_RUN(test_fnn_lut_apply);
+  TEST_RUN(test_fnn_softmax_build);
+  TEST_RUN(test_fnn_softmax_random);
+  TEST_RUN(test_fnn_softmax_edges);
+  TEST_RUN(test_fnn_softmax_ties);
+  TEST_RUN(test_fnn_argmax);
 
   return TEST_SUMMARY();
 }
