@@ -59,22 +59,26 @@ never subtracts anything per input.
 
 The weights can stay in TFLite's order, rows of `n_in`, as above. For speed,
 reorder them once with `fnn_dense_pack_s8` and set the layer's `packed` to 1:
-the kernel then reads eight rows' weights with one load and runs about a fifth
+the kernel then reads eight rows' weights with one load and runs 14 to 27%
 faster. The packed order is flexnn's own and may change between versions:
 keep the rows and pack them again, at startup into RAM or ahead of time into a
 `const` array. Pass the rows, not the packed weights, to `fnn_fold_bias_s8`.
 
-Cycles on an STM32F103 at 72 MHz (`-O2`, weights in flash), against CMSIS-NN
-8.0.0's `arm_fully_connected_s8` built the same way:
+Cycles on an STM32F103 at 72 MHz (`-O2`), against CMSIS-NN 8.0.0's
+`arm_fully_connected_s8` built the same way. The board's flash cache holds 16
+to 32 KB: a layer whose weights fit is timed with them in the cache, and the
+16 KB layer from a flushed cache, its weights read from flash:
 
-| layer | flexnn, packed | flexnn, rows | CMSIS-NN |
-| --- | --: | --: | --: |
-| 256 inputs, 64 outputs | 84250 | 101874 | 124240 |
-| 64 inputs, 12 outputs | 4156 | 4936 | 5492 |
+| layer | weights | flexnn, packed | flexnn, rows | CMSIS-NN |
+| --- | --- | --: | --: | --: |
+| 64 inputs, 12 outputs | in the cache | 4156 | 4936 | 5492 |
+| 128 inputs, 64 outputs | in the cache | 37417 | 47457 | 53136 |
+| 256 inputs, 64 outputs | from flash | 132016 | 150677 | 164876 |
 
-That is 5.1 cycles per multiply-accumulate packed, against CMSIS-NN's 7.6. On
-the Cortex-M3 the multiply-accumulate itself takes 2 of those cycles, and
-splitting four weights out of a word takes one more per weight.
+With its weights in the cache the packed kernel takes 4.6 cycles per
+multiply-accumulate, against CMSIS-NN's 6.5. On the Cortex-M3 the
+multiply-accumulate itself takes 2 of those cycles, and splitting four weights
+out of a word takes one more per weight. From flash it takes 8.0, against 10.1.
 
 ## Convolution (`fnn_conv.h`)
 
