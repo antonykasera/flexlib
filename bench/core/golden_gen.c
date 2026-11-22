@@ -16,6 +16,17 @@ const unsigned bench_golden_n = 0U;
 
 static uint32_t cyc[BENCH_N];
 
+static bool warm_case(const char *name) {
+  for (unsigned g = 0U; g < bench_groups_n; g++) {
+    for (unsigned i = 0U; i < bench_groups[g]->n; i++) {
+      if (strcmp(bench_groups[g]->cases[i].name, name) == 0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /* FX_EMULATE_FPU: the hashes the FPU targets must reproduce */
 #ifdef FX_EMULATE_FPU
 #define GOLDEN_FILE "golden_fpu.c"
@@ -34,6 +45,14 @@ int main(void) {
   for (unsigned g = 0U; g < bench_groups_n; g++) {
     for (unsigned i = 0U; i < bench_groups[g]->n && n < 1024U; i++) {
       names[n++] = bench_groups[g]->cases[i].name;
+    }
+  }
+  /* A cold case with no warm twin takes a hash of its own. */
+  for (unsigned g = 0U; g < bench_cold_groups_n; g++) {
+    for (unsigned i = 0U; i < bench_cold_groups[g]->n && n < 1024U; i++) {
+      if (!warm_case(bench_cold_groups[g]->cases[i].name)) {
+        names[n++] = bench_cold_groups[g]->cases[i].name;
+      }
     }
   }
   for (unsigned a = 0U; a < n; a++) {
@@ -61,6 +80,14 @@ int main(void) {
     for (unsigned i = 0U; i < bench_groups[g]->n; i++) {
       const BenchCase *c = &bench_groups[g]->cases[i];
       if (c->golden) {
+        printf("    {\"%s\", 0x%08XU},\n", c->name, (unsigned)c->fn(cyc));
+      }
+    }
+  }
+  for (unsigned g = 0U; g < bench_cold_groups_n; g++) {
+    for (unsigned i = 0U; i < bench_cold_groups[g]->n; i++) {
+      const BenchCase *c = &bench_cold_groups[g]->cases[i];
+      if (c->golden && !warm_case(c->name)) {
         printf("    {\"%s\", 0x%08XU},\n", c->name, (unsigned)c->fn(cyc));
       }
     }

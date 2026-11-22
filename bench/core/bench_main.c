@@ -133,7 +133,7 @@ static void run_cold(uint32_t overhead, const char *const golden_str[]) {
       const BenchCase *c = &bench_cold_groups[g]->cases[i];
       const BenchCase *wc = find_case(c->name);
       __disable_irq();
-      BenchResult w = bench_run(wc != NULL ? wc : c, overhead, cyc);
+      uint32_t warm = wc != NULL ? bench_run(wc, overhead, cyc).median : 0U;
       BenchResult r = bench_run(c, overhead, cyc);
       __enable_irq();
       bench_print("| ");
@@ -141,7 +141,11 @@ static void run_cold(uint32_t overhead, const char *const golden_str[]) {
       bench_print(" | ");
       bench_print(c->impl);
       bench_print(" | ");
-      bench_print_u32(w.median);
+      if (wc != NULL) {
+        bench_print_u32(warm);
+      } else {
+        bench_print("-");
+      }
       bench_print(" | ");
       bench_print_u32(r.min);
       bench_print(" | ");
