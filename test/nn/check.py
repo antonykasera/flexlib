@@ -49,6 +49,9 @@ def load(libdir):
         lib.shim_conv_s8.argtypes = [ctypes.c_void_p] * 5 + [
             ctypes.c_int32, ctypes.c_void_p, ctypes.c_uint32] + [
             ctypes.c_int32] * 3 + [ctypes.c_uint32] + [ctypes.c_void_p] * 3
+        lib.shim_dwconv_s8.argtypes = [ctypes.c_void_p] * 4 + [
+            ctypes.c_int32, ctypes.c_void_p, ctypes.c_uint32] + [
+            ctypes.c_int32] * 3 + [ctypes.c_void_p] * 2
         assert lib.shim_rounding() == m, f"libfnn{m}.so is mode {lib.shim_rounding()}"
         libs.append(lib)
     return libs
@@ -196,6 +199,58 @@ def case_conv(libs, ih, iw, ic, oc, kh, kw, s, same, act, per_channel, seed,
             + (", SAME" if same else "") + {0: "", RELU: ", ReLU", RELU6: ", ReLU6"}[act]
             + (", per channel" if per_channel else ""))
     return name, 2 * runs * oh * ow * oc, bad
+
+
+def case_dwconv(libs, ih, iw, ic, mult, kh, kw, s, same, act, per_channel, seed,
+                runs=20):
+    """DEPTHWISE_CONV_2D with random weights."""
+    rng = np.random.default_rng(seed)
+    oc = ic * mult
+    s_in, s_out = 0.05, 0.1
+    s_w = (rng.uniform(0.5, 1.5, oc) * 0.004 if per_channel
+           else np.array([0.004])).astype(np.float32)
+    zx, zy = int(rng.integers(-128, 128)), int(rng.integers(-128, 128))
+    w = rng.integers(-127, 128, (1, kh, kw, oc), dtype=np.int8)
+    bias = rng.integers(-2000, 2000, oc, dtype=np.int32)
+    if same:
+        oh, ow = -(-ih // s), -(-iw // s)
+        pt = max((oh - 1) * s + kh - ih, 0) // 2
+        pl = max((ow - 1) * s + kw - iw, 0) // 2
+    else:
+        oh, ow, pt, pl = (ih - kh) // s + 1, (iw - kw) // s + 1, 0, 0
+    m = tfl.Model()
+    x = m.tensor("x", [1, ih, iw, ic], tfl.INT8, scale=s_in, zp=zx)
+    wt = m.tensor("w", [1, kh, kw, oc], tfl.INT8, scale=list(s_w),
+                  zp=[0] * len(s_w), axis=3, data=w)
+    bscale = [float(np.float32(s_in) * v) for v in s_w]
+    b = m.tensor("b", [oc], tfl.INT32, scale=bscale, zp=[0] * len(s_w), data=bias)
+    y = m.tensor("y", [1, oh, ow, oc], tfl.INT8, scale=s_out, zp=zy)
+    m.op("DEPTHWISE_CONV_2D", [x, wt, b], [y], Padding=0 if same else 1,
+         StrideW=s, StrideH=s, DepthMultiplier=mult, FusedActivationFunction=act)
+    xs = [rng.integers(-128, 128, (1, ih, iw, ic), dtype=np.int8)
+          for _ in range(runs)]
+    got = tfl.run_reference(m.build(), xs)
+    scales = np.array([v / float(np.float32(s_out)) for v in bscale])
+    lo, hi = act_range(act, s_out, zy)
+    dims = np.array([ih, iw, ic, oh, ow, oc, kh, kw, s, s, pt, pl], np.uint32)
+    wc = np.ascontiguousarray(w.reshape(-1))
+    bf = np.zeros(oc, np.int32)
+    out = np.zeros(oh * ow * oc, np.int8)
+    bad = []
+    for lib in libs:
+        wrong = 0
+        for xv, ref in zip(xs, got):
+            xc = np.ascontiguousarray(xv.reshape(-1))
+            out[:] = 0
+            lib.shim_dwconv_s8(xc.ctypes.data, wc.ctypes.data, dims.ctypes.data,
+                               bias.ctypes.data, zx, scales.ctypes.data, len(scales),
+                               zy, lo, hi, bf.ctypes.data, out.ctypes.data)
+            wrong += int(np.count_nonzero(out != ref.reshape(-1)))
+        bad.append(wrong)
+    name = (f"depthwise {kh}x{kw} stride {s}, {ih}x{iw}x{ic} -> {oh}x{ow}x{oc}"
+            + (", SAME" if same else "") + {0: "", RELU: ", ReLU", RELU6: ", ReLU6"}[act]
+            + (", per channel" if per_channel else ""))
+    return name, runs * oh * ow * oc, bad
 
 
 def case_table(lib, op, s_in, zx, s_out, zy, f, seed, **options):
@@ -357,6 +412,13 @@ def main():
               (7, 7, 3, 8, 3, 3, 2, 1, RELU6, True, 34),
               (3, 3, 2, 3, 5, 5, 1, 1, 0, False, 35)):
         name, n, bad = case_conv(libs, *c)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= bad[GEMMLOWP] != 0
+    for c in ((5, 5, 64, 1, 3, 3, 1, 1, 0, True, 41),
+              (12, 12, 16, 1, 3, 3, 2, 1, RELU6, True, 42),
+              (6, 6, 5, 3, 3, 3, 1, 0, RELU, True, 43),
+              (1, 40, 8, 1, 1, 9, 1, 1, 0, False, 44)):
+        name, n, bad = case_dwconv(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
         failed |= bad[GEMMLOWP] != 0
     print("\nmismatches per rounding mode: fully connected layers must match"

@@ -35,6 +35,10 @@ OPTIONS = {
                 {"Padding": 1, "StrideW": 1, "StrideH": 1,
                  "FusedActivationFunction": 0, "DilationWFactor": 1,
                  "DilationHFactor": 1}),
+    "DEPTHWISE_CONV_2D": ("DepthwiseConv2DOptions", "DepthwiseConv2DOptions", 3,
+                          {"Padding": 1, "StrideW": 1, "StrideH": 1,
+                           "DepthMultiplier": 1, "FusedActivationFunction": 0,
+                           "DilationWFactor": 1, "DilationHFactor": 1}),
     "QUANTIZE": (None, None, 2, {}),
     "DEQUANTIZE": (None, None, 2, {}),
 }
