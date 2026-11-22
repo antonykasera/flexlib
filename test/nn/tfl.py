@@ -23,6 +23,10 @@ INT8, INT32 = TensorType.INT8, TensorType.INT32
 OPTIONS = {
     "FULLY_CONNECTED": ("FullyConnectedOptions", "FullyConnectedOptions", 4,
                         {"FusedActivationFunction": 0}),
+    "LOGISTIC": (None, None, 2, {}),
+    "TANH": (None, None, 2, {}),
+    "HARD_SWISH": (None, None, 1, {}),
+    "LEAKY_RELU": ("LeakyReluOptions", "LeakyReluOptions", 2, {"Alpha": 0.2}),
 }
 
 _NP = {INT8: np.int8, INT32: np.int32}
@@ -109,19 +113,21 @@ class Model:
         ops, O = [], _B["Operator"]
         for name, ins, outs, options in self.ops:
             table, member, _, defaults = OPTIONS[name]
-            om = _mod(table)
-            om.Start(b)
-            for field, value in {**defaults, **options}.items():
-                getattr(om, "Add" + field)(b, value)
-            opts = om.End(b)
+            if table is not None:
+                om = _mod(table)
+                om.Start(b)
+                for field, value in {**defaults, **options}.items():
+                    getattr(om, "Add" + field)(b, value)
+                opts = om.End(b)
             iv = _vector(b, O.StartInputsVector, ins, b.PrependInt32)
             ov = _vector(b, O.StartOutputsVector, outs, b.PrependInt32)
             O.Start(b)
             O.AddOpcodeIndex(b, codes.index(name))
             O.AddInputs(b, iv)
             O.AddOutputs(b, ov)
-            O.AddBuiltinOptionsType(b, getattr(BuiltinOptions, member))
-            O.AddBuiltinOptions(b, opts)
+            if table is not None:
+                O.AddBuiltinOptionsType(b, getattr(BuiltinOptions, member))
+                O.AddBuiltinOptions(b, opts)
             ops.append(O.End(b))
 
         SG = _B["SubGraph"]
