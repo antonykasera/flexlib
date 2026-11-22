@@ -12,9 +12,11 @@
 #include "fnn_convert.h"
 #include "fnn_dense.h"
 #include "fnn_dwconv.h"
+#include "fnn_elem.h"
 #include "fnn_lut.h"
 #include "fnn_pool.h"
 #include "fnn_quant.h"
+#include "fnn_shape.h"
 #include "fnn_softmax.h"
 #include <math.h>
 #ifdef BENCH_HAVE_CMSIS_NN
@@ -54,6 +56,9 @@ _Static_assert(XLEN + XOFF + 2304U <= 7168U, "outputs clear of the table");
 #define FN 128U
 _Static_assert(XLEN + XOFF + 2304U <= 6464U && 6464U + 4U * (FN + 16U) <= 7168U,
                "float inputs clear of the outputs and the table");
+/* The add layer, between the patch scratch and the table. */
+#define add_eq (*(FNN_Add *)(void *)(bench_scratch + 7112U))
+_Static_assert(7112U + sizeof(FNN_Add) <= 7168U, "add layer clear of the table");
 static int32_t acc[256 + 4], bias[CH], bf256[CH], bf128[CH], bf64[12];
 static int32_t mult[CH], shift[CH]; /* CMSIS-NN takes TFLite's shifts */
 static int8_t rsh[CH];
@@ -105,6 +110,8 @@ static void setup(void) {
   fnn_fold_bias_s8(wpool, 128U, 64U, bias, ZX, bf128);
   fnn_fold_bias_s8(wpool, 64U, 12U, bias, ZX, bf64);
   (void)fnn_mean_quant(1.0, 25U, &mean64.mult, &mean64.rsh);
+  (void)fnn_add_init(&add_eq, 0.05, ZX, 0.05, ZX, 0.05,
+                     (FNN_Out){ZY, -128, 127});
 #ifdef BENCH_HAVE_CMSIS_NN
   c_check();
 #endif
@@ -225,6 +232,48 @@ static uint32_t mean(uint32_t off) {
 BLOCK(b_maxpool16, pool(x, &mp16, 0), 1024U)
 BLOCK(b_avgpool64, pool(x, &ap64, 1), 64U)
 BLOCK(b_mean64, mean(x), 64U)
+
+static uint32_t add(uint32_t off) {
+  fnn_add_s8(&add_eq, xin + off, xin + 2048U + off, yout, 1024U);
+  return 0U;
+}
+BLOCK(b_add1024, add(x), 1024U)
+
+static inline int32_t mbq(int32_t x, int32_t m, uint32_t e) {
+  int32_t v = (int32_t)(fx_smlal(1LL << 30, x, m) >> 31);
+  uint32_t mask = (1U << e) - 1U;
+  uint32_t thr = (mask >> 1) + (uint32_t)(v < 0);
+  return (v >> e) + (int32_t)(((uint32_t)v & mask) > thr);
+}
+
+BENCH_CALL static void k_add_tfl(const FNN_Add *a, const int8_t *x1,
+                                 const int8_t *x2, int8_t *y, uint32_t n) {
+  int32_t z1 = a->z1, z2 = a->z2, m1 = a->m[0], m2 = a->m[1], mo = a->m[2];
+  uint32_t e1 = (uint32_t)a->sh[0], e2 = (uint32_t)a->sh[1];
+  uint32_t eo = (uint32_t)a->sh[2];
+  int32_t zp = a->o.zp, lo = a->o.lo, hi = a->o.hi;
+  for (uint32_t i = 0U; i < n; i++) {
+    int32_t v1 = mbq((x1[i] - z1) * (1 << 20), m1, e1);
+    int32_t v2 = mbq((x2[i] - z2) * (1 << 20), m2, e2);
+    y[i] = fnn_clamp_s8(mbq(v1 + v2, mo, eo), zp, lo, hi);
+  }
+}
+/* TFLite's multipliers and shifts for these scales, as c_add passes them. */
+static const FNN_Add add_tfl = {
+    ZX, ZX, {1 << 30, 1 << 30, 1 << 30}, {0, 0, 18}, {ZY, -128, 127}};
+static uint32_t add_tfl3(uint32_t off) {
+  k_add_tfl(&add_tfl, xin + off, xin + 2048U + off, yout, 1024U);
+  return 0U;
+}
+BLOCK(b_add1024_tfl, add_tfl3(x), 1024U)
+
+static uint32_t concat(uint32_t off) {
+  static const uint32_t len[2] = {16U, 16U};
+  const int8_t *const in[2] = {xin + off, xin + 1024U + off};
+  fnn_concat_s8(in, len, 2U, 64U, yout);
+  return 0U;
+}
+BLOCK(b_concat, concat(x), 2048U)
 
 /* The library's window, for the candidates below. */
 static const int8_t *win(const FNN_Pool *p, const int8_t *x, uint32_t oy,
@@ -947,6 +996,13 @@ static uint32_t c_add(uint32_t off) {
 }
 BLOCK(c_add_1024, c_add(x), 1024U)
 
+static uint32_t c_concat(uint32_t off) {
+  arm_concatenation_s8_x(xin + off, 16, 8, 8, 1, yout, 32, 0);
+  arm_concatenation_s8_x(xin + 1024U + off, 16, 8, 8, 1, yout, 32, 16);
+  return 0U;
+}
+BLOCK(c_concat_x, c_concat(x), 2048U)
+
 /* TFLite's softmax parameters for an input scale of 1/16 */
 static uint32_t c_softmax(uint32_t off) {
   arm_softmax_s8(xin + off, 1, 12, 1 << 30, 23, -248, yout);
@@ -1012,6 +1068,10 @@ static const BenchCase cases[] = {
      b_maxpool4, true},
     {"average pool 5 x 5 x 64, four channels in 16-bit lanes of two words",
      "candidate", b_avgpool_lanes, true},
+    {"fnn_add_s8, 1024", "flexlib", b_add1024, true},
+    {"add 1024, TFLite's three roundings (FNN_ROUND_GEMMLOWP)", "candidate",
+     b_add1024_tfl, true},
+    {"fnn_concat_s8, 2 x 8 x 8 x 16 to 8 x 8 x 32", "flexlib", b_concat, true},
     {"fnn_lut_s8, 1024", "flexlib", b_lut, true},
     {"table 1024, eight a pass, each looked up and stored in turn",
      "candidate", b_lut8, true},
@@ -1057,6 +1117,8 @@ static const BenchCase cases[] = {
     {"arm_max_pool_s8, 2 x 2, 16 x 16 x 16", "CMSIS-NN", c_maxpool_16, false},
     {"arm_avgpool_s8, 5 x 5 x 64 to 1 x 1", "CMSIS-NN", c_avgpool_64, false},
     {"arm_elementwise_add_s8, 1024", "CMSIS-NN", c_add_1024, false},
+    {"arm_concatenation_s8_x, 2 x 8 x 8 x 16 to 8 x 8 x 32", "CMSIS-NN",
+     c_concat_x, false},
     {"arm_softmax_s8, 12", "CMSIS-NN", c_softmax_12, false},
 #endif
 };

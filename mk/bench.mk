@@ -108,6 +108,7 @@ CMSIS_NN_SRCS_nn  = $(addprefix FullyConnectedFunctions/,arm_fully_connected_s8.
                     $(addprefix PoolingFunctions/,arm_max_pool_s8.c arm_avgpool_s8.c \
                       arm_avgpool_get_buffer_sizes_s8.c) \
                     BasicMathFunctions/arm_elementwise_add_s8.c \
+                    ConcatenationFunctions/arm_concatenation_s8_x.c \
                     $(addprefix SoftmaxFunctions/,arm_softmax_s8.c \
                       arm_nn_softmax_common_s8.c) \
                     $(addprefix NNSupportFunctions/,arm_nn_mat_mul_core_1x_s8.c \
