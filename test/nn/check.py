@@ -56,6 +56,12 @@ def load(libdir):
             ctypes.c_int32] * 2 + [ctypes.c_void_p]
         lib.shim_mean_s8.argtypes = [ctypes.c_void_p] + [ctypes.c_uint32] * 3 + [
             ctypes.c_int32, ctypes.c_double, ctypes.c_int32, ctypes.c_void_p]
+        lib.shim_add_s8.argtypes = [ctypes.c_void_p] * 2 + [
+            ctypes.c_uint32, ctypes.c_double, ctypes.c_int32, ctypes.c_double,
+            ctypes.c_int32, ctypes.c_double] + [ctypes.c_int32] * 3 + [
+            ctypes.c_void_p]
+        lib.fnn_concat_s8.argtypes = [ctypes.c_void_p] * 2 + [
+            ctypes.c_uint32] * 2 + [ctypes.c_void_p]
         assert lib.shim_rounding() == m, f"libfnn{m}.so is mode {lib.shim_rounding()}"
         libs.append(lib)
     return libs
@@ -323,6 +329,71 @@ def case_mean(libs, h, w, c, s_in, s_out, seed, runs=50):
     return name, runs * c, bad
 
 
+def case_add(libs, shape, s1, s2, sy, act, seed, runs=20):
+    """ADD of two tensors of the same shape."""
+    rng = np.random.default_rng(seed)
+    z1, z2, zy = (int(v) for v in rng.integers(-128, 128, 3))
+    m = tfl.Model()
+    a = m.tensor("a", shape, tfl.INT8, scale=s1, zp=z1)
+    b = m.tensor("b", shape, tfl.INT8, scale=s2, zp=z2)
+    y = m.tensor("y", shape, tfl.INT8, scale=sy, zp=zy)
+    m.op("ADD", [a, b], [y], FusedActivationFunction=act)
+    blob = m.build(inputs=[a, b], outputs=[y])
+    feeds = [(rng.integers(-128, 128, shape, dtype=np.int8),
+              rng.integers(-128, 128, shape, dtype=np.int8)) for _ in range(runs)]
+    got = tfl.run_reference(blob, feeds)
+    f = [float(np.float32(v)) for v in (s1, s2, sy)]
+    lo, hi = act_range(act, sy, zy)
+    n = int(np.prod(shape))
+    out = np.zeros(n, np.int8)
+    bad = []
+    for lib in libs:
+        wrong = 0
+        for (xa, xb), ref in zip(feeds, got):
+            ca, cb = (np.ascontiguousarray(v.reshape(-1)) for v in (xa, xb))
+            out[:] = 0
+            lib.shim_add_s8(ca.ctypes.data, cb.ctypes.data, n, f[0], z1, f[1], z2,
+                            f[2], zy, lo, hi, out.ctypes.data)
+            wrong += int(np.count_nonzero(out != ref.reshape(-1)))
+        bad.append(wrong)
+    name = (f"add {'x'.join(map(str, shape[1:]))}, scales {s1:g} + {s2:g} -> {sy:g}"
+            + {0: "", RELU: ", ReLU", RELU6: ", ReLU6"}[act])
+    return name, runs * n, bad
+
+
+def case_concat(libs, shapes, axis, seed, runs=10):
+    """CONCATENATION of tensors at one scale and zero point."""
+    rng = np.random.default_rng(seed)
+    zp = int(rng.integers(-128, 128))
+    m = tfl.Model()
+    ins = [m.tensor(f"x{i}", s, tfl.INT8, scale=0.05, zp=zp)
+           for i, s in enumerate(shapes)]
+    oshape = list(shapes[0])
+    oshape[axis] = sum(s[axis] for s in shapes)
+    y = m.tensor("y", oshape, tfl.INT8, scale=0.05, zp=zp)
+    m.op("CONCATENATION", ins, [y], Axis=axis)
+    blob = m.build(inputs=ins, outputs=[y])
+    feeds = [tuple(rng.integers(-128, 128, s, dtype=np.int8) for s in shapes)
+             for _ in range(runs)]
+    got = tfl.run_reference(blob, feeds)
+    outer = int(np.prod(oshape[:axis]))
+    lens = (ctypes.c_uint32 * len(shapes))(*[int(np.prod(s[axis:])) for s in shapes])
+    out = np.zeros(int(np.prod(oshape)), np.int8)
+    bad = []
+    for lib in libs:
+        wrong = 0
+        for xs, ref in zip(feeds, got):
+            cs = [np.ascontiguousarray(v.reshape(-1)) for v in xs]
+            ptrs = (ctypes.c_void_p * len(cs))(*[c.ctypes.data for c in cs])
+            out[:] = 0
+            lib.fnn_concat_s8(ptrs, lens, len(cs), outer, out.ctypes.data)
+            wrong += int(np.count_nonzero(out != ref.reshape(-1)))
+        bad.append(wrong)
+    name = (f"concat {' + '.join('x'.join(map(str, s[1:])) for s in shapes)}"
+            f" on axis {axis}")
+    return name, runs * out.size, bad
+
+
 def case_table(lib, op, s_in, zx, s_out, zy, f, seed, **options):
     """A one-input operator, as an exact table and as one read back from TFLite."""
     m = tfl.Model()
@@ -508,9 +579,22 @@ def main():
         name, n, bad = case_mean(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
         failed |= bad[GEMMLOWP] != 0
+    for c in (([1, 32], 0.05, 0.05, 0.05, 0, 71), ([1, 4, 4, 16], 0.1, 0.03, 0.12, 0, 72),
+              ([1, 8, 8, 8], 0.02, 0.5, 0.4, RELU, 73), ([1, 64], 0.25, 0.125, 1.0, 0, 74),
+              ([1, 6, 6, 4], 0.07, 0.07, 0.05, RELU6, 75)):
+        name, n, bad = case_add(libs, *c)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= bad[GEMMLOWP] != 0
+    for c in (([[1, 4, 4, 8], [1, 4, 4, 16]], 3, 81),
+              ([[1, 2, 5, 3], [1, 2, 5, 1], [1, 2, 5, 6]], 3, 82),
+              ([[1, 3, 4, 8], [1, 5, 4, 8]], 1, 83),
+              ([[1, 4, 3, 2], [1, 4, 7, 2]], 2, 84)):
+        name, n, bad = case_concat(libs, *c)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= any(bad)
     print("\nmismatches per rounding mode: fully connected layers must match"
-          "\nFNN_ROUND_AWAY, convolutions and means FNN_ROUND_GEMMLOWP, the interpreter's"
-          "\nrules; pools must match in every mode\n")
+          "\nFNN_ROUND_AWAY, convolutions, means and adds FNN_ROUND_GEMMLOWP, the"
+          "\ninterpreter's rules; pools and concatenations must match in every mode\n")
 
     tables = [
         ("LOGISTIC", 1.0 / 16.0, 0, 1.0 / 256.0, -128, logistic, 5),

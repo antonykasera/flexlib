@@ -47,6 +47,9 @@ OPTIONS = {
                          "FilterWidth": 1, "FilterHeight": 1,
                          "FusedActivationFunction": 0}),
     "MEAN": ("ReducerOptions", "ReducerOptions", 2, {"KeepDims": True}),
+    "ADD": ("AddOptions", "AddOptions", 2, {"FusedActivationFunction": 0}),
+    "CONCATENATION": ("ConcatenationOptions", "ConcatenationOptions", 2,
+                      {"Axis": 0, "FusedActivationFunction": 0}),
     "QUANTIZE": (None, None, 2, {}),
     "DEQUANTIZE": (None, None, 2, {}),
 }
@@ -186,18 +189,20 @@ class Model:
 
 
 def run_reference(blob, feeds):
-    """Runs the model once per input array and returns each first output. It
-    asks for the reference kernels, since the optimised ones round differently."""
+    """Runs the model once per feed, an input array or a tuple of one per input,
+    and returns each first output. It asks for the reference kernels, since the
+    optimised ones round differently."""
     from ai_edge_litert import interpreter as litert
     it = litert.Interpreter(
         model_content=blob,
         experimental_op_resolver_type=litert.OpResolverType.BUILTIN_REF)
     it.allocate_tensors()
-    i_in = it.get_input_details()[0]["index"]
+    i_ins = [d["index"] for d in it.get_input_details()]
     i_out = it.get_output_details()[0]["index"]
     outs = []
     for x in feeds:
-        it.set_tensor(i_in, x)
+        for i, v in zip(i_ins, x if isinstance(x, tuple) else (x,)):
+            it.set_tensor(i, v)
         it.invoke()
         outs.append(it.get_tensor(i_out).copy())
     return outs

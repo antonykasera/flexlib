@@ -10,6 +10,7 @@
 #include "fnn_conv.h"
 #include "fnn_dense.h"
 #include "fnn_dwconv.h"
+#include "fnn_elem.h"
 #include "fnn_pool.h"
 #include "fnn_quant.h"
 
@@ -31,6 +32,9 @@ void shim_pool_s8(const int8_t *x, const uint32_t *dims, int avg, int32_t lo,
                   int32_t hi, int8_t *y);
 void shim_mean_s8(const int8_t *x, uint32_t h, uint32_t w, uint32_t c,
                   int32_t zx, double scale, int32_t zy, int8_t *y);
+void shim_add_s8(const int8_t *x1, const int8_t *x2, uint32_t n, double s1,
+                 int32_t z1, double s2, int32_t z2, double sy, int32_t zy,
+                 int32_t lo, int32_t hi, int8_t *y);
 int8_t shim_requant_s8(int32_t acc, int32_t mult, int32_t rsh, int32_t zp,
                        int32_t lo, int32_t hi);
 
@@ -151,5 +155,14 @@ void shim_mean_s8(const int8_t *x, uint32_t h, uint32_t w, uint32_t c,
   if (fnn_mean_quant(scale, h * w, &m.mult, &m.rsh) == FNN_OK &&
       fnn_mean_check(&m) == FNN_OK) {
     fnn_mean_s8(&m, x, y);
+  }
+}
+
+void shim_add_s8(const int8_t *x1, const int8_t *x2, uint32_t n, double s1,
+                 int32_t z1, double s2, int32_t z2, double sy, int32_t zy,
+                 int32_t lo, int32_t hi, int8_t *y) {
+  FNN_Add a;
+  if (fnn_add_init(&a, s1, z1, s2, z2, sy, (FNN_Out){zy, lo, hi}) == FNN_OK) {
+    fnn_add_s8(&a, x1, x2, y, n);
   }
 }
