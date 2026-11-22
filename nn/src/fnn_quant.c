@@ -29,8 +29,7 @@ FX_COLD int32_t fnn_requant_wide(int32_t acc, int32_t mult, int32_t rsh) {
 
 void fnn_requant_s8(const int32_t *acc, int8_t *y, uint32_t n,
                     const FNN_Quant *q, const FNN_Out *o) {
-  /* copied first: GCC must assume an int8 store can change q and o, and
-   * would reload them after every output */
+  /* Local copies, or GCC reloads them after every int8 store. */
   const int32_t *mult = q->mult;
   const int8_t *rsh = q->rsh;
   uint32_t nc = q->n;
@@ -48,8 +47,7 @@ FNN_Status fnn_quant_from_scale(double scale, int32_t *mult, int8_t *rsh) {
   if (!(scale >= 0.0) || !isfinite(scale)) {
     return FNN_ERR_QUANT;
   }
-  /* split scale into q 2^e with q in [0.5, 1), as frexp does, by halving and
-   * doubling, which are exact */
+  /* Brings scale into [0.5, 1) like frexp, by exact halving and doubling. */
   double q = scale;
   int32_t e = 0;
   while (q >= 1.0) {
@@ -60,8 +58,7 @@ FNN_Status fnn_quant_from_scale(double scale, int32_t *mult, int8_t *rsh) {
     q *= 2.0;
     e--;
   }
-  /* q 2^31 is exact and positive: adding 0.5 and truncating rounds half away
-   * from zero, as TFLite's round() does */
+  /* Rounds half away from zero, as TFLite's round() does. */
   int64_t m = (int64_t)(q * 2147483648.0 + 0.5);
   if (m == 1LL << 31) {
     m >>= 1;

@@ -15,7 +15,7 @@
 
 typedef void Rows(const int8_t *x, const int8_t *w, uint32_t n, uint32_t *sum);
 
-/* packed: eight rows' weights for an input in a double word */
+/* Eight packed rows: one double word of weights per input. */
 static NOINLINE void dense_r8(const int8_t *x, const int8_t *w, uint32_t n,
                               uint32_t *sum) {
   const uint32_t *q = (const uint32_t *)(const void *)w;
@@ -41,7 +41,7 @@ static NOINLINE void dense_r8(const int8_t *x, const int8_t *w, uint32_t n,
   }
 }
 
-/* packed: four rows' weights for an input in a word */
+/* Four packed rows: one word of weights per input. */
 static NOINLINE void dense_r4p(const int8_t *x, const int8_t *w, uint32_t n,
                                uint32_t *sum) {
   const uint32_t *q = (const uint32_t *)(const void *)w;
@@ -60,7 +60,7 @@ static NOINLINE void dense_r4p(const int8_t *x, const int8_t *w, uint32_t n,
   sum[3] = a3;
 }
 
-/* natural layout: four rows at once, each input loaded once */
+/* Four rows in TFLite's order, each input loaded once for all four. */
 static NOINLINE void dense_r4(const int8_t *x, const int8_t *w, uint32_t n,
                               uint32_t *sum) {
   const int8_t *w0 = w, *w1 = w + n, *w2 = w1 + n, *w3 = w2 + n;

@@ -19,8 +19,6 @@ static double half(double v) { return v / 2.0; }
 static double nan_f(double v) { return v * (double)NAN; }
 static double big(double v) { return v * (double)INFINITY; }
 
-/* Checks that every entry is within half a step of the exact value, with ties
- * rounded up and both ends clamped. */
 static unsigned check(double (*f)(double), double s_x, int32_t z_x, double s_y,
                       int32_t z_y) {
   int8_t lut[256];
@@ -61,8 +59,7 @@ void test_fnn_lut_build(void) {
   ASSERT_EQ(lut[(uint8_t)127], 64);
   ASSERT_EQ(lut[(uint8_t)-128], -64);
 
-  /* Both ends clamp. 127.5 rounds up past the end, and -127.5 rounds up to
-   * -127. */
+  /* 127.5 clamps to 127, and -127.5 rounds up to -127. */
   ASSERT_EQ(fnn_lut_s8_build(half, 1.0, 0, 1.0 / 4.0, 0, lut), FNN_OK);
   ASSERT_EQ(lut[(uint8_t)-128], -128);
   ASSERT_EQ(lut[(uint8_t)-65], -128);
@@ -86,8 +83,7 @@ void test_fnn_lut_build_edges(void) {
   }
   ASSERT_EQ(bad, 0U);
 
-  /* Below the zero point f gives minus infinity, at it NaN (zero times
-   * infinity), and above it infinity. */
+  /* f gives minus infinity below the zero point, NaN at it, infinity above. */
   ASSERT_EQ(fnn_lut_s8_build(big, 1.0, 0, 1.0, 0, lut), FNN_OK);
   ASSERT_EQ(lut[(uint8_t)-128], -128);
   ASSERT_EQ(lut[(uint8_t)-1], -128);
@@ -108,8 +104,6 @@ void test_fnn_lut_build_edges(void) {
   ASSERT_EQ(fnn_lut_s8_build(tanh, 1e-300, 0, 1e300, 0, lut), FNN_OK);
 }
 
-/* Runs every length up to 40 and some up to 1030, at each alignment, with
- * guard bytes around the output, and then in place. */
 void test_fnn_lut_apply(void) {
   static int8_t lut[256], x[1100], y[1100], z[1100];
   uint64_t r = 0x7AB1EU;

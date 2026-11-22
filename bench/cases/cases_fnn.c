@@ -16,8 +16,7 @@
 #include "arm_nnsupportfunctions.h"
 #endif
 
-/* the layers take their weights from one flash pool, a 61-byte pattern over
- * and over; because 61 is prime, no two rows come out the same */
+/* One flash pool of a 61-byte pattern; 61 is prime, and no two rows match. */
 #define W61                                                                    \
   2, 40, 2, -63, -50, 13, 45, 7, -82, 15, -32, 91, 42, -51, -14, -53, 12, -32, \
       120, 79, -21, -86, -102, 108, -112, -127, -112, -80, -62, -124, 40, 67,  \
@@ -126,7 +125,6 @@ BLOCK(b_fc64p, dense(x, &fc64p), 12U)
 /* candidates the packed kernel was chosen over, in a copy of its driver */
 typedef void Rows(const int8_t *x, const int8_t *w, uint32_t n, uint32_t *sum);
 
-/* every load before the multiplies */
 BENCH_CALL static void k_grouped(const int8_t *x, const int8_t *w, uint32_t n,
                                  uint32_t *sum) {
   const int8_t *w0 = w, *w1 = w + n, *w2 = w1 + n, *w3 = w2 + n;
@@ -145,7 +143,6 @@ BENCH_CALL static void k_grouped(const int8_t *x, const int8_t *w, uint32_t n,
   sum[3] = a3;
 }
 
-/* the four rows' weights for one input in one word */
 BENCH_CALL static void k_word(const int8_t *x, const int8_t *w, uint32_t n,
                               uint32_t *sum) {
   const uint32_t *q = (const uint32_t *)(const void *)w;
@@ -165,7 +162,6 @@ BENCH_CALL static void k_word(const int8_t *x, const int8_t *w, uint32_t n,
 }
 
 #define LANE(v, k) ((int32_t)((v) << (24U - 8U * (k))) >> 24)
-/* four inputs in one word, then the four rows' weights for each */
 BENCH_CALL static void k_x4(const int8_t *x, const int8_t *w, uint32_t n,
                             uint32_t *sum) {
   const uint32_t *q = (const uint32_t *)(const void *)w;
@@ -189,7 +185,6 @@ BENCH_CALL static void k_x4(const int8_t *x, const int8_t *w, uint32_t n,
   sum[3] = a3;
 }
 
-/* eight rows' weights for one input in a double word */
 BENCH_CALL static void k_word8(const int8_t *x, const int8_t *w, uint32_t n,
                                uint32_t *sum) {
   const uint32_t *q = (const uint32_t *)(const void *)w;
@@ -229,8 +224,6 @@ static uint32_t dense_with(uint32_t off, Rows *k, uint32_t rows) {
   }
   return 0U;
 }
-/* two rows share each multiply, their weights the halves of a word; the
- * halves part every two inputs, before either can overflow */
 BENCH_CALL static void k_pairs(const int8_t *x, const int8_t *w, uint32_t n,
                                uint32_t *sum) {
   const int32_t *q = (const int32_t *)(const void *)w;
@@ -285,7 +278,6 @@ BLOCK(b_lut, lut_lib(x), 1024U)
 /* candidates the table kernel was chosen over */
 typedef void Lut(const int8_t *x, int8_t *y, uint32_t n, const int8_t *t);
 
-/* Looks up and stores eight values a pass, one at a time. */
 BENCH_CALL static void k_lut8(const int8_t *x, int8_t *y, uint32_t n,
                               const int8_t *lut8) {
   const int8_t *t = lut8 + 128;
@@ -309,7 +301,6 @@ BENCH_CALL static void k_lut8(const int8_t *x, int8_t *y, uint32_t n,
   }
 }
 
-/* Does every lookup before the stores, which GCC then merges into words. */
 BENCH_CALL static void k_lut8g(const int8_t *x, int8_t *y, uint32_t n,
                                const int8_t *lut8) {
   const int8_t *t = lut8 + 128;
@@ -343,7 +334,6 @@ BENCH_CALL static void k_lut8g(const int8_t *x, int8_t *y, uint32_t n,
   }
 }
 
-/* Reads four values as a word and flips them to unsigned indexes. */
 BENCH_CALL static void k_lutw(const int8_t *x, int8_t *y, uint32_t n,
                               const int8_t *lut8) {
   const uint8_t *t = (const uint8_t *)lut8;
@@ -362,7 +352,6 @@ BENCH_CALL static void k_lutw(const int8_t *x, int8_t *y, uint32_t n,
   }
 }
 
-/* Runs the library's group of eight in signed order, one group a pass. */
 #define HOLD8(a, b, c, d, e, f, g, h)                                          \
   __asm__("" : "+r"(a), "+r"(b), "+r"(c), "+r"(d), "+r"(e), "+r"(f), "+r"(g),  \
           "+r"(h))
@@ -398,7 +387,6 @@ BENCH_CALL static void k_lut8s(const int8_t *x, int8_t *y, uint32_t n,
   }
 }
 
-/* Uses the library's order and loop, with groups of eight. */
 #define STOREU(p, v)                                                           \
   do {                                                                         \
     *(p) = (uint8_t)(v);                                                       \
@@ -571,8 +559,7 @@ static uint32_t c_softmax(uint32_t off) {
 }
 BLOCK(c_softmax_12, c_softmax(x), 12U)
 
-/* every call runs once at setup and traps on an error: a wrong argument
- * must not pass for a fast time */
+/* Traps on any error: a wrong argument must not pass for a fast time. */
 static void c_check(void) {
   const cmsis_nn_dims cv_i = {1, 12, 12, 8}, cv_f = {16, 3, 3, 8};
   const cmsis_nn_dims c1_i = {1, 1, 68, 16}, c1_f = {32, 1, 5, 16},

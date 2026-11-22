@@ -129,9 +129,7 @@ def case_dense(libs, n_in, n_out, act, seed, runs=200):
 
 
 def case_table(lib, op, s_in, zx, s_out, zy, f, seed, **options):
-    """A one-input operator two ways. The table fnn_lut_s8_build fills from f
-    is exact, and the count shows how often TFLite's own arithmetic differs
-    from it. A table read back from the interpreter must reproduce it."""
+    """A one-input operator, as an exact table and as one read back from TFLite."""
     m = tfl.Model()
     x = m.tensor("x", [1, 256], tfl.INT8, scale=s_in, zp=zx)
     y = m.tensor("y", [1, 256], tfl.INT8, scale=s_out, zp=zy)
@@ -143,7 +141,7 @@ def case_table(lib, op, s_in, zx, s_out, zy, f, seed, **options):
     exact = np.zeros(256, np.int8)
     assert lib.fnn_lut_s8_build(UNARY(f), s_in, zx, s_out, zy,
                                 exact.ctypes.data) == 0
-    exact = exact[every[0].view(np.uint8)]      # reorders it by input value
+    exact = exact[every[0].view(np.uint8)]
     diff = np.abs(exact.astype(int) - ref.astype(int))
 
     read = np.zeros(256, np.int8)

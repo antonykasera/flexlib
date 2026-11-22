@@ -17,16 +17,15 @@ FNN_Status fnn_lut_s8_build(double (*f)(double), double s_x, int32_t z_x,
   }
   for (int32_t q = -128; q < 128; q++) {
     double v = f(s_x * (double)(q - z_x)) / s_y + (double)z_y;
-    /* A NaN fails the first test and gives -128. */
+    /* The first test also sends NaN to -128. */
     v = !(v >= -128.0) ? -128.0 : (v > 127.0 ? 127.0 : v);
-    /* v + 128.5 is positive, and truncating it rounds v to nearest, ties up. */
+    /* Rounds to nearest, ties up. */
     lut[(uint8_t)q] = (int8_t)((int32_t)(v + 128.5) - 128);
   }
   return FNN_OK;
 }
 
-/* Loads issued back to back pipeline. The barriers keep each group together
- * and stop GCC merging the byte stores into slower unaligned words. */
+/* The barriers keep the loads grouped and the byte stores unmerged. */
 #if FX_ARM
 /* Thumb has 16-bit loads and stores only for r0-r7. */
 #define LOW "+l"
@@ -65,8 +64,7 @@ void fnn_lut_s8(const int8_t *x, int8_t *y, uint32_t n, const int8_t lut[256]) {
     lut4(u + 12, v + 12, t);
     u += 16;
     v += 16;
-    /* Stops GCC advancing v early, which needs negative offsets and 32-bit
-     * stores. */
+    /* Keeps the store offsets within 16-bit encodings. */
     FX_OPAQUE(v);
   }
   for (n &= 15U; n >= 4U; n -= 4U) {

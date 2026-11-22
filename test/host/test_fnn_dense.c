@@ -26,8 +26,6 @@ static int8_t rand_s8(uint64_t *r, int lo) {
   return (int8_t)(lo + (int32_t)(test_rng_u32(r) % (uint32_t)(128 - lo)));
 }
 
-/* runs one layer through the reference and both layouts, and counts the
- * outputs that differ */
 static unsigned run(uint32_t n_in, uint32_t n_out, int per_channel, int32_t zx,
                     int32_t zy, int32_t lo, int32_t hi, const int32_t *bias) {
   uint32_t nq = per_channel ? n_out : 1U;
