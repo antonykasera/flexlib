@@ -31,6 +31,10 @@ OPTIONS = {
     "SOFTMAX": ("SoftmaxOptions", "SoftmaxOptions", 2, {"Beta": 1.0}),
     "ARG_MAX": ("ArgMaxOptions", "ArgMaxOptions", 2,
                 {"OutputType": TensorType.INT32}),
+    "CONV_2D": ("Conv2DOptions", "Conv2DOptions", 3,
+                {"Padding": 1, "StrideW": 1, "StrideH": 1,
+                 "FusedActivationFunction": 0, "DilationWFactor": 1,
+                 "DilationHFactor": 1}),
     "QUANTIZE": (None, None, 2, {}),
     "DEQUANTIZE": (None, None, 2, {}),
 }
