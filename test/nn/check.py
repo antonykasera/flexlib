@@ -19,6 +19,10 @@ RELU, RELU6 = 1, 3
 UNARY = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double)
 
 
+class Out(ctypes.Structure):
+    _fields_ = [("zp", ctypes.c_int32), ("lo", ctypes.c_int32), ("hi", ctypes.c_int32)]
+
+
 def load(libdir):
     libs = []
     for m in range(len(MODES)):
@@ -33,6 +37,11 @@ def load(libdir):
             ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int32, ctypes.c_double,
             ctypes.c_int32, ctypes.c_int32, ctypes.c_int32, ctypes.c_uint32,
             ctypes.c_void_p, ctypes.c_void_p]
+        lib.fnn_mean_quant.argtypes = [ctypes.c_double, ctypes.c_uint32,
+                                       ctypes.POINTER(ctypes.c_int32),
+                                       ctypes.POINTER(ctypes.c_int8)]
+        lib.fnn_add_init.argtypes = [ctypes.c_void_p, ctypes.c_double, ctypes.c_int32,
+                                     ctypes.c_double, ctypes.c_int32, ctypes.c_double, Out]
         lib.fnn_lut_s8_build.argtypes = [
             UNARY, ctypes.c_double, ctypes.c_int32, ctypes.c_double,
             ctypes.c_int32, ctypes.c_void_p]
@@ -524,10 +533,10 @@ def case_exported(path, out_dir, runs=500):
     return f"{Path(path).name}, exported by TensorFlow, converted", n, bad
 
 
-def case_converter_arith(lib, seed=99):
-    """Compares the converter's multipliers with fnn_quant_from_scale(), its
-    softmax tables with fnn_softmax_s8_build() and its clamps with act_range(),
-    and returns how many it compared and how many differ."""
+def case_converter_arith(lib, lib_g, seed=99):
+    """Compares the converter's multipliers, softmax and activation tables,
+    clamps, and mean and add setup with flexnn's own functions, and returns
+    how many it compared and how many differ."""
     rng = np.random.default_rng(seed)
     scales = list(rng.uniform(0.0, 1.0, 50000) * 2.0 ** rng.integers(-40, 40, 50000))
     scales += [2.0 ** e for e in range(-40, 40)] + [0.0, 1.0 - 2.0 ** -53, 0.5]
@@ -553,7 +562,254 @@ def case_converter_arith(lib, seed=99):
         else:
             want = act_range(act, sc, zp)
         bad += fnn_tflite.act_range(act, sc, zp) != want
+    for _ in range(3000):
+        sc, h = float(rng.uniform(0.01, 4.0)), int(rng.integers(1, 64))
+        lib.fnn_mean_quant(sc, h, ctypes.byref(mult), ctypes.byref(rsh))
+        n += 1
+        bad += fnn_tflite.mean_quant(sc, h) != (mult.value, rsh.value)
+    add = Add()
+    for k in range(3000):
+        s1, s2 = (float(np.float32(v)) for v in rng.uniform(0.001, 1.0, 2))
+        s2 = s1 if k % 5 == 0 else s2
+        sy = float(np.float32((s1 + s2) * rng.uniform(0.05, 3.0)))
+        want = fnn_tflite.add_quant(s1, s2, sy)
+        for lib_mode, (m, sh) in ((lib, want[1]), (lib_g, want[0])):
+            lib_mode.fnn_add_init(ctypes.byref(add), s1, 0, s2, 0, sy, Out(0, -128, 127))
+            n += 1
+            bad += (list(add.m), list(add.sh)) != (list(m), list(sh))
+    tab = np.zeros(256, np.int8)
+    funcs = [math.tanh, fnn_tflite.logistic, fnn_tflite.UNARY["HARD_SWISH"]]
+    for k in range(300):
+        f = funcs[k % 3]
+        sx = float(np.float32(rng.uniform(0.005, 0.2)))
+        sy = float(np.float32(rng.uniform(0.002, 0.1)))
+        zx, zy = int(rng.integers(-128, 128)), int(rng.integers(-128, 128))
+        lib.fnn_lut_s8_build(UNARY(f), sx, zx, sy, zy, tab.ctypes.data)
+        n += 1
+        bad += fnn_tflite.lut_table(f, sx, zx, sy, zy) != [int(v) for v in tab]
     return n, bad
+
+
+class Add(ctypes.Structure):
+    _fields_ = [("z1", ctypes.c_int32), ("z2", ctypes.c_int32), ("m", ctypes.c_int32 * 3),
+                ("sh", ctypes.c_int8 * 3), ("o", Out)]
+
+
+class Net:
+    """Builds a model layer by layer with random int8 weights, each output at
+    a scale that spreads its sums over most of int8."""
+
+    def __init__(self, shape, rng):
+        self.m, self.rng = tfl.Model(), rng
+        self.x = self.cur = self.t(shape, 0.05, int(rng.integers(-128, 128)))
+
+    def t(self, shape, scale, zp, **kw):
+        return self.m.tensor(f"t{len(self.m.tensors)}", shape, tfl.INT8, scale=scale,
+                             zp=zp, **kw)
+
+    def info(self, t):
+        name, shape, _, scales, zps, _, _ = self.m.tensors[t]
+        return shape, scales[0], zps[0]
+
+    def out(self, scale, act):
+        return -128 if act in (RELU, RELU6) else int(self.rng.integers(-100, 100))
+
+    def window(self, h, w, kh, kw, sh, sw, same):
+        if same:
+            return -(-h // sh), -(-w // sw)
+        return (h - kh) // sh + 1, (w - kw) // sw + 1
+
+    def conv(self, oc, kh, kw, s=(1, 1), same=True, act=RELU, src=None, dw=0):
+        src = self.cur if src is None else src
+        (_, h, w, c), sx, zx = self.info(src)
+        oh, ow = self.window(h, w, kh, kw, s[0], s[1], same)
+        oc = c * dw if dw else oc
+        s_w = (self.rng.uniform(0.5, 1.5, oc) * 0.004).astype(np.float32)
+        k = kh * kw * (1 if dw else c)
+        s_y = float(sx * float(np.mean(s_w)) * 127.0 * math.sqrt(k) / 3.0)
+        shape = [1, kh, kw, oc] if dw else [oc, kh, kw, c]
+        wt = self.m.tensor(f"w{len(self.m.tensors)}", shape, tfl.INT8, scale=list(s_w),
+                           zp=[0] * oc, axis=3 if dw else 0,
+                           data=self.rng.integers(-127, 128, shape, dtype=np.int8))
+        bscale = [float(np.float32(sx) * v) for v in s_w]
+        b = self.m.tensor(f"b{len(self.m.tensors)}", [oc], tfl.INT32, scale=bscale,
+                          zp=[0] * oc, data=self.rng.integers(-2000, 2000, oc, dtype=np.int32))
+        y = self.t([1, oh, ow, oc], s_y, self.out(s_y, act))
+        opts = dict(Padding=0 if same else 1, StrideH=s[0], StrideW=s[1],
+                    FusedActivationFunction=act)
+        if dw:
+            self.m.op("DEPTHWISE_CONV_2D", [src, wt, b], [y], DepthMultiplier=dw, **opts)
+        else:
+            self.m.op("CONV_2D", [src, wt, b], [y], **opts)
+        self.cur = y
+        return y
+
+    def pool(self, op, kh, kw, s, same=False, act=0):
+        (_, h, w, c), sx, zx = self.info(self.cur)
+        oh, ow = self.window(h, w, kh, kw, s[0], s[1], same)
+        y = self.t([1, oh, ow, c], sx, zx)
+        self.m.op(op, [self.cur], [y], Padding=0 if same else 1, StrideH=s[0],
+                  StrideW=s[1], FilterHeight=kh, FilterWidth=kw,
+                  FusedActivationFunction=act)
+        self.cur = y
+        return y
+
+    def pad(self, top, bottom, left, right):
+        (_, h, w, c), sx, zx = self.info(self.cur)
+        p = self.m.tensor(f"p{len(self.m.tensors)}", [4, 2], tfl.INT32,
+                          data=[[0, 0], [top, bottom], [left, right], [0, 0]])
+        y = self.t([1, h + top + bottom, w + left + right, c], sx, zx)
+        self.m.op("PAD", [self.cur, p], [y])
+        self.cur = y
+        return y
+
+    def mean(self, rescale, keep):
+        (_, h, w, c), sx, zx = self.info(self.cur)
+        axes = self.m.tensor(f"a{len(self.m.tensors)}", [2], tfl.INT32, data=[1, 2])
+        y = self.t([1, 1, 1, c] if keep else [1, c], sx * rescale,
+                   int(self.rng.integers(-100, 100)))
+        self.m.op("MEAN", [self.cur, axes], [y], KeepDims=keep)
+        self.cur = y
+        return y
+
+    def reshape(self, shape):
+        _, sx, zx = self.info(self.cur)
+        st = self.m.tensor(f"s{len(self.m.tensors)}", [len(shape)], tfl.INT32, data=shape)
+        y = self.t(shape, sx, zx)
+        self.m.op("RESHAPE", [self.cur, st], [y])
+        self.cur = y
+        return y
+
+    def fc(self, n_out, act=0):
+        shape, sx, zx = self.info(self.cur)
+        n_in = int(np.prod(shape))
+        s_w = float(self.rng.uniform(0.002, 0.01))
+        wt = self.m.tensor(f"w{len(self.m.tensors)}", [n_out, n_in], tfl.INT8, scale=s_w,
+                           zp=0, data=self.rng.integers(-127, 128, (n_out, n_in),
+                                                        dtype=np.int8))
+        b = self.m.tensor(f"b{len(self.m.tensors)}", [n_out], tfl.INT32,
+                          scale=float(np.float32(sx) * np.float32(s_w)), zp=0,
+                          data=self.rng.integers(-2000, 2000, n_out, dtype=np.int32))
+        s_y = sx * s_w * 127.0 * math.sqrt(n_in) / 3.0
+        y = self.t([1, n_out], s_y, self.out(s_y, act))
+        self.m.op("FULLY_CONNECTED", [self.cur, wt, b], [y], FusedActivationFunction=act)
+        self.cur = y
+        return y
+
+    def softmax(self):
+        shape, _, _ = self.info(self.cur)
+        y = self.t(shape, 1.0 / 256.0, -128)
+        self.m.op("SOFTMAX", [self.cur], [y], Beta=1.0)
+        self.cur = y
+        return y
+
+    def table(self, op, scale, zp, src=None, **opts):
+        src = self.cur if src is None else src
+        shape, _, _ = self.info(src)
+        y = self.t(shape, scale, zp)
+        self.m.op(op, [src], [y], **opts)
+        self.cur = y
+        return y
+
+    def add(self, a, b, act=0):
+        shape, sa, _ = self.info(a)
+        _, sb, _ = self.info(b)
+        s_y = (sa + sb) * 0.7
+        y = self.t(shape, s_y, self.out(s_y, act))
+        self.m.op("ADD", [a, b], [y], FusedActivationFunction=act)
+        self.cur = y
+        return y
+
+    def concat(self, ts, axis):
+        shapes = [self.info(t)[0] for t in ts]
+        _, sx, zx = self.info(ts[0])
+        shape = list(shapes[0])
+        shape[axis] = sum(s[axis] for s in shapes)
+        y = self.t(shape, sx, zx)
+        self.m.op("CONCATENATION", ts, [y], Axis=axis)
+        self.cur = y
+        return y
+
+    def build(self):
+        return self.m.build(inputs=[self.x], outputs=[self.cur])
+
+
+def net_r2(rng):
+    n = Net([1, 1, 128, 3], rng)
+    n.conv(16, 1, 5, same=False)
+    n.pool("MAX_POOL_2D", 1, 2, (1, 2))
+    n.conv(32, 1, 5, same=False)
+    n.pool("MAX_POOL_2D", 1, 2, (1, 2))
+    n.conv(32, 1, 3, same=False)
+    n.mean(1.0, False)
+    n.fc(8)
+    return n.build()
+
+
+def net_r5(rng):
+    n = Net([1, 28, 28, 1], rng)
+    n.conv(8, 3, 3)
+    n.pool("MAX_POOL_2D", 2, 2, (2, 2))
+    n.conv(16, 3, 3)
+    n.pool("MAX_POOL_2D", 2, 2, (2, 2))
+    n.reshape([1, 7 * 7 * 16])
+    n.fc(10)
+    n.softmax()
+    return n.build()
+
+
+def net_r3(rng):
+    n = Net([1, 49, 10, 1], rng)
+    n.conv(64, 10, 4, s=(2, 2))
+    for _ in range(4):
+        n.conv(0, 3, 3, dw=1)
+        n.conv(64, 1, 1)
+    n.mean(1.0, False)
+    n.fc(12)
+    n.softmax()
+    return n.build()
+
+
+def net_mixed(rng):
+    """Every converted operator at least once, around a residual add and a
+    concatenation."""
+    n = Net([1, 8, 8, 4], rng)
+    n.pad(2, 0, 0, 2)
+    a = n.conv(8, 3, 3, same=False, act=RELU6)
+    b = n.conv(0, 3, 3, dw=1, act=0)
+    c = n.add(a, b)
+    _, sa, za = n.info(a)
+    n.table("HARD_SWISH", 0.04, -20)
+    d = n.table("LEAKY_RELU", sa, za, Alpha=0.2)
+    n.concat([d, a], 3)
+    n.pool("AVERAGE_POOL_2D", 2, 2, (2, 2), same=True)
+    n.conv(0, 3, 3, s=(2, 2), dw=2, act=RELU)
+    n.table("LOGISTIC", 1.0 / 256.0, -128)
+    n.table("TANH", 1.0 / 128.0, 0)
+    n.mean(0.7, True)
+    n.reshape([1, 32])
+    n.fc(4)
+    n.softmax()
+    return n.build(), c
+
+
+NETS = (("R2, IMU gesture: conv1d x 3, pools, mean, dense", net_r2, 300),
+        ("R5, 28 x 28 CNN: conv, pool x 2, dense, softmax", net_r5, 200),
+        ("R3, keyword spotting DS-CNN, 4 depthwise blocks", net_r3, 50))
+
+
+def case_net(name, make, runs, out_dir, seed, tflite_tables=False):
+    """A model built by Net, converted, and run against the interpreter in
+    every rounding mode."""
+    blob = make(np.random.default_rng(seed))
+    blob = blob[0] if isinstance(blob, tuple) else blob
+    path = Path(out_dir) / f"net{seed}.tflite"
+    path.write_bytes(blob)
+    cname, report = fnn_tflite.convert(path, out_dir, tflite_tables=tflite_tables)
+    bad = [fnn_tflite.check(path, out_dir, cname, mode, runs=runs, seed=seed)[1]
+           for mode in ("up", "away", "gemmlowp", "tflite")]
+    n = runs * int(np.prod(fnn_tflite.load(path)[0][fnn_tflite.load(path)[3][0]].shape))
+    return name, n, bad
 
 
 def case_convert_errors(out_dir):
@@ -578,6 +834,33 @@ def case_convert_errors(out_dir):
     m.op("SOFTMAX", [x], [y], Beta=1.0)
     cases.append(("softmax output scale", m.build(inputs=[x], outputs=[y]),
                   "scale of 1/256"))
+    rng = np.random.default_rng(5)
+    n = Net([1, 4, 4, 8], rng)
+    a = n.cur
+    b = n.t([1, 1, 1, 8], 0.05, 0)
+    y = n.t([1, 4, 4, 8], 0.07, 0)
+    n.m.op("ADD", [a, b], [y])
+    cases.append(("broadcast add", n.m.build(inputs=[a], outputs=[y]), "broadcasting"))
+    n = Net([1, 6, 6, 4], rng)
+    n.pad(1, 1, 1, 1)
+    n.pool("MAX_POOL_2D", 2, 2, (2, 2))
+    cases.append(("pad before a pool", n.build(), "PAD that feeds one convolution"))
+    n = Net([1, 8, 8, 4], rng)
+    n.conv(8, 3, 3)
+    n.m.ops[-1][3]["DilationHFactor"] = 2
+    cases.append(("dilated conv", n.build(), "dilated"))
+    n = Net([1, 4, 4, 8], rng)
+    x0 = n.cur
+    axes = n.m.tensor("ax", [1], tfl.INT32, data=[3])
+    y = n.t([1, 4, 4, 1], 0.05, 0)
+    n.m.op("MEAN", [x0, axes], [y], KeepDims=True)
+    cases.append(("mean over channels", n.m.build(inputs=[x0], outputs=[y]),
+                  "height and width"))
+    n = Net([1, 4, 4, 8], rng)
+    a = n.conv(8, 1, 1)
+    c = n.conv(8, 1, 1, src=n.x)
+    n.concat([a, c], 3)
+    cases.append(("concat of two scales", n.build(), "must have the scale"))
     wrong = []
     for name, blob, words in cases:
         path = Path(out_dir) / "refused.tflite"
@@ -804,9 +1087,17 @@ def main():
     for path in sorted((Path(__file__).parent / "models").glob("*.tflite")):
         name, n, bad = case_exported(path, models)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
-        failed |= bad[AWAY] != 0 or bad[TFLITE] != 0
-    n, bad = case_converter_arith(libs[AWAY])
-    print(f"{'converter multipliers, softmax tables and clamps':58} {n:8}  {bad:8} differ")
+        failed |= bad[TFLITE] != 0
+    for i, (name, make, runs) in enumerate(NETS):
+        name, n, bad = case_net(name, make, runs, models, 120 + i)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= bad[TFLITE] != 0
+    name, n, bad = case_net("every operator, interpreter tables", net_mixed, 300,
+                            models, 130, tflite_tables=True)
+    print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+    failed |= bad[TFLITE] != 0
+    n, bad = case_converter_arith(libs[AWAY], libs[GEMMLOWP])
+    print(f"{'the converter\'s arithmetic against flexnn\'s':58} {n:8}  {bad:8} differ")
     failed |= bad != 0
     n, wrong = case_convert_errors(models)
     print(f"{'models the converter must refuse':58} {n:8}  {len(wrong):8} converted or wrongly worded")

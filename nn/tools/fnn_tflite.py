@@ -154,13 +154,51 @@ def wrap32(v):
     return int((int(v) + (1 << 31)) % (1 << 32) - (1 << 31))
 
 
+def mean_quant(scale, n):
+    """TFLite's multiplier for scale divided by n, as fnn_mean_quant()
+    computes it."""
+    m, r = quantize_multiplier(scale)
+    sh = min(n.bit_length() - 1, 30 - r)
+    return (m << sh) // n, r + sh
+
+
+def add_quant(s1, s2, sy):
+    """Returns fnn_add_init()'s multipliers and shifts, first for the gemmlowp
+    rule and then for the other modes."""
+    big = max(s1, s2)
+    twice = 2.0 * big
+    g = [quantize_multiplier(v) for v in (s1 / twice, s2 / twice,
+                                          twice / (1048576.0 * sy))]
+    gm, gs = [m for m, _ in g], [r + 1 for _, r in g]
+    m1, m2 = s1 / sy, s2 / sy
+    mb, r = quantize_multiplier(max(m1, m2))
+    ms = int(min(m1, m2) * math.ldexp(1.0, 32 + r) + 0.5)
+    pair = [mb, ms] if s1 > s2 else [ms, mb]
+    if r > 22:
+        pair, r = [0, 0], 0
+    return (gm, gs), (pair + [0], [-r if r < 0 else 0, r if r > 0 else 0, 0])
+
+
+def lut_table(f, s_x, zx, s_y, zy):
+    """fnn_lut_s8_build()'s table for f, indexed by the input's bit pattern."""
+    tab = [0] * 256
+    for q in range(-128, 128):
+        v = f(s_x * (q - zx)) / s_y + zy
+        v = -128.0 if not (v >= -128.0) else (127.0 if v > 127.0 else v)
+        tab[q & 255] = int(v + 128.5) - 128
+    return tab
+
 
 class Layer:
-    """One flexnn call, with the tensors it reads and writes and whatever else
-    the emitter needs."""
+    """One flexnn call, with the tensors it reads and writes, its constants as
+    C, and the call text in which {x0}, {x1}, {y} and {s} stand for its
+    buffers."""
 
-    def __init__(self, op, kind, reads, writes, **f):
-        self.op, self.kind, self.reads, self.writes, self.f = op, kind, reads, writes, f
+    def __init__(self, op, kind, reads, writes, decls="", call="", flash=0,
+                 macs=0, scratch=0):
+        self.op, self.kind, self.reads, self.writes = op, kind, reads, writes
+        self.decls, self.call, self.flash = decls, call, flash
+        self.macs, self.scratch = macs, scratch
 
 
 def _int8(op, t, what):
@@ -172,60 +210,313 @@ def _int8(op, t, what):
                            "quantised")
 
 
-def lower_fully_connected(op, T):
+def _err(op, text):
+    return ConvertError(f"op {op.idx} ({op.name}): {text}")
+
+
+def _quant(n, mult, rsh):
+    return (_array("int32_t", f"m{n}", mult, per_line=8) +
+            _array("int8_t", f"r{n}", rsh))
+
+
+def _channel_quant(op, x, w, y, n_out):
+    if any(z != 0 for z in w.zp):
+        raise _err(op, "weights must have zero points of 0")
+    f32 = np.float32
+    s_w = w.scale if len(w.scale) == n_out else w.scale[:1]
+    q = [quantize_multiplier(float(f32(x.scale[0]) * f32(s)) / float(f32(y.scale[0])))
+         for s in s_w]
+    return [m for m, _ in q], [r for _, r in q]
+
+
+def _bias(op, T, n_out):
+    if len(op.inputs) < 3 or op.inputs[2] < 0:
+        return np.zeros(n_out, np.int64)
+    b = T[op.inputs[2]]
+    if b.dtype != "INT32" or b.data is None:
+        raise _err(op, f"the bias is {b.dtype}, not a constant int32 tensor")
+    return b.data.reshape(-1).astype(np.int64)
+
+
+def _nhwc(op, t, what):
+    if len(t.shape) != 4 or t.shape[0] != 1:
+        raise _err(op, f"the {what} must be one image, [1, h, w, c]")
+    return t.shape[1], t.shape[2], t.shape[3]
+
+
+def _pad(size_in, size_out, k, s, padding):
+    """TFLite's padding before the first row or column, which for SAME is half
+    of what the windows overhang, rounded down, and for VALID none."""
+    if padding == 0:
+        return max((size_out - 1) * s + k - size_in, 0) // 2
+    return 0
+
+
+def _fits(size_in, size_out, k, s, p):
+    """What fnn_conv_check() and the other checks ask of one dimension."""
+    return (0 < size_in and 0 < size_out and 0 < k and 0 < s and p < k and
+            (size_out - 1) * s < size_in + p)
+
+
+def lower_fully_connected(op, T, ctx):
     x, w, y = T[op.inputs[0]], T[op.inputs[1]], T[op.outputs[0]]
-    b = T[op.inputs[2]] if len(op.inputs) > 2 and op.inputs[2] >= 0 else None
     for t, what in ((x, "input"), (w, "weights"), (y, "output")):
         _int8(op, t, what)
     o = _options(op, "FullyConnectedOptions")
     if o.WeightsFormat() != 0:
-        raise ConvertError(f"op {op.idx} ({op.name}): shuffled weights are not "
-                           "supported")
+        raise _err(op, "shuffled weights are not supported")
     if w.data is None or len(w.shape) != 2:
-        raise ConvertError(f"op {op.idx} ({op.name}): the weights must be a "
-                           "constant [outputs][inputs] tensor")
+        raise _err(op, "the weights must be a constant [outputs][inputs] tensor")
     n_out, n_in = w.shape
     if x.size() != n_in:
-        raise ConvertError(f"op {op.idx} ({op.name}): {x.size()} inputs for "
-                           f"weights of {n_in}; batches are not supported")
-    if any(z != 0 for z in w.zp):
-        raise ConvertError(f"op {op.idx} ({op.name}): weights must have zero "
-                           "points of 0")
-    bias = np.zeros(n_out, np.int64) if b is None else b.data.astype(np.int64)
-    if b is not None and b.dtype != "INT32":
-        raise ConvertError(f"op {op.idx} ({op.name}): the bias is {b.dtype}, "
-                           "not int32")
+        raise _err(op, f"{x.size()} inputs for weights of {n_in}; batches are "
+                       "not supported")
+    bias = _bias(op, T, n_out)
     zx, zy = x.zp[0], y.zp[0]
     wsum = w.data.astype(np.int64).sum(axis=1)
     folded = [wrap32(bias[c] - zx * wsum[c]) for c in range(n_out)]
-    f32 = np.float32
-    s_w = w.scale if len(w.scale) == n_out else w.scale[:1]
-    eff = [float(f32(x.scale[0]) * f32(s)) / float(f32(y.scale[0])) for s in s_w]
-    q = [quantize_multiplier(e) for e in eff]
+    mult, rsh = _channel_quant(op, x, w, y, n_out)
     lo, hi = act_range(o.FusedActivationFunction(), y.scale[0], zy)
-    return Layer(op, "dense", [x.idx], [y.idx], w=w.data, b=folded, n_in=n_in,
-                 n_out=n_out, mult=[m for m, _ in q], rsh=[r for _, r in q],
-                 zp=zy, lo=lo, hi=hi, macs=n_in * n_out)
+    n = op.idx
+    decls = (_array("int8_t", f"w{n}", w.data.reshape(-1).tolist()) +
+             _array("int32_t", f"b{n}", folded, per_line=8) + _quant(n, mult, rsh) +
+             f"static const FNN_Dense l{n} = {{w{n}, b{n}, {n_in}u, {n_out}u, 0u, "
+             f"{{m{n}, r{n}, {len(mult)}u}}, {{{zy}, {lo}, {hi}}}}};\n")
+    return Layer(op, "dense", [x.idx], [y.idx], decls,
+                 f"fnn_dense_s8(&l{n}, {{x0}}, {{y}});",
+                 w.data.size + 9 * n_out, n_in * n_out)
 
 
-def lower_softmax(op, T):
+def _window(op, x_t, y_t, k_h, k_w, o, ctx):
+    """Returns the input, padding and output of a windowed layer, counting a
+    PAD just before it as the layer's own padding."""
+    src = ctx["pad"].get(x_t.idx)
+    xin = ctx["T"][src[0]] if src else x_t
+    h, w, c = _nhwc(op, xin, "input")
+    oh, ow, oc = _nhwc(op, y_t, "output")
+    sh, sw = o.StrideH(), o.StrideW()
+    if src:
+        if o.Padding() != 1:
+            raise _err(op, "a PAD before a SAME window is not supported")
+        pt, pl = src[1], src[2]
+    else:
+        ph, pw = _nhwc(op, x_t, "input")[:2]
+        pt = _pad(ph, oh, k_h, sh, o.Padding())
+        pl = _pad(pw, ow, k_w, sw, o.Padding())
+    if not (_fits(h, oh, k_h, sh, pt) and _fits(w, ow, k_w, sw, pl)):
+        raise _err(op, "the window, stride and padding do not fit the shapes")
+    return xin, (h, w, c), (oh, ow, oc), (sh, sw, pt, pl)
+
+
+def _no_dilation(op, o):
+    if o.DilationHFactor() != 1 or o.DilationWFactor() != 1:
+        raise _err(op, "dilated windows are not supported")
+
+
+def lower_conv(op, T, ctx):
+    x, w, y = T[op.inputs[0]], T[op.inputs[1]], T[op.outputs[0]]
+    for t, what in ((x, "input"), (w, "weights"), (y, "output")):
+        _int8(op, t, what)
+    o = _options(op, "Conv2DOptions")
+    _no_dilation(op, o)
+    if w.data is None or len(w.shape) != 4:
+        raise _err(op, "the filter must be a constant [out][h][w][in] tensor")
+    oc, kh, kw, ic = w.shape
+    xin, (h, iw, c), (oh, ow, oc2), (sh, sw, pt, pl) = _window(op, x, y, kh, kw, o, ctx)
+    if c != ic or oc2 != oc:
+        raise _err(op, "the filter's channels do not match the tensors'")
+    bias = _bias(op, T, oc)
+    zx, zy = xin.zp[0], y.zp[0]
+    wsum = w.data.astype(np.int64).reshape(oc, -1).sum(axis=1)
+    folded = [wrap32(bias[j] - zx * wsum[j]) for j in range(oc)]
+    mult, rsh = _channel_quant(op, xin, w, y, oc)
+    lo, hi = act_range(o.FusedActivationFunction(), y.scale[0], zy)
+    n = op.idx
+    decls = (_array("int8_t", f"w{n}", w.data.reshape(-1).tolist()) +
+             _array("int32_t", f"b{n}", folded, per_line=8) + _quant(n, mult, rsh) +
+             f"static const FNN_Conv l{n} = {{w{n}, b{n}, {{{h}u, {iw}u, {c}u}}, "
+             f"{{{oh}u, {ow}u, {oc}u}}, {kh}u, {kw}u, {sh}u, {sw}u, {pt}u, {pl}u, "
+             f"0u, {zx}, {{m{n}, r{n}, {len(mult)}u}}, {{{zy}, {lo}, {hi}}}}};\n")
+    return Layer(op, "conv", [xin.idx], [y.idx], decls,
+                 f"fnn_conv_s8(&l{n}, {{x0}}, {{y}}, {{s}});", w.data.size + 9 * oc,
+                 oh * ow * oc * kh * kw * c, scratch=kh * kw * c)
+
+
+def lower_depthwise(op, T, ctx):
+    x, w, y = T[op.inputs[0]], T[op.inputs[1]], T[op.outputs[0]]
+    for t, what in ((x, "input"), (w, "weights"), (y, "output")):
+        _int8(op, t, what)
+    o = _options(op, "DepthwiseConv2DOptions")
+    _no_dilation(op, o)
+    if w.data is None or len(w.shape) != 4 or w.shape[0] != 1:
+        raise _err(op, "the filter must be a constant [1][h][w][out] tensor")
+    _, kh, kw, oc = w.shape
+    xin, (h, iw, c), (oh, ow, oc2), (sh, sw, pt, pl) = _window(op, x, y, kh, kw, o, ctx)
+    if oc2 != oc or oc % c != 0:
+        raise _err(op, "the output channels must be a multiple of the input's")
+    bias = _bias(op, T, oc)
+    zx, zy = xin.zp[0], y.zp[0]
+    wsum = w.data.astype(np.int64).reshape(-1, oc).sum(axis=0)
+    folded = [wrap32(bias[j] - zx * wsum[j]) for j in range(oc)]
+    mult, rsh = _channel_quant(op, xin, w, y, oc)
+    lo, hi = act_range(o.FusedActivationFunction(), y.scale[0], zy)
+    n = op.idx
+    decls = (_array("int8_t", f"w{n}", w.data.reshape(-1).tolist()) +
+             _array("int32_t", f"b{n}", folded, per_line=8) + _quant(n, mult, rsh) +
+             f"static const FNN_DwConv l{n} = {{w{n}, b{n}, {{{h}u, {iw}u, {c}u}}, "
+             f"{{{oh}u, {ow}u, {oc}u}}, {kh}u, {kw}u, {sh}u, {sw}u, {pt}u, {pl}u, "
+             f"{zx}, {{m{n}, r{n}, {len(mult)}u}}, {{{zy}, {lo}, {hi}}}}};\n")
+    return Layer(op, "depthwise", [xin.idx], [y.idx], decls,
+                 f"fnn_dwconv_s8(&l{n}, {{x0}}, {{y}});", w.data.size + 9 * oc,
+                 oh * ow * oc * kh * kw)
+
+
+def _same_quant(op, a, b):
+    if a.scale[0] != b.scale[0] or a.zp[0] != b.zp[0]:
+        raise _err(op, f"'{b.name}' must have the scale and zero point of "
+                       f"'{a.name}'")
+
+
+def _lower_pool(op, T, ctx, fn):
+    x, y = T[op.inputs[0]], T[op.outputs[0]]
+    _int8(op, x, "input")
+    _int8(op, y, "output")
+    _same_quant(op, x, y)
+    o = _options(op, "Pool2DOptions")
+    kh, kw = o.FilterHeight(), o.FilterWidth()
+    _, (h, w, c), (oh, ow, oc), (sh, sw, pt, pl) = _window(op, x, y, kh, kw, o, ctx)
+    if oc != c:
+        raise _err(op, "the output must have the input's channels")
+    lo, hi = act_range(o.FusedActivationFunction(), y.scale[0], y.zp[0])
+    n = op.idx
+    decls = (f"static const FNN_Pool l{n} = {{{{{h}u, {w}u, {c}u}}, "
+             f"{{{oh}u, {ow}u, {c}u}}, {kh}u, {kw}u, {sh}u, {sw}u, {pt}u, {pl}u, "
+             f"{lo}, {hi}}};\n")
+    return Layer(op, "pool", [x.idx], [y.idx], decls,
+                 f"{fn}(&l{n}, {{x0}}, {{y}});", 0, 0)
+
+
+def lower_max_pool(op, T, ctx):
+    return _lower_pool(op, T, ctx, "fnn_maxpool_s8")
+
+
+def lower_average_pool(op, T, ctx):
+    return _lower_pool(op, T, ctx, "fnn_avgpool_s8")
+
+
+def lower_mean(op, T, ctx):
+    x, y = T[op.inputs[0]], T[op.outputs[0]]
+    _int8(op, x, "input")
+    _int8(op, y, "output")
+    h, w, c = _nhwc(op, x, "input")
+    axes = ctx["v"].get(op.inputs[1])
+    if axes is None or sorted(int(a) % 4 for a in np.atleast_1d(axes)) != [1, 2]:
+        raise _err(op, "only a mean over height and width is supported")
+    if y.size() != c:
+        raise _err(op, "the output must have one value per channel")
+    mult, rsh = mean_quant(float(np.float32(x.scale[0])) / float(np.float32(y.scale[0])),
+                           h * w)
+    n = op.idx
+    decls = (f"static const FNN_Mean l{n} = {{{{{h}u, {w}u, {c}u}}, {x.zp[0]}, "
+             f"{mult}, {rsh}, {{{y.zp[0]}, -128, 127}}}};\n")
+    return Layer(op, "mean", [x.idx], [y.idx], decls,
+                 f"fnn_mean_s8(&l{n}, {{x0}}, {{y}});", 0, 0)
+
+
+def lower_add(op, T, ctx):
+    a, b, y = T[op.inputs[0]], T[op.inputs[1]], T[op.outputs[0]]
+    for t, what in ((a, "first input"), (b, "second input"), (y, "output")):
+        _int8(op, t, what)
+    if a.shape != b.shape or a.size() != y.size():
+        raise _err(op, "the inputs must have the same shape; broadcasting is "
+                       "not supported")
+    s1, s2, sy = a.scale[0], b.scale[0], y.scale[0]
+    if max(s1, s2) / sy >= 524288.0:
+        raise _err(op, "the output scale is too small for the inputs'")
+    lo, hi = act_range(_options(op, "AddOptions").FusedActivationFunction(), sy, y.zp[0])
+    (gm, gs), (um, us) = add_quant(s1, s2, sy)
+    n = op.idx
+
+    def init(m, s):
+        return (f"static const FNN_Add l{n} = {{{a.zp[0]}, {b.zp[0]}, "
+                f"{{{m[0]}, {m[1]}, {m[2]}}}, {{{s[0]}, {s[1]}, {s[2]}}}, "
+                f"{{{y.zp[0]}, {lo}, {hi}}}}};\n")
+    decls = ("#if FNN_ROUNDING == FNN_ROUND_GEMMLOWP || "
+             "FNN_ROUNDING == FNN_ROUND_TFLITE\n" + init(gm, gs) + "#else\n" +
+             init(um, us) + "#endif\n")
+    return Layer(op, "add", [a.idx, b.idx], [y.idx], decls,
+                 f"fnn_add_s8(&l{n}, {{x0}}, {{x1}}, {{y}}, {y.size()}u);", 0, 0)
+
+
+def lower_concatenation(op, T, ctx):
+    xs, y = [T[i] for i in op.inputs], T[op.outputs[0]]
+    _int8(op, y, "output")
+    o = _options(op, "ConcatenationOptions")
+    if o.FusedActivationFunction() != 0:
+        raise _err(op, "a fused activation on a concatenation is not supported")
+    for t in xs:
+        _int8(op, t, "input")
+        _same_quant(op, y, t)
+    axis = o.Axis() % len(y.shape)
+    outer = int(np.prod(y.shape[:axis]))
+    lens = [int(np.prod(t.shape[axis:])) for t in xs]
+    n = op.idx
+    decls = _array("uint32_t", f"c{n}", lens)
+    ptrs = ", ".join(f"{{x{i}}}" for i in range(len(xs)))
+    call = ("{{\n    const int8_t *const v[" + str(len(xs)) + "] = {{" + ptrs + "}};\n"
+            f"    fnn_concat_s8(v, c{n}, {len(xs)}u, {outer}u, {{y}});\n  }}}}")
+    return Layer(op, "concat", [t.idx for t in xs], [y.idx], decls, call, 0, 0)
+
+
+def logistic(v):
+    return 1.0 / (1.0 + math.exp(-v)) if v > -700.0 else 0.0
+
+
+UNARY = {"LOGISTIC": logistic,
+         "TANH": math.tanh,
+         "HARD_SWISH": lambda v: v * min(max(v + 3.0, 0.0), 6.0) / 6.0,
+         "RELU": lambda v: max(v, 0.0),
+         "RELU6": lambda v: min(max(v, 0.0), 6.0),
+         "RELU_N1_TO_1": lambda v: min(max(v, -1.0), 1.0)}
+
+
+def lower_unary(op, T, ctx):
+    x, y = T[op.inputs[0]], T[op.outputs[0]]
+    _int8(op, x, "input")
+    _int8(op, y, "output")
+    alpha = None
+    if op.name == "LEAKY_RELU":
+        alpha = float(np.float32(_options(op, "LeakyReluOptions").Alpha()))
+        f = lambda v: v if v >= 0.0 else alpha * v  # noqa: E731
+    else:
+        f = UNARY[op.name]
+    if ctx["tflite_tables"]:
+        tab = interpreter_table(op.name, x.scale[0], x.zp[0], y.scale[0], y.zp[0], alpha)
+    else:
+        tab = lut_table(f, x.scale[0], x.zp[0], y.scale[0], y.zp[0])
+    n = op.idx
+    return Layer(op, "table", [x.idx], [y.idx], _array("int8_t", f"t{n}", tab),
+                 f"fnn_lut_s8({{x0}}, {{y}}, {x.size()}u, t{n});", 256, 0)
+
+
+def lower_softmax(op, T, ctx):
     x, y = T[op.inputs[0]], T[op.outputs[0]]
     _int8(op, x, "input")
     _int8(op, y, "output")
     if y.zp[0] != -128 or y.scale[0] != float(np.float32(1.0 / 256.0)):
-        raise ConvertError(f"op {op.idx} ({op.name}): the output must have "
-                           "TFLite's scale of 1/256 and zero point of -128")
+        raise _err(op, "the output must have TFLite's scale of 1/256 and zero "
+                       "point of -128")
     beta = _options(op, "SoftmaxOptions").Beta()
-    n = x.shape[-1] if x.shape else 1
-    if x.size() != n:
-        raise ConvertError(f"op {op.idx} ({op.name}): softmax over more than "
-                           "one row is not supported")
+    n_in = x.shape[-1] if x.shape else 1
+    if x.size() != n_in:
+        raise _err(op, "softmax over more than one row is not supported")
     k = float(beta) * x.scale[0]
     if not (k > 0.0) or not math.isfinite(k):
-        raise ConvertError(f"op {op.idx} ({op.name}): beta times the input "
-                           "scale must be positive")
-    return Layer(op, "softmax", [x.idx], [y.idx], tab=lower_softmax_table(k),
-                 n=n, macs=0)
+        raise _err(op, "beta times the input scale must be positive")
+    n = op.idx
+    return Layer(op, "softmax", [x.idx], [y.idx],
+                 _array("uint32_t", f"e{n}", lower_softmax_table(k), per_line=6),
+                 f"fnn_softmax_s8({{x0}}, {{y}}, {n_in}u, e{n});", 1024, 0)
 
 
 def lower_softmax_table(k):
@@ -234,20 +525,112 @@ def lower_softmax_table(k):
     return [int(math.ldexp(math.exp(-k * d), 31) + 0.5) for d in range(256)]
 
 
-def lower_reshape(op, T):
+def lower_reshape(op, T, ctx):
     x, y = T[op.inputs[0]], T[op.outputs[0]]
     if x.size() != y.size() or x.dtype != y.dtype:
-        raise ConvertError(f"op {op.idx} ({op.name}): input and output differ "
-                           "in size")
-    return Layer(op, "alias", [x.idx], [y.idx], macs=0)
+        raise _err(op, "input and output differ in size")
+    return Layer(op, "alias", [x.idx], [y.idx])
+
+
+def interpreter_table(opname, s_x, zx, s_y, zy, alpha):
+    """The table the TFLite interpreter's own kernel gives, read by running a
+    one-operator model on all 256 inputs."""
+    import flatbuffers
+    from ai_edge_litert import interpreter as litert
+    B = {n: getattr(_mod(n), n) for n in ("Model", "SubGraph", "Tensor", "Operator",
+                                          "OperatorCode", "Buffer",
+                                          "QuantizationParameters")}
+    b = flatbuffers.Builder(1024)
+
+    def vec(start, items, prepend):
+        start(b, len(items))
+        for v in reversed(items):
+            prepend(v)
+        return b.EndVector()
+    _mod("Buffer").BufferStart(b)
+    buf0 = _mod("Buffer").BufferEnd(b)
+    tens = []
+    for name, s, z in (("x", s_x, zx), ("y", s_y, zy)):
+        nm = b.CreateString(name)
+        sh = vec(_mod("Tensor").TensorStartShapeVector, [1, 256], b.PrependInt32)
+        QP = _mod("QuantizationParameters")
+        sv = vec(QP.QuantizationParametersStartScaleVector, [s], b.PrependFloat32)
+        zv = vec(QP.QuantizationParametersStartZeroPointVector, [z], b.PrependInt64)
+        QP.QuantizationParametersStart(b)
+        QP.QuantizationParametersAddScale(b, sv)
+        QP.QuantizationParametersAddZeroPoint(b, zv)
+        q = QP.QuantizationParametersEnd(b)
+        Tm = _mod("Tensor")
+        Tm.TensorStart(b)
+        Tm.TensorAddShape(b, sh)
+        Tm.TensorAddType(b, _mod("TensorType").TensorType.INT8)
+        Tm.TensorAddBuffer(b, 0)
+        Tm.TensorAddName(b, nm)
+        Tm.TensorAddQuantization(b, q)
+        tens.append(Tm.TensorEnd(b))
+    opts = None
+    if opname == "LEAKY_RELU":
+        L = _mod("LeakyReluOptions")
+        L.LeakyReluOptionsStart(b)
+        L.LeakyReluOptionsAddAlpha(b, alpha)
+        opts = L.LeakyReluOptionsEnd(b)
+    O = _mod("Operator")
+    iv = vec(O.OperatorStartInputsVector, [0], b.PrependInt32)
+    ov = vec(O.OperatorStartOutputsVector, [1], b.PrependInt32)
+    O.OperatorStart(b)
+    O.OperatorAddOpcodeIndex(b, 0)
+    O.OperatorAddInputs(b, iv)
+    O.OperatorAddOutputs(b, ov)
+    if opts is not None:
+        O.OperatorAddBuiltinOptionsType(b, _mod("BuiltinOptions").BuiltinOptions.LeakyReluOptions)
+        O.OperatorAddBuiltinOptions(b, opts)
+    opv = O.OperatorEnd(b)
+    SG = _mod("SubGraph")
+    tv = vec(SG.SubGraphStartTensorsVector, tens, b.PrependUOffsetTRelative)
+    inv = vec(SG.SubGraphStartInputsVector, [0], b.PrependInt32)
+    outv = vec(SG.SubGraphStartOutputsVector, [1], b.PrependInt32)
+    ops = vec(SG.SubGraphStartOperatorsVector, [opv], b.PrependUOffsetTRelative)
+    SG.SubGraphStart(b)
+    SG.SubGraphAddTensors(b, tv)
+    SG.SubGraphAddInputs(b, inv)
+    SG.SubGraphAddOutputs(b, outv)
+    SG.SubGraphAddOperators(b, ops)
+    sg = SG.SubGraphEnd(b)
+    code = getattr(_mod("BuiltinOperator").BuiltinOperator, opname)
+    OC = _mod("OperatorCode")
+    OC.OperatorCodeStart(b)
+    OC.OperatorCodeAddDeprecatedBuiltinCode(b, min(code, 127))
+    OC.OperatorCodeAddBuiltinCode(b, code)
+    OC.OperatorCodeAddVersion(b, 1 if opname in ("HARD_SWISH", "RELU_N1_TO_1") else 2)
+    oc = OC.OperatorCodeEnd(b)
+    M = _mod("Model")
+    ocv = vec(M.ModelStartOperatorCodesVector, [oc], b.PrependUOffsetTRelative)
+    sgv = vec(M.ModelStartSubgraphsVector, [sg], b.PrependUOffsetTRelative)
+    bv = vec(M.ModelStartBuffersVector, [buf0], b.PrependUOffsetTRelative)
+    M.ModelStart(b)
+    M.ModelAddVersion(b, 3)
+    M.ModelAddOperatorCodes(b, ocv)
+    M.ModelAddSubgraphs(b, sgv)
+    M.ModelAddBuffers(b, bv)
+    b.Finish(M.ModelEnd(b), file_identifier=b"TFL3")
+    it = litert.Interpreter(model_content=bytes(b.Output()),
+                            experimental_op_resolver_type=litert.OpResolverType.BUILTIN_REF)
+    it.allocate_tensors()
+    q = np.arange(-128, 128, dtype=np.int8).reshape(1, 256)
+    it.set_tensor(it.get_input_details()[0]["index"], q)
+    it.invoke()
+    out = it.get_tensor(it.get_output_details()[0]["index"]).reshape(-1)
+    tab = [0] * 256
+    for v, r in zip(range(-128, 128), out):
+        tab[v & 255] = int(r)
+    return tab
 
 
 def _strided_slice(op, T, v):
     x, begin, end, strides = (v[i] for i in op.inputs[:4])
     o = _options(op, "StridedSliceOptions")
     if o.EllipsisMask() or o.NewAxisMask() or o.Offset():
-        raise ConvertError(f"op {op.idx} ({op.name}): ellipsis, new-axis and "
-                           "offset slices are not supported")
+        raise _err(op, "ellipsis, new-axis and offset slices are not supported")
     idx = []
     for d in range(len(begin)):
         b = None if o.BeginMask() >> d & 1 else int(begin[d])
@@ -280,7 +663,7 @@ FOLD = {"SHAPE": lambda op, T, v: np.asarray(T[op.inputs[0]].shape, np.int32),
 
 def fold(tensors, ops, outputs):
     """Works out the operators that only compute shapes, and returns the
-    others."""
+    others with the values it found."""
     v = {t.idx: t.data for t in tensors if t.data is not None and t.dtype == "INT32"}
     rest = []
     for op in ops:
@@ -289,33 +672,73 @@ def fold(tensors, ops, outputs):
         needs = op.inputs[:1] if op.name == "SHAPE" else op.inputs
         if op.name in FOLD and ints and (op.name == "SHAPE" or all(i in v for i in needs)):
             if any(o in outputs for o in op.outputs):
-                raise ConvertError(f"op {op.idx} ({op.name}): a model output "
-                                   "that only holds a shape")
+                raise _err(op, "a model output that only holds a shape")
             v[op.outputs[0]] = FOLD[op.name](op, tensors, v)
         else:
             rest.append(op)
-    return rest
+    return rest, v
+
+
+def fold_pads(tensors, ops, outputs, v):
+    """Finds each PAD that only feeds a VALID convolution, which can pad its
+    input itself, and returns the other operators."""
+    users = {}
+    for op in ops:
+        for i in op.inputs:
+            users.setdefault(i, []).append(op)
+    pads, rest = {}, []
+    for op in ops:
+        if op.name not in ("PAD", "PADV2"):
+            rest.append(op)
+            continue
+        x, y = tensors[op.inputs[0]], tensors[op.outputs[0]]
+        _int8(op, x, "input")
+        _int8(op, y, "output")
+        p = v.get(op.inputs[1])
+        u = users.get(y.idx, [])
+        ok = (p is not None and np.asarray(p).shape == (4, 2) and
+              not np.asarray(p)[0].any() and not np.asarray(p)[3].any() and
+              y.idx not in outputs and len(u) == 1 and
+              u[0].name in ("CONV_2D", "DEPTHWISE_CONV_2D") and u[0].inputs[0] == y.idx)
+        if ok and op.name == "PADV2":
+            c = tensors[op.inputs[2]]
+            ok = c.data is not None and int(c.data.reshape(-1)[0]) == x.zp[0]
+        if not ok:
+            raise _err(op, "only a PAD that feeds one convolution is supported")
+        _same_quant(op, x, y)
+        p = np.asarray(p)
+        pads[y.idx] = (x.idx, int(p[1][0]), int(p[2][0]))
+    return rest, pads
 
 
 LOWER = {"FULLY_CONNECTED": lower_fully_connected,
+         "CONV_2D": lower_conv,
+         "DEPTHWISE_CONV_2D": lower_depthwise,
+         "MAX_POOL_2D": lower_max_pool,
+         "AVERAGE_POOL_2D": lower_average_pool,
+         "MEAN": lower_mean,
+         "ADD": lower_add,
+         "CONCATENATION": lower_concatenation,
          "SOFTMAX": lower_softmax,
-         "RESHAPE": lower_reshape}
+         "RESHAPE": lower_reshape,
+         "LEAKY_RELU": lower_unary}
+LOWER.update({k: lower_unary for k in UNARY})
 
 
-def lower(tensors, ops):
+def lower(tensors, ops, ctx):
     layers = []
     for op in ops:
         if op.name not in LOWER:
-            raise ConvertError(f"op {op.idx} ({op.name}) is not supported; "
-                               f"flexnn converts {', '.join(sorted(LOWER))}")
-        layers.append(LOWER[op.name](op, tensors))
+            raise ConvertError(f"op {op.idx} ({op.name}) is not supported; flexnn "
+                               f"converts {', '.join(sorted(LOWER | {'PAD': 0}))}")
+        layers.append(LOWER[op.name](op, tensors, ctx))
     return layers
 
 
-
 def plan(tensors, layers, inputs, outputs):
-    """Gives every tensor a buffer: the caller's input or output, or an
-    arena offset. Tensors whose lifetimes overlap never share bytes."""
+    """Gives every tensor a buffer, the caller's input or output or an arena
+    offset, and every layer's scratch an offset. Buffers whose lifetimes
+    overlap never share bytes."""
     group = {}
 
     def find(t):
@@ -332,7 +755,7 @@ def plan(tensors, layers, inputs, outputs):
         if ext.get(find(t)) == "in":
             raise ConvertError("an output is the input itself")
         ext[find(t)] = "out"
-    life = {}
+    life, size = {}, {}
     for i, L in enumerate(layers):
         if L.kind == "alias":
             continue
@@ -341,7 +764,10 @@ def plan(tensors, layers, inputs, outputs):
             if r not in ext:
                 a, b = life.get(r, (i, i))
                 life[r] = (min(a, i), max(b, i))
-    size = {r: tensors[r].size() for r in life}
+                size[r] = tensors[r].size()
+        if L.scratch:
+            life[("s", i)] = (i, i)
+            size[("s", i)] = L.scratch
     offset = {}
     for r in sorted(life, key=lambda r: (-size[r], life[r][0])):
         a, b = life[r]
@@ -356,23 +782,19 @@ def plan(tensors, layers, inputs, outputs):
     arena = max((offset[r] + size[r] for r in offset), default=0)
     peak = max((sum(size[r] for r in life if life[r][0] <= i <= life[r][1])
                 for i in range(len(layers))), default=0)
-    where = {}
-    for t in range(len(tensors)):
-        r = find(t)
-        where[t] = ext.get(r, offset.get(r))
-    return where, (arena + 3) & ~3, peak
+    where = {t: ext.get(find(t), offset.get(find(t))) for t in range(len(tensors))}
+    scratch = {i: offset[("s", i)] for i in range(len(layers)) if ("s", i) in offset}
+    return where, scratch, (arena + 3) & ~3, peak
 
 
-
-def _array(ctype, name, values, per_line=16, align=False):
+def _array(ctype, name, values, per_line=16):
     vals = [str(v) if ctype != "int32_t" or v != -(1 << 31) else "(-2147483647 - 1)"
             for v in values]
     if ctype == "uint32_t":
         vals = [v + "u" for v in vals]
     lines = [", ".join(vals[i:i + per_line]) for i in range(0, len(vals), per_line)]
     body = ",\n    ".join(lines)
-    al = " FX_ALIGN(4)" if align else ""
-    return f"static const {ctype} {name}[{len(values)}]{al} = {{\n    {body}}};\n"
+    return f"static const {ctype} {name}[{len(values)}] = {{\n    {body}}};\n"
 
 
 def _float(v):
@@ -386,10 +808,10 @@ def ident(s):
     return "m_" + s if s[:1].isdigit() else s
 
 
-def emit(name, src, tensors, layers, where, arena, inputs, outputs):
+def emit(name, src, tensors, layers, where, scratch, arena, inputs, outputs):
     up = name.upper()
     tin, tout = tensors[inputs[0]], tensors[outputs[0]]
-    banner = (f"/* generated by fnn_tflite from {src}: do not edit */\n")
+    banner = f"/* generated by fnn_tflite from {src}: do not edit */\n"
     h = [banner,
          f"#ifndef {up}_H\n#define {up}_H\n\n#include <stdint.h>\n\n",
          f"#define {up}_IN_LEN {tin.size()}u\n",
@@ -406,43 +828,30 @@ def emit(name, src, tensors, layers, where, arena, inputs, outputs):
          f"#endif /* {up}_H */\n"]
     c = [banner, f'#include "{name}.h"\n#include "fnn.h"\n\n']
     run = []
-    used = set()
 
     def buf(t, const):
         w = where[t]
-        if w == "in":
-            return "in"
-        if w == "out":
-            return "out"
-        used.add(w)
-        return f"(int8_t *)(arena + {w})" if not const else f"(const int8_t *)(arena + {w})"
+        if w in ("in", "out"):
+            return w
+        return f"({'const ' if const else ''}int8_t *)(arena + {w})"
     for i, L in enumerate(layers):
         if L.kind == "alias":
             continue
-        f = L.f
-        x, y = buf(L.reads[0], True), buf(L.writes[0], False)
-        if L.kind == "dense":
-            c.append(_array("int8_t", f"w{i}", f["w"].reshape(-1).tolist()))
-            c.append(_array("int32_t", f"b{i}", f["b"], per_line=8))
-            c.append(_array("int32_t", f"m{i}", f["mult"], per_line=8))
-            c.append(_array("int8_t", f"r{i}", f["rsh"]))
-            c.append(f"static const FNN_Dense l{i} = {{w{i}, b{i}, {f['n_in']}u, "
-                     f"{f['n_out']}u, 0u, {{m{i}, r{i}, {len(f['mult'])}u}}, "
-                     f"{{{f['zp']}, {f['lo']}, {f['hi']}}}}};\n\n")
-            run.append(f"  fnn_dense_s8(&l{i}, {x}, {y});\n")
-        elif L.kind == "softmax":
-            c.append(_array("uint32_t", f"e{i}", f["tab"], per_line=6))
-            c.append("\n")
-            run.append(f"  fnn_softmax_s8({x}, {y}, {f['n']}u, e{i});\n")
+        c.append(L.decls + "\n")
+        bufs = {f"x{k}": buf(t, True) for k, t in enumerate(L.reads)}
+        bufs["y"] = buf(L.writes[0], False)
+        if L.scratch:
+            bufs["s"] = f"(int8_t *)(arena + {scratch[i]})"
+        run.append("  " + L.call.format(**bufs) + "\n")
     c.append(f"void {name}_run(const int8_t *in, int8_t *out, uint8_t *arena) {{\n")
-    if not used:
+    if not any("arena" in r for r in run):
         c.append("  (void)arena;\n")
     c.extend(run)
     c.append("}\n")
     return "".join(h), "".join(c)
 
 
-def convert(path, out_dir, name=None):
+def convert(path, out_dir, name=None, tflite_tables=False):
     """Converts path into out_dir/<name>.h and .c; returns the name and a
     report."""
     tensors, ops, inputs, outputs = load(path)
@@ -452,32 +861,28 @@ def convert(path, out_dir, name=None):
         if t.dtype != "INT8":
             raise ConvertError(f"the model's {what} '{t.name}' is {t.dtype}; "
                                "convert with int8 inputs and outputs")
-    layers = lower(tensors, fold(tensors, ops, outputs))
-    where, arena, peak = plan(tensors, layers, inputs, outputs)
+    rest, v = fold(tensors, ops, outputs)
+    rest, pads = fold_pads(tensors, rest, outputs, v)
+    ctx = {"T": tensors, "v": v, "pad": pads, "tflite_tables": tflite_tables}
+    layers = lower(tensors, rest, ctx)
+    where, scratch, arena, peak = plan(tensors, layers, inputs, outputs)
     name = ident(name or Path(path).stem)
-    h, c = emit(name, Path(path).name, tensors, layers, where, arena, inputs, outputs)
+    h, c = emit(name, Path(path).name, tensors, layers, where, scratch, arena,
+                inputs, outputs)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{name}.h").write_text(h)
     (out / f"{name}.c").write_text(c)
     rows = []
-    flash = 0
-    for i, L in enumerate(layers):
-        if L.kind == "alias":
-            continue
-        n = 0
-        if L.kind == "dense":
-            n = L.f["w"].size + 4 * (len(L.f["b"]) + len(L.f["mult"])) + len(L.f["rsh"])
-        elif L.kind == "softmax":
-            n = 4 * 256
-        flash += n
-        rows.append(f"  {L.op.idx:3}  {L.op.name:18} {L.kind:8} {L.f.get('macs', 0):9} MACs"
-                    f"  {n:7} B   -> {where[L.writes[0]]}")
-    report = (f"{name}: {len(ops)} operators, {len(ops) - len(layers)} of them only "
-              f"shapes; arena {arena} B (live tensors peak at {peak} B), constants "
-              f"{flash} B\n" + "\n".join(rows))
+    for L in layers:
+        if L.kind != "alias":
+            rows.append(f"  {L.op.idx:3}  {L.op.name:18} {L.kind:9} {L.macs:9} MACs"
+                        f"  {L.flash:7} B   -> {where[L.writes[0]]}")
+    folded = len(ops) - len(layers) - len(pads)
+    report = (f"{name}: {len(ops)} operators, {folded} of them only shapes and "
+              f"{len(pads)} paddings; arena {arena} B (live tensors peak at {peak} B), "
+              f"constants {sum(L.flash for L in layers)} B\n" + "\n".join(rows))
     return name, report
-
 
 
 ROUNDING = {"up": 0, "away": 1, "gemmlowp": 2, "tflite": 3}
@@ -541,9 +946,12 @@ def main(argv=None):
                     help="FNN_ROUNDING for --check (tflite: the interpreter's "
                          "rule for each operator)")
     ap.add_argument("--inputs", help="a .npy file of inputs for --check")
+    ap.add_argument("--tflite-tables", action="store_true",
+                    help="read activation tables from the TFLite interpreter "
+                         "instead of computing them exactly")
     a = ap.parse_args(argv)
     try:
-        name, report = convert(a.model, a.out, a.name)
+        name, report = convert(a.model, a.out, a.name, a.tflite_tables)
         print(report)
         if a.check:
             feeds = None
