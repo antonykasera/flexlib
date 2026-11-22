@@ -23,6 +23,11 @@ def load(libdir):
             ctypes.POINTER(ctypes.c_int8)]
         lib.shim_requant_s8.argtypes = [ctypes.c_int32] * 6
         lib.shim_requant_s8.restype = ctypes.c_int8
+        lib.shim_dense_s8.argtypes = [
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32,
+            ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int32, ctypes.c_double,
+            ctypes.c_int32, ctypes.c_int32, ctypes.c_int32, ctypes.c_uint32,
+            ctypes.c_void_p, ctypes.c_void_p]
         assert lib.shim_rounding() == m, f"libfnn{m}.so is mode {lib.shim_rounding()}"
         libs.append(lib)
     return libs
@@ -76,6 +81,46 @@ def case_fc_requant(libs, s_in, s_w, s_out, zx, zy, step, act=0, n=16):
     return name, 256 * n, bad
 
 
+def case_dense(libs, n_in, n_out, act, seed, runs=200):
+    """A fully connected layer with random weights, biases and zero points,
+    in both weight layouts."""
+    rng = np.random.default_rng(seed)
+    s_in, s_w, s_out = 0.05, 0.004, 0.25
+    zx, zy = int(rng.integers(-128, 128)), int(rng.integers(-128, 128))
+    w = rng.integers(-127, 128, (n_out, n_in), dtype=np.int8)
+    bias = rng.integers(-20000, 20000, n_out, dtype=np.int32)
+    m = tfl.Model()
+    x = m.tensor("x", [1, n_in], tfl.INT8, scale=s_in, zp=zx)
+    wt = m.tensor("w", [n_out, n_in], tfl.INT8, scale=s_w, zp=0, data=w)
+    b = m.tensor("b", [n_out], tfl.INT32,
+                 scale=float(np.float32(s_in) * np.float32(s_w)), zp=0, data=bias)
+    y = m.tensor("y", [1, n_out], tfl.INT8, scale=s_out, zp=zy)
+    m.op("FULLY_CONNECTED", [x, wt, b], [y], FusedActivationFunction=act)
+    xs = [rng.integers(-128, 128, (1, n_in), dtype=np.int8) for _ in range(runs)]
+    got = tfl.run_reference(m.build(), xs)
+
+    eff = float(np.float32(s_in) * np.float32(s_w)) / float(np.float32(s_out))
+    lo, hi = act_range(act, s_out, zy)
+    wc = np.ascontiguousarray(w)
+    packed = np.zeros(n_in * n_out, np.int8)
+    bf = np.zeros(n_out, np.int32)
+    out = np.zeros(n_out, np.int8)
+    bad = []
+    for lib in libs:
+        wrong = 0
+        for use_packed in (0, 1):
+            for xv, ref in zip(xs, got):
+                xc = np.ascontiguousarray(xv[0])
+                lib.shim_dense_s8(xc.ctypes.data, wc.ctypes.data, packed.ctypes.data,
+                                  n_in, n_out, bias.ctypes.data, zx, eff, zy, lo, hi,
+                                  use_packed, bf.ctypes.data, out.ctypes.data)
+                wrong += int(np.count_nonzero(out != ref[0]))
+        bad.append(wrong)
+    name = (f"fully connected {n_in} -> {n_out}, zero points {zx} / {zy}"
+            + {0: "", RELU: ", ReLU", RELU6: ", ReLU6"}[act])
+    return name, 2 * runs * n_out, bad
+
+
 def main():
     libs = load(sys.argv[1] if len(sys.argv) > 1 else "build/nn-check")
     cases = [
@@ -92,6 +137,10 @@ def main():
     print(f"{'case':58} {'outputs':>8}  " + "  ".join(f"{m[10:]:>8}" for m in MODES))
     for c in cases:
         name, n, bad = case_fc_requant(libs, *c)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= bad[AWAY] != 0
+    for c in ((256, 64, 0, 1), (64, 12, RELU, 2), (17, 13, RELU6, 3), (1, 70, 0, 4)):
+        name, n, bad = case_dense(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
         failed |= bad[AWAY] != 0
     print("\nmismatches per rounding mode; FNN_ROUND_AWAY must have none")
