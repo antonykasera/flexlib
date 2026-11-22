@@ -35,6 +35,12 @@ def load(libdir):
             ctypes.c_int32, ctypes.c_void_p]
         lib.fnn_lut_s8.argtypes = [ctypes.c_void_p] * 2 + [
             ctypes.c_uint32, ctypes.c_void_p]
+        lib.fnn_softmax_s8_build.argtypes = [
+            ctypes.c_double, ctypes.c_double, ctypes.c_void_p]
+        lib.fnn_softmax_s8.argtypes = [ctypes.c_void_p] * 2 + [
+            ctypes.c_uint32, ctypes.c_void_p]
+        lib.fnn_argmax_s8.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        lib.fnn_argmax_s8.restype = ctypes.c_uint32
         assert lib.shim_rounding() == m, f"libfnn{m}.so is mode {lib.shim_rounding()}"
         libs.append(lib)
     return libs
@@ -159,6 +165,47 @@ def case_table(lib, op, s_in, zx, s_out, zy, f, seed, **options):
     return name, int(np.count_nonzero(diff)), int(diff.max()), 20 * 256, wrong
 
 
+def case_softmax(lib, n, s_in, zx, beta, seed, runs=200):
+    """Softmax of n scores against TFLite's reference softmax."""
+    m = tfl.Model()
+    x = m.tensor("x", [1, n], tfl.INT8, scale=s_in, zp=zx)
+    y = m.tensor("y", [1, n], tfl.INT8, scale=1.0 / 256.0, zp=-128)
+    m.op("SOFTMAX", [x], [y], Beta=beta)
+    rng = np.random.default_rng(seed)
+    xs = [rng.integers(-128, 128, (1, n), dtype=np.int8) for _ in range(runs)]
+    got = tfl.run_reference(m.build(), xs)
+    tab = np.zeros(256, np.uint32)
+    assert lib.fnn_softmax_s8_build(beta, s_in, tab.ctypes.data) == 0
+    out = np.zeros(n, np.int8)
+    differ, by = 0, 0
+    for xv, want in zip(xs, got):
+        xc = np.ascontiguousarray(xv[0])
+        lib.fnn_softmax_s8(xc.ctypes.data, out.ctypes.data, n, tab.ctypes.data)
+        d = np.abs(out.astype(int) - want[0].astype(int))
+        differ += int(np.count_nonzero(d))
+        by = max(by, int(d.max()))
+    name = f"softmax of {n}, scale {s_in:.4g}, zero point {zx}, beta {beta:g}"
+    return name, differ, by, runs * n
+
+
+def case_argmax(lib, n, seed, runs=500):
+    """ARG_MAX over n values, half the runs full of ties."""
+    m = tfl.Model()
+    x = m.tensor("x", [1, n], tfl.INT8, scale=0.1, zp=0)
+    axis = m.tensor("axis", [1], tfl.INT32, data=[1])
+    y = m.tensor("y", [1], tfl.INT32)
+    m.op("ARG_MAX", [x, axis], [y])
+    rng = np.random.default_rng(seed)
+    xs = [rng.integers(-128, 128 if r % 2 else -124, (1, n), dtype=np.int8)
+          for r in range(runs)]
+    got = tfl.run_reference(m.build(), xs)
+    wrong = 0
+    for xv, want in zip(xs, got):
+        xc = np.ascontiguousarray(xv[0])
+        wrong += lib.fnn_argmax_s8(xc.ctypes.data, n) != int(want[0])
+    return f"argmax of {n}", runs, wrong
+
+
 def logistic(v):
     return 1.0 / (1.0 + math.exp(-v))
 
@@ -207,6 +254,20 @@ def main():
         failed |= wrong != 0
     print("\nentries of the exact table that differ from TFLite's, and by how much;"
           "\nthe table read from the interpreter must give no wrong outputs")
+
+    print(f"\n{'softmax':58} {'differ':>6} {'by':>3}  {'outputs':>8}")
+    for c in ((12, 1.0 / 16.0, 0, 1.0, 11), (10, 0.1, -30, 1.0, 12),
+              (12, 0.25, 5, 0.5, 13), (256, 0.05, 0, 1.0, 14)):
+        name, differ, by, n = case_softmax(libs[AWAY], *c)
+        print(f"{name:58} {differ:6} {by:3}  {n:8}")
+        failed |= differ != 0
+    print("\noutputs that differ from TFLite's softmax, and by how much: none may\n")
+
+    print(f"{'argmax':58} {'runs':>6} {'wrong':>6}")
+    for n, seed in ((1, 15), (12, 16), (256, 17)):
+        name, runs, wrong = case_argmax(libs[AWAY], n, seed)
+        print(f"{name:58} {runs:6} {wrong:6}")
+        failed |= wrong != 0
     if failed:
         sys.exit("nn-check: flexnn differs from the TFLite reference kernels")
     print("nn-check: flexnn matches the TFLite reference kernels")

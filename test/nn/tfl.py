@@ -27,6 +27,9 @@ OPTIONS = {
     "TANH": (None, None, 2, {}),
     "HARD_SWISH": (None, None, 1, {}),
     "LEAKY_RELU": ("LeakyReluOptions", "LeakyReluOptions", 2, {"Alpha": 0.2}),
+    "SOFTMAX": ("SoftmaxOptions", "SoftmaxOptions", 2, {"Beta": 1.0}),
+    "ARG_MAX": ("ArgMaxOptions", "ArgMaxOptions", 2,
+                {"OutputType": TensorType.INT32}),
 }
 
 _NP = {INT8: np.int8, INT32: np.int32}
