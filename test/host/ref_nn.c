@@ -8,6 +8,7 @@
 
 #include "ref_nn.h"
 #include <math.h>
+#include <stddef.h>
 
 static int32_t sat(int64_t v) {
   return v < INT32_MIN ? INT32_MIN : (v > INT32_MAX ? INT32_MAX : (int32_t)v);
@@ -44,6 +45,23 @@ int32_t ref_requant(int32_t acc, int32_t mult, int32_t shift, RefRound mode) {
     return sat(-((-p + h) >> ts));
   }
   return sat((p + h) >> ts);
+}
+
+void ref_fully_connected(const int8_t *x, uint32_t n_in, const int8_t *w,
+                         uint32_t n_out, const int32_t *b, int32_t zx,
+                         const int32_t *mult, const int32_t *shift,
+                         int per_channel, int32_t zy, int32_t lo, int32_t hi,
+                         RefRound mode, int8_t *y) {
+  for (uint32_t o = 0U; o < n_out; o++) {
+    int64_t acc = b != NULL ? b[o] : 0;
+    for (uint32_t i = 0U; i < n_in; i++) {
+      acc += (int64_t)(x[i] - zx) * w[o * n_in + i];
+    }
+    uint32_t c = per_channel ? o : 0U;
+    int64_t v =
+        (int64_t)ref_requant((int32_t)acc, mult[c], shift[c], mode) + zy;
+    y[o] = (int8_t)(v < lo ? lo : (v > hi ? hi : v));
+  }
 }
 
 void ref_quantize_multiplier(double scale, int32_t *mult, int32_t *shift) {

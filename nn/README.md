@@ -6,8 +6,73 @@
 flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It is in development and not part
-of a release yet. What is here so far is the step every layer ends with:
-turning a layer's int32 sums into int8 outputs.
+of a release yet. What is here so far: fully connected layers, and the step
+every layer ends with, turning its int32 sums into int8 outputs.
+
+## Fully connected layers (`fnn_dense.h`)
+
+A fully connected layer multiplies each input, less the input zero point, by
+a weight per output, adds a bias and requantises the sum. Here a layer has
+three inputs, two outputs and an output scale of 1/64:
+
+```c
+#include <stdio.h>
+
+#include "fnn_dense.h"
+#include "fnn_quant.h"
+
+int main(void) {
+  /* two outputs from three inputs, the weights in TFLite's row order */
+  static const int8_t w[2 * 3] = {10, -20, 30, 5, 5, 5};
+  static const int32_t b[2] = {100, -50};
+  const int32_t zx = 3; /* input zero point */
+
+  int32_t bias[2], mult;
+  int8_t rsh;
+  fnn_fold_bias_s8(w, 3U, 2U, b, zx, bias);
+  if (fnn_quant_from_scale(1.0 / 64.0, &mult, &rsh) != FNN_OK) {
+    return 1;
+  }
+  const FNN_Dense layer = {w, bias, 3U, 2U, 0U, {&mult, &rsh, 1U}, {0, -128, 127}};
+
+  const int8_t x[3] = {13, 23, 33};
+  int8_t y[2];
+  fnn_dense_s8(&layer, x, y);
+  printf("%d %d\n", y[0], y[1]);
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+11 4
+```
+
+The inputs less their zero point are 10, 20 and 30. The first output's sum is
+10 × 10 − 20 × 20 + 30 × 30 + 100 = 700, and 700 / 64 rounds to 11. The second
+is 5 × 60 − 50 = 250, which gives 4. `fnn_fold_bias_s8` moves the zero point
+into the biases once, at setup: the kernel then multiplies the raw inputs and
+never subtracts anything per input.
+
+The weights can stay in TFLite's order, rows of `n_in`, as above. For speed,
+reorder them once with `fnn_dense_pack_s8` and set the layer's `packed` to 1:
+the kernel then reads eight rows' weights with one load and runs about a fifth
+faster. The packed order is flexnn's own and may change between versions:
+keep the rows and pack them again, at startup into RAM or ahead of time into a
+`const` array. Pass the rows, not the packed weights, to `fnn_fold_bias_s8`.
+
+Cycles on an STM32F103 at 72 MHz (`-O2`, weights in flash), against CMSIS-NN
+8.0.0's `arm_fully_connected_s8` built the same way:
+
+| layer | flexnn, packed | flexnn, rows | CMSIS-NN |
+| --- | --: | --: | --: |
+| 256 inputs, 64 outputs | 86519 | 102673 | 121513 |
+| 64 inputs, 12 outputs | 4156 | 4936 | 5492 |
+
+That is 5.0 cycles per multiply-accumulate packed, against CMSIS-NN's 7.4. On
+the Cortex-M3 the multiply-accumulate itself takes 2 of those cycles, and
+splitting four weights out of a word takes one more per weight.
 
 ## Requantisation (`fnn_quant.h`)
 
@@ -83,7 +148,14 @@ int32 (scales of 1/2 and above with large sums), flexnn saturates.
 
 ## How it was checked
 
-Every int32 sum, for 15 multiplier and shift pairs at the ends of their
+Fully connected layers against a reference written in TFLite's own terms, with
+the zero point subtracted per input, in both layouts and every rounding mode:
+random layers of 0 to 256 inputs and 1 to 70 outputs, weights and inputs at
+their extremes, per-tensor and per-channel scales, fused clamps, and a folded
+bias that wraps past int32 while the true sum fits. Four layers, up to 256
+inputs and 70 outputs, against the TFLite interpreter, bit for bit.
+
+Requantisation: every int32 sum, for 15 multiplier and shift pairs at the ends of their
 ranges, in each rounding mode, against an exact 64-bit model. Random sums,
 multipliers and every shift against a second model written in TFLite's and
 gemmlowp's own terms. `fnn_quant_from_scale` against TFLite's

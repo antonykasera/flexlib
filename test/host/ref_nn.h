@@ -26,4 +26,12 @@ int32_t ref_requant(int32_t acc, int32_t mult, int32_t shift, RefRound mode);
 /* TFLite's QuantizeMultiplier on libm's frexp and round, shift capped at 30 */
 void ref_quantize_multiplier(double scale, int32_t *mult, int32_t *shift);
 
+/* TFLite's reference fully connected layer: weights [n_out][n_in], biases or
+ * NULL, multipliers and shifts per output when per_channel */
+void ref_fully_connected(const int8_t *x, uint32_t n_in, const int8_t *w,
+                         uint32_t n_out, const int32_t *b, int32_t zx,
+                         const int32_t *mult, const int32_t *shift,
+                         int per_channel, int32_t zy, int32_t lo, int32_t hi,
+                         RefRound mode, int8_t *y);
+
 #endif /* REF_NN_H */

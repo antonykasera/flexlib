@@ -257,6 +257,13 @@ void test_fnn_clamp(void);
 void test_fnn_quant_from_scale(void);
 void test_fnn_quant_from_tflite(void);
 
+/* --- fnn_dense (test_fnn_dense.c) --- */
+void test_fnn_dense_random(void);
+void test_fnn_dense_extremes(void);
+void test_fnn_dense_wrap(void);
+void test_fnn_dense_edges(void);
+void test_fnn_dense_pack(void);
+
 int main(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     if (sscanf(argv[i], "--shard=%u/%u", &test_shard, &test_shards) == 2) {
@@ -451,6 +458,11 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fnn_clamp);
   TEST_RUN(test_fnn_quant_from_scale);
   TEST_RUN(test_fnn_quant_from_tflite);
+  TEST_RUN(test_fnn_dense_random);
+  TEST_RUN(test_fnn_dense_extremes);
+  TEST_RUN(test_fnn_dense_wrap);
+  TEST_RUN(test_fnn_dense_edges);
+  TEST_RUN(test_fnn_dense_pack);
 
   return TEST_SUMMARY();
 }
