@@ -1,5 +1,10 @@
 # flexnn changelog
 
+## Unreleased
+
+- `nn/tools/fnn_tflite.py`: a full-integer int8 `.tflite` model to C, with the weights as constants, a memory plan for the tensors between layers, and `--check` against the TFLite interpreter. Fully connected layers, softmax and reshapes so far, with the shape arithmetic TensorFlow's exporter writes around them worked out at conversion.
+- `fnn.h`: every flexnn header in one include.
+
 ## 0.1.0 (2026-11-22)
 
 - `fnn_add_s8`, `fnn_add_init`: element-wise add of two int8 tensors with their own scales, in place if you like. In `FNN_ROUND_GEMMLOWP` it is TFLite's ADD bit for bit; the other modes round the exact sum once. 30 cycles a value on the Cortex-M3 against CMSIS-NN's 108.

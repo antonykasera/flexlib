@@ -9,7 +9,8 @@ DIST_FILES = LICENSE NOTICE README.md CHANGELOG.md flexlib.mk flexutils.mk flexm
              $(wildcard arch/*.h utils/*.md utils/include/*.h utils/src/*.[ch] \
                         math/*.md math/include/*.h math/src/*.[ch] \
                         dsp/*.md dsp/include/*.h dsp/src/*.[ch] \
-                        nn/*.md nn/include/*.h nn/src/*.[ch]) \
+                        nn/*.md nn/include/*.h nn/src/*.[ch] \
+                        nn/tools/*.py nn/tools/requirements.txt) \
              docs/README.md docs/accuracy.md docs/testing.md $(wildcard docs/results/*.md)
 
 CONSUMER = $(BUILD)/consumer

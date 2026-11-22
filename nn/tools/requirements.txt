@@ -1,0 +1,5 @@
+flatbuffers==25.12.19
+numpy==2.5.5
+tflite==2.18.0
+# for --check only
+ai-edge-litert==2.4.0
