@@ -568,6 +568,74 @@ for the Cortex-M3, where float arithmetic is software:
 | int8 to float | 128 | 3901 | 30 | 9694 |
 | int8 to q15 | 256 | 6032 | 24 | - |
 
+## A whole model, by hand
+
+Layers chain through their buffers: each layer writes the next one's input,
+and the next layer takes that tensor's zero point as its `zx`. Here is the
+smallest network that needs a hidden layer, an XOR made of two ReLU units:
+
+```c
+#include <stdio.h>
+
+#include "fnn_dense.h"
+#include "fnn_quant.h"
+
+int main(void) {
+  /* XOR from two ReLU units: h0 = relu(a + b), h1 = relu(a + b - 1),
+   * and y = h0 - 2 h1. Every scale is 1 and every zero point 0. */
+  static const int8_t w1[2 * 2] = {1, 1, 1, 1}, w2[2] = {1, -2};
+  static const int32_t b1[2] = {0, -1};
+  int32_t bf1[2], bf2[1], mult;
+  int8_t rsh;
+  fnn_fold_bias_s8(w1, 2U, 2U, b1, 0, bf1);
+  fnn_fold_bias_s8(w2, 2U, 1U, NULL, 0, bf2);
+  if (fnn_quant_from_scale(1.0, &mult, &rsh) != FNN_OK) {
+    return 1;
+  }
+  /* the ReLU is the clamp: nothing below the zero point */
+  const FNN_Dense hidden = {w1, bf1, 2U, 2U, 0U, {&mult, &rsh, 1U}, {0, 0, 127}};
+  const FNN_Dense out = {w2, bf2, 2U, 1U, 0U, {&mult, &rsh, 1U}, {0, -128, 127}};
+  for (int a = 0; a < 2; a++) {
+    for (int b = 0; b < 2; b++) {
+      const int8_t x[2] = {(int8_t)a, (int8_t)b};
+      int8_t h[2], y;
+      fnn_dense_s8(&hidden, x, h);
+      fnn_dense_s8(&out, h, &y);
+      printf("%d xor %d = %d\n", a, b, y);
+    }
+  }
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+0 xor 0 = 0
+0 xor 1 = 1
+1 xor 0 = 1
+1 xor 1 = 0
+```
+
+With both inputs at 1, the hidden layer gives 2 and 1, and the output layer
+2 - 2 x 1 = 0. A fused ReLU is only the clamp: the hidden layer's `lo` is its
+zero point, so nothing below 0 survives. For a model you trained, each
+layer's weights, biases, scales and zero points come from its `.tflite` file,
+and its multiplier from `fnn_quant_from_scale` of the input scale times the
+weight scale over the output scale.
+
+Three such models, built in TFLite's format with random weights, run end to
+end in flexnn exactly as in the TFLite interpreter. On an STM32F103 at 72 MHz
+(`-O2`), with packed weights, against the same layers through CMSIS-NN 8.0.0:
+
+| model | multiply-accumulates | flexnn | CMSIS-NN |
+| --- | --: | --: | --: |
+| R0, XOR MLP 2 -> 4 -> 1 | 12 | 631 | 974 |
+| R1, MLP 64 -> 32 -> 16 -> 4, softmax | 2624 | 14492 | 22844 |
+| R4, autoencoder 64 -> 32 -> 8 -> 32 -> 64 | 4608 | 27585 | 36684 |
+
+That is 1.3 to 1.6 times as fast as CMSIS-NN, and R1 takes 0.2 ms.
+
 ## Requantisation (`fnn_quant.h`)
 
 A layer multiplies int8 inputs by int8 weights and adds the products in
@@ -692,6 +760,12 @@ equal, power-of-two and other scales. Global pools and means up to 300 values
 wide, with inputs all -128 and all 127. Against the TFLite interpreter, eight
 pools bit for bit in every rounding mode, and five means bit for bit in
 `FNN_ROUND_GEMMLOWP`.
+
+Whole models: R0 (2 -> 4 -> 1), R1 (64 -> 32 -> 16 -> 4 with a softmax) and R4
+(64 -> 32 -> 8 -> 32 -> 64), written as TFLite models with random weights and
+ReLU on the hidden layers, against the interpreter on 500 random inputs each:
+every output bit for bit in `FNN_ROUND_AWAY`, the interpreter's rule for
+fully connected layers, with each layer taking the previous one's output.
 
 Adds against a reference in TFLite's terms for `FNN_ROUND_GEMMLOWP` and an
 exact 64-bit sum for the other modes: all 65,536 pairs of int8 inputs at nine
