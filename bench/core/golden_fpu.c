@@ -483,6 +483,8 @@ const BenchGolden bench_golden[] = {
     {"fnn_conv_s8, 5 taps, 16 -> 32, 64", 0x75229A32U},
     {"fnn_conv_s8, 5 taps, 16 -> 32, 64, packed", 0xD76AE3C0U},
     {"conv 1 x 1, 64 -> 64, 5 x 5, two pixels x four rows", 0x2966CC66U},
+    {"fnn_dwconv_s8, 3 x 3, 64 x 5 x 5", 0x5E4A53CCU},
+    {"fnn_dwconv_s8, 3 x 3, 64 x 7 x 7 to 5 x 5, VALID", 0x7ECB0506U},
     {"fnn_lut_s8, 1024", 0x630AE59FU},
     {"table 1024, eight a pass, each looked up and stored in turn", 0xCDBDBAC2U},
     {"table 1024, eight a pass, stores merged into words", 0xCDBDBAC2U},

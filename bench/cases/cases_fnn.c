@@ -11,6 +11,7 @@
 #include "fnn_conv.h"
 #include "fnn_convert.h"
 #include "fnn_dense.h"
+#include "fnn_dwconv.h"
 #include "fnn_lut.h"
 #include "fnn_quant.h"
 #include "fnn_softmax.h"
@@ -182,6 +183,25 @@ BLOCK(b_cv3, conv(x, &cv3), 2304U)
 BLOCK(b_cv3p, conv(x, &cv3p), 2304U)
 BLOCK(b_cv1d, conv(x, &cv1d), 2048U)
 BLOCK(b_cv1dp, conv(x, &cv1dp), 2048U)
+
+static const FNN_DwConv dw64 = {
+    wpool + 10000U, bias, {5U, 5U, 64U},   {5U, 5U, 64U}, 3U, 3U, 1U,
+    1U,             1U,   1U,              ZX,            {mult, rsh, 64U},
+    {ZY, -128, 127}};
+static uint32_t dwconv(uint32_t off) {
+  fnn_dwconv_s8(&dw64, xin + off, yout);
+  return 0U;
+}
+BLOCK(b_dw64, dwconv(x), 1600U)
+static const FNN_DwConv dw64v = {
+    wpool + 10000U, bias, {7U, 7U, 64U},   {5U, 5U, 64U}, 3U, 3U, 1U,
+    1U,             0U,   0U,              ZX,            {mult, rsh, 64U},
+    {ZY, -128, 127}};
+static uint32_t dwconv_valid(uint32_t off) {
+  fnn_dwconv_s8(&dw64v, xin + off, yout);
+  return 0U;
+}
+BLOCK(b_dw64v, dwconv_valid(x), 1600U)
 
 BENCH_CALL static void k_px2(const int8_t *xa, const int8_t *xb,
                              const int8_t *w, uint32_t half, uint32_t n,
@@ -872,6 +892,9 @@ static const BenchCase cases[] = {
     {"fnn_conv_s8, 5 taps, 16 -> 32, 64, packed", "flexlib", b_cv1dp, true},
     {"conv 1 x 1, 64 -> 64, 5 x 5, two pixels x four rows", "candidate",
      b_pw_px2, true},
+    {"fnn_dwconv_s8, 3 x 3, 64 x 5 x 5", "flexlib", b_dw64, true},
+    {"fnn_dwconv_s8, 3 x 3, 64 x 7 x 7 to 5 x 5, VALID", "flexlib", b_dw64v,
+     true},
     {"fnn_lut_s8, 1024", "flexlib", b_lut, true},
     {"table 1024, eight a pass, each looked up and stored in turn",
      "candidate", b_lut8, true},
