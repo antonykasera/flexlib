@@ -31,6 +31,14 @@ void ref_conv2d(const int8_t *x, uint32_t ih, uint32_t iw, uint32_t ic,
                 const int32_t *shift, int per_channel, int32_t zy, int32_t lo,
                 int32_t hi, RefRound mode, int8_t *y);
 
+/* TFLite's DEPTHWISE_CONV_2D: output channel o reads input channel o / m. */
+void ref_dwconv(const int8_t *x, uint32_t ih, uint32_t iw, uint32_t ic,
+                const int8_t *w, uint32_t kh, uint32_t kw, uint32_t sh,
+                uint32_t sw, uint32_t pt, uint32_t pl, uint32_t oh, uint32_t ow,
+                uint32_t oc, const int32_t *b, int32_t zx, const int32_t *mult,
+                const int32_t *shift, int per_channel, int32_t zy, int32_t lo,
+                int32_t hi, RefRound mode, int8_t *y);
+
 /* TFLite's QuantizeMultiplier on libm's frexp and round, shift capped at 30 */
 void ref_quantize_multiplier(double scale, int32_t *mult, int32_t *shift);
 

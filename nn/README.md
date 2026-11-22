@@ -6,10 +6,10 @@
 flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It is in development and not part
-of a release yet. What is here so far: fully connected and convolution
-layers, activation functions as tables, softmax and argmax, conversions in and
-out of int8, and the step every layer ends with, turning its int32 sums into
-int8 outputs.
+of a release yet. What is here so far: fully connected, convolution and
+depthwise layers, activation functions as tables, softmax and argmax,
+conversions in and out of int8, and the step every layer ends with, turning
+its int32 sums into int8 outputs.
 
 ## Fully connected layers (`fnn_dense.h`)
 
@@ -158,6 +158,72 @@ CMSIS-NN 8.0.0 built the same way, with a multiplier per output channel:
 Packed, that is 4.9 to 5.9 cycles per multiply-accumulate, 12 to 18% fewer
 cycles than CMSIS-NN. In TFLite's order the filter takes 3 to 10% more than
 CMSIS-NN: pack it when you can.
+
+## Depthwise convolution (`fnn_dwconv.h`)
+
+A depthwise layer filters each channel on its own, with a filter of its own,
+where a convolution mixes every input channel into every output. It is how
+small vision and audio models keep their cost down. Here two channels of a
+3 x 3 image get different filters:
+
+```c
+#include <stdio.h>
+
+#include "fnn_dwconv.h"
+#include "fnn_quant.h"
+
+int main(void) {
+  /* a 3 x 3 image with two channels, stored pixel by pixel (NHWC) */
+  static const int8_t img[3 * 3 * 2] = {1, 10, 2, 20, 3, 30,
+                                        4, 40, 5, 50, 6, 60,
+                                        7, 70, 8, 80, 9, 90};
+  /* channel 0 sums its window; channel 1 keeps only the centre */
+  static const int8_t w[3 * 3 * 2] = {1, 0, 1, 0, 1, 0,
+                                      1, 0, 1, 1, 1, 0,
+                                      1, 0, 1, 0, 1, 0};
+  int32_t bias[2], mult;
+  int8_t rsh;
+  fnn_dwconv_fold_bias_s8(w, 9U, 2U, NULL, 0, bias);
+  if (fnn_quant_from_scale(1.0, &mult, &rsh) != FNN_OK) {
+    return 1;
+  }
+  const FNN_DwConv layer = {w,  bias, {3U, 3U, 2U}, {1U, 1U, 2U}, 3U, 3U,
+                            1U, 1U,   0U,           0U,           0,
+                            {&mult, &rsh, 1U},      {0, -128, 127}};
+  if (fnn_dwconv_check(&layer) != FNN_OK) {
+    return 1;
+  }
+  int8_t out[2];
+  fnn_dwconv_s8(&layer, img, out);
+  printf("%d %d\n", out[0], out[1]);
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+45 50
+```
+
+Channel 0 sums its nine pixels, 1 + 2 + ... + 9 = 45, and channel 1 keeps the
+centre, 50. The filter is TFLite's `[kh][kw][c_out]`, channel-minor like the
+image, and `fnn_dwconv_fold_bias_s8` folds the zero point over its taps. With a
+channel multiplier m, `out.c` is m times `in.c` and output channel c reads
+input channel c / m. Padding reads the input zero point, as in TFLite.
+
+Cycles on an STM32F103 at 72 MHz (`-O2`), against CMSIS-NN 8.0.0 built the same
+way, with a multiplier per channel:
+
+| layer | flexnn | CMSIS-NN |
+| --- | --: | --: |
+| 3 x 3, 64 channels, 5 x 5, SAME | 299979 | 470046 |
+| 3 x 3, 64 channels, 7 x 7 to 5 x 5, VALID | 244547 | - |
+
+That is about a third fewer cycles than CMSIS-NN's faster depthwise kernel, but
+still 17 to 21 cycles per multiply-accumulate. The work the kernel does per
+group of four channels around its multiplies costs more than the multiplies,
+and that is where the next improvement lies.
 
 ## Activation functions (`fnn_lut.h`)
 
@@ -429,6 +495,12 @@ random layers of 0 to 256 inputs and 1 to 70 outputs, weights and inputs at
 their extremes, per-tensor and per-channel scales, fused clamps, and a folded
 bias that wraps past int32 while the true sum fits. Four layers, up to 256
 inputs and 70 outputs, against the TFLite interpreter, bit for bit.
+
+Depthwise layers against a reference in TFLite's terms: 3000 random layers with
+filters up to 5 x 5, channel multipliers 1 to 3, strides 1 and 2, VALID and
+SAME padding and 1 to 64 channels, in every rounding mode, a quarter of them
+at a scale that makes exact ties. Against the TFLite interpreter, four layers
+bit for bit in `FNN_ROUND_GEMMLOWP`.
 
 Convolutions against a reference written in TFLite's terms, which subtracts
 the zero point per tap and skips the taps outside the input: 3000 random layers
