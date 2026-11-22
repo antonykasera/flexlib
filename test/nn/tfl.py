@@ -17,7 +17,8 @@ _B = {n: _mod(n) for n in ("Model", "SubGraph", "Tensor", "Operator",
 BuiltinOperator = _mod("BuiltinOperator").BuiltinOperator
 BuiltinOptions = _mod("BuiltinOptions").BuiltinOptions
 TensorType = _mod("TensorType").TensorType
-INT8, INT32 = TensorType.INT8, TensorType.INT32
+INT8, INT16, INT32 = TensorType.INT8, TensorType.INT16, TensorType.INT32
+FLOAT32 = TensorType.FLOAT32
 
 # for each operator: its options table, BuiltinOptions member, version, defaults
 OPTIONS = {
@@ -30,9 +31,11 @@ OPTIONS = {
     "SOFTMAX": ("SoftmaxOptions", "SoftmaxOptions", 2, {"Beta": 1.0}),
     "ARG_MAX": ("ArgMaxOptions", "ArgMaxOptions", 2,
                 {"OutputType": TensorType.INT32}),
+    "QUANTIZE": (None, None, 2, {}),
+    "DEQUANTIZE": (None, None, 2, {}),
 }
 
-_NP = {INT8: np.int8, INT32: np.int32}
+_NP = {INT8: np.int8, INT16: np.int16, INT32: np.int32, FLOAT32: np.float32}
 
 
 def _vector(b, start, items, prepend):

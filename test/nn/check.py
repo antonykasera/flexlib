@@ -1,5 +1,5 @@
 """Runs small models in the TFLite interpreter and the same arithmetic through
-flexnn. FNN_ROUND_AWAY has to match on every output."""
+flexnn, and checks that they agree in the rounding mode TFLite uses for each."""
 
 import ctypes
 import math
@@ -11,7 +11,7 @@ import numpy as np
 import tfl
 
 MODES = ("FNN_ROUND_UP", "FNN_ROUND_AWAY", "FNN_ROUND_GEMMLOWP")
-AWAY = 1
+AWAY, GEMMLOWP = 1, 2
 RELU, RELU6 = 1, 3
 UNARY = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double)
 
@@ -40,6 +40,11 @@ def load(libdir):
         lib.fnn_softmax_s8.argtypes = [ctypes.c_void_p] * 2 + [
             ctypes.c_uint32, ctypes.c_void_p]
         lib.fnn_argmax_s8.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        for f in (lib.fnn_quantize_f32_s8, lib.fnn_quantize_q15_s8):
+            f.argtypes = [ctypes.c_void_p] * 2 + [ctypes.c_uint32] + [
+                ctypes.c_int32] * 3
+        lib.fnn_dequantize_s8_f32.argtypes = [ctypes.c_void_p] * 2 + [
+            ctypes.c_uint32, ctypes.c_float, ctypes.c_int32]
         lib.fnn_argmax_s8.restype = ctypes.c_uint32
         assert lib.shim_rounding() == m, f"libfnn{m}.so is mode {lib.shim_rounding()}"
         libs.append(lib)
@@ -206,6 +211,57 @@ def case_argmax(lib, n, seed, runs=500):
     return f"argmax of {n}", runs, wrong
 
 
+def multiplier(lib, scale):
+    mult, rsh = ctypes.c_int32(), ctypes.c_int8()
+    assert lib.fnn_quant_from_scale(scale, ctypes.byref(mult), ctypes.byref(rsh)) == 0
+    return mult.value, rsh.value
+
+
+def case_quantize(libs, src, s, zp, seed, n=4096):
+    """QUANTIZE from float or int16 (q15) to int8, in each rounding mode. It also
+    counts the differences beyond the first 64 floats, which sit next to ties."""
+    rng = np.random.default_rng(seed)
+    if src == "float":
+        xs = (rng.standard_normal(n) * 60.0 * s).astype(np.float32)
+        xs[:64] = (np.arange(64, dtype=np.float32) - 32.0) * np.float32(0.5 * s)
+        ttype, eff, fn = tfl.FLOAT32, 1.0 / float(np.float32(s)), "fnn_quantize_f32_s8"
+        x = None
+    else:
+        xs = rng.integers(-32768, 32768, n, dtype=np.int16)
+        ttype, eff, fn = tfl.INT16, 2.0**-15 / float(np.float32(s)), "fnn_quantize_q15_s8"
+    m = tfl.Model()
+    if src == "float":
+        x = m.tensor("x", [1, n], ttype)
+    else:
+        x = m.tensor("x", [1, n], ttype, scale=2.0**-15, zp=0)
+    y = m.tensor("y", [1, n], tfl.INT8, scale=s, zp=zp)
+    m.op("QUANTIZE", [x], [y])
+    want = tfl.run_reference(m.build(), [xs.reshape(1, n)])[0][0]
+    out = np.zeros(n, np.int8)
+    bad, far = [], []
+    for lib in libs:
+        mult, rsh = multiplier(lib, eff)
+        getattr(lib, fn)(xs.ctypes.data, out.ctypes.data, n, mult, rsh, zp)
+        bad.append(int(np.count_nonzero(out != want)))
+        far.append(int(np.count_nonzero(out[64:] != want[64:])))
+    return f"quantize {src} to int8, scale {s:.4g}, zero point {zp}", n, bad, far
+
+
+def case_dequantize(lib, s, zp):
+    """DEQUANTIZE every int8 to float, bit for bit."""
+    xs = np.arange(-128, 128, dtype=np.int8)
+    m = tfl.Model()
+    x = m.tensor("x", [1, 256], tfl.INT8, scale=s, zp=zp)
+    y = m.tensor("y", [1, 256], tfl.FLOAT32)
+    m.op("DEQUANTIZE", [x], [y])
+    want = tfl.run_reference(m.build(), [xs.reshape(1, 256)])[0][0]
+    out = np.zeros(256, np.float32)
+    lib.fnn_dequantize_s8_f32(xs.ctypes.data, out.ctypes.data, 256,
+                              float(np.float32(s)), zp)
+    wrong = int(np.count_nonzero(out.view(np.uint32) != want.view(np.uint32)))
+    return f"dequantize int8 to float, scale {s:.4g}, zero point {zp}", 256, wrong
+
+
 def logistic(v):
     return 1.0 / (1.0 + math.exp(-v))
 
@@ -262,6 +318,20 @@ def main():
         print(f"{name:58} {differ:6} {by:3}  {n:8}")
         failed |= differ != 0
     print("\noutputs that differ from TFLite's softmax, and by how much: none may\n")
+
+    print(f"{'case':58} {'outputs':>8}  " + "  ".join(f"{m[10:]:>8}" for m in MODES))
+    for c in (("int16", 0.0371, 3, 21), ("int16", 1.0 / 256.0, -128, 22),
+              ("float", 0.0371, 3, 23), ("float", 0.5, -10, 24), ("float", 0.003, 0, 25)):
+        name, n, bad, far = case_quantize(libs, *c)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= bad[GEMMLOWP] != 0 if c[0] == "int16" else far[AWAY] != 0
+    for s_, zp in ((0.0371, 3), (1.0 / 256.0, -128), (1e-30, 7), (3.0e35, 0)):
+        name, n, wrong = case_dequantize(libs[AWAY], s_, zp)
+        print(f"{name:58} {n:8}  {wrong:8}")
+        failed |= wrong != 0
+    print("\nfrom int16, FNN_ROUND_GEMMLOWP must match. From float, FNN_ROUND_AWAY must"
+          "\nmatch beyond the 64 values next to ties, where TFLite rounds twice. To float,"
+          "\nnothing may differ\n")
 
     print(f"{'argmax':58} {'runs':>6} {'wrong':>6}")
     for n, seed in ((1, 15), (12, 16), (256, 17)):
