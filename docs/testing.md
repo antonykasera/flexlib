@@ -16,7 +16,7 @@ failing runner prints it.
 | --- | --- |
 | `make` | host tests, cross builds, lint, asm-audit (`make help` lists every target) |
 | `make host-test [HOST_CC=clang]` | host tests with ASan and UBSan |
-| `make exhaustive` | every 32-bit input where that is possible (~8 min) |
+| `make exhaustive` | every 32-bit input where that is possible (~13 min) |
 | `make exhaustive-slow` | the same for text formatting and the float block conversions (~15 min) |
 | `make accuracy` | errors of flexlib and CMSIS-DSP, written to `docs/accuracy.md` (~3 min) |
 | `make golden` | the bench cases run on the host, written to `bench/core/golden*.c` |
