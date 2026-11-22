@@ -7,9 +7,9 @@ flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It is in development and not part
 of a release yet. What is here so far: fully connected, convolution and
-depthwise layers, pooling and mean, activation functions as tables, softmax
-and argmax, conversions in and out of int8, and the step every layer ends
-with, turning its int32 sums into int8 outputs.
+depthwise layers, pooling and mean, add and concatenation, activation
+functions as tables, softmax and argmax, conversions in and out of int8, and
+the step every layer ends with, turning its int32 sums into int8 outputs.
 
 ## Fully connected layers (`fnn_dense.h`)
 
@@ -304,6 +304,82 @@ and the average sums four channels in registers. That is 10.7 cycles per input
 value for the max pool and 5.9 for the average; most of it goes to the loops
 around so few taps, not to the comparisons and sums themselves.
 
+## Adding and joining tensors (`fnn_elem.h`, `fnn_shape.h`)
+
+A residual block adds its input back to its output, and a network with two
+branches joins them before the next layer. In int8 the add is the harder of
+the two: each input has its own scale and zero point, and so does the sum.
+
+```c
+#include <stdio.h>
+
+#include "fnn_elem.h"
+#include "fnn_shape.h"
+
+int main(void) {
+  /* 1.0, 2.0, -3.0, 4.0 at a scale of 0.1 */
+  static const int8_t a[4] = {10, 20, -30, 40};
+  /* 3.0, 3.0, 3.0, -23.6 at a scale of 0.2 and a zero point of -10 */
+  static const int8_t b[4] = {5, 5, 5, -128};
+  FNN_Add add;
+  if (fnn_add_init(&add, 0.1, 0, 0.2, -10, 0.25, (FNN_Out){0, -128, 127}) !=
+      FNN_OK) {
+    return 1;
+  }
+  int8_t sum[4];
+  fnn_add_s8(&add, a, b, sum, 4U);
+  printf("sum %d %d %d %d\n", sum[0], sum[1], sum[2], sum[3]);
+
+  /* a and b as two pixels of two channels each, joined along the channels */
+  const int8_t *const in[2] = {a, b};
+  static const uint32_t len[2] = {2U, 2U};
+  int8_t cat[8];
+  fnn_concat_s8(in, len, 2U, 2U, cat);
+  printf("cat");
+  for (unsigned i = 0U; i < 8U; i++) {
+    printf(" %d", cat[i]);
+  }
+  printf("\n");
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+sum 16 20 0 -78
+cat 10 20 5 5 -30 40 5 -128
+```
+
+The real sums are 4, 5, 0 and -19.6, which at an output scale of 0.25 are 16,
+20, 0 and -78.4, rounded to -78. `fnn_add_init` turns the three scales into
+multipliers once, at setup. In `FNN_ROUND_GEMMLOWP` it derives them the way
+TFLite does, and the add is TFLite's bit for bit: each input is shifted up
+20 bits, scaled to half the larger input scale and rounded, and the sum is
+scaled to the output and rounded again. In the other modes both inputs are
+scaled to the output at once and the exact sum is rounded a single time. The
+output may be either input, so an add can run in place.
+
+`fnn_concat_s8` sees each tensor as rows: for NHWC tensors joined along their
+channels, a row is one pixel, so here each of the two rows takes two channels
+from each input. TFLite requires the inputs of an int8 concatenation to share
+the output's scale and zero point, so the values are copied unchanged.
+Reshaping and flattening need no call at all: the tensor is the same bytes.
+
+Cycles on an STM32F103 at 72 MHz (`-O2`), against CMSIS-NN 8.0.0 built the same
+way, with equal scales:
+
+| layer | flexnn | CMSIS-NN |
+| --- | --: | --: |
+| add, 1024 values | 30467 | 110158 |
+| add, 1024 values, `FNN_ROUND_GEMMLOWP` | 90682 | 110158 |
+| concatenation, 2 x 8 x 8 x 16 to 8 x 8 x 32 | 10102 | 17375 |
+
+The add is 30 cycles a value in the default mode: two 64-bit multiply-adds
+from a constant that already holds both zero points, half a step and the
+output zero point. TFLite's three roundings take three times as long, still
+about a fifth fewer cycles than CMSIS-NN, which does the same arithmetic.
+
 ## Activation functions (`fnn_lut.h`)
 
 An int8 activation such as tanh or the logistic function has only 256
@@ -589,8 +665,8 @@ fully connected layers, per tensor and per channel, and 600 random
 convolutions through `arm_convolve_wrapper_s8`, which picks CMSIS-NN's 1 x 1,
 1 x n and general paths, in both weight layouts, 600 depthwise layers through
 `arm_depthwise_conv_wrapper_s8`, 2000 softmax rows at an input scale of
-1/16, and random max and average pools with padding and clamps, 124,139 and
-105,036 outputs. A quarter of the layers use a power-of-two scale, which makes exact ties;
+1/16, random max and average pools with padding and clamps, 124,139 and
+105,036 outputs, and 1000 random adds, 2,071,493 outputs. A quarter of the layers use a power-of-two scale, which makes exact ties;
 built with `FNN_ROUND_UP` instead, the same check finds hundreds of
 differences.
 
@@ -616,6 +692,15 @@ equal, power-of-two and other scales. Global pools and means up to 300 values
 wide, with inputs all -128 and all 127. Against the TFLite interpreter, eight
 pools bit for bit in every rounding mode, and five means bit for bit in
 `FNN_ROUND_GEMMLOWP`.
+
+Adds against a reference in TFLite's terms for `FNN_ROUND_GEMMLOWP` and an
+exact 64-bit sum for the other modes: all 65,536 pairs of int8 inputs at nine
+sets of scales and zero points, among them equal scales, scales that put sums
+on exact ties, an output scale so large every sum rounds to 0, and fused
+clamps; 200 random adds, in place over either input. Against the TFLite
+interpreter, five adds bit for bit in `FNN_ROUND_GEMMLOWP`. Concatenation
+against a plain copy at 500 random shapes and alignments, and against the
+interpreter along the channels, height and width, bit for bit in every mode.
 
 Activation tables: every entry of tanh, logistic, hard-swish, exp and
 exact-tie tables within half a step of the exact value, ties up, with clamping
