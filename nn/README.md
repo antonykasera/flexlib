@@ -7,9 +7,9 @@ flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It is in development and not part
 of a release yet. What is here so far: fully connected, convolution and
-depthwise layers, activation functions as tables, softmax and argmax,
-conversions in and out of int8, and the step every layer ends with, turning
-its int32 sums into int8 outputs.
+depthwise layers, pooling and mean, activation functions as tables, softmax
+and argmax, conversions in and out of int8, and the step every layer ends
+with, turning its int32 sums into int8 outputs.
 
 ## Fully connected layers (`fnn_dense.h`)
 
@@ -224,6 +224,85 @@ That is about a third fewer cycles than CMSIS-NN's faster depthwise kernel, but
 still 17 to 21 cycles per multiply-accumulate. The work the kernel does per
 group of four channels around its multiplies costs more than the multiplies,
 and that is where the next improvement lies.
+
+## Pooling and mean (`fnn_pool.h`)
+
+A pooling layer shrinks an image by keeping one value per window, the largest
+or the average, channel by channel. A mean layer averages each channel over
+the whole image, which is how a classifier turns its last feature map into one
+value per channel. Here a 4 x 4 image goes through 2 x 2 windows, then a mean:
+
+```c
+#include <stdio.h>
+
+#include "fnn_pool.h"
+
+int main(void) {
+  /* a 4 x 4 image with one channel */
+  static const int8_t img[4 * 4] = {1,  2,  3, 4,  5,  6,  7,  8,
+                                    -1, -2, 9, 10, -3, -4, 11, 12};
+  /* 2 x 2 windows, stride 2, no padding, no clamp */
+  const FNN_Pool pool = {{4U, 4U, 1U}, {2U, 2U, 1U}, 2U, 2U, 2U, 2U,
+                         0U,           0U,           -128, 127};
+  if (fnn_pool_check(&pool) != FNN_OK) {
+    return 1;
+  }
+  int8_t mx[4], av[4];
+  fnn_maxpool_s8(&pool, img, mx);
+  fnn_avgpool_s8(&pool, img, av);
+  printf("max %d %d %d %d\n", mx[0], mx[1], mx[2], mx[3]);
+  printf("avg %d %d %d %d\n", av[0], av[1], av[2], av[3]);
+
+  /* the mean of the whole image, at an output scale half the input's */
+  FNN_Mean mean = {{4U, 4U, 1U}, 0, 0, 0, {0, -128, 127}};
+  if (fnn_mean_quant(2.0, 16U, &mean.mult, &mean.rsh) != FNN_OK ||
+      fnn_mean_check(&mean) != FNN_OK) {
+    return 1;
+  }
+  int8_t m;
+  fnn_mean_s8(&mean, img, &m);
+  printf("mean %d\n", m);
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+max 6 8 -1 12
+avg 4 6 -3 11
+mean 9
+```
+
+The top-left window holds 1, 2, 5 and 6: its maximum is 6 and its average 3.5,
+which rounds to 4. The bottom-left one averages to -2.5 and rounds to -3:
+averages round half away from zero, as TFLite's do, in every rounding mode.
+Pools keep the input's scale and zero point, so they take no multiplier, only
+a clamp for a fused ReLU. Taps that fall in the padding are left out, so a
+window on the border averages fewer values. A window the size of the input
+pools globally.
+
+The mean sums the 16 values to 68 and scales the sum by the input scale over
+the output scale, here 2, divided by 16: 8.5, which rounds to 9.
+`fnn_mean_quant` builds that multiplier the way TFLite does, truncating the
+division by n, and the sum is requantised like any layer's, so in
+`FNN_ROUND_GEMMLOWP` the result is TFLite's bit for bit. That is why the two
+are separate: Keras's global average pooling converts to TFLite's MEAN, and
+MEAN rounds differently from AVERAGE_POOL_2D even when the scales are equal.
+
+Cycles on an STM32F103 at 72 MHz (`-O2`), against CMSIS-NN 8.0.0 built the same
+way:
+
+| layer | flexnn | CMSIS-NN |
+| --- | --: | --: |
+| max pool 2 x 2, stride 2, 16 x 16 x 16 | 44004 | 52027 |
+| average pool 5 x 5 x 64 to 1 x 1 | 9362 | 30305 |
+| mean of 5 x 5 x 64 | 9344 | - |
+
+The max pool compares four channels at once, a byte each in one 32-bit word,
+and the average sums four channels in registers. That is 10.7 cycles per input
+value for the max pool and 5.9 for the average; most of it goes to the loops
+around so few taps, not to the comparisons and sums themselves.
 
 ## Activation functions (`fnn_lut.h`)
 
@@ -509,8 +588,9 @@ Against CMSIS-NN 8.0.0 compiled on the PC, in `FNN_ROUND_GEMMLOWP`: 400 random
 fully connected layers, per tensor and per channel, and 600 random
 convolutions through `arm_convolve_wrapper_s8`, which picks CMSIS-NN's 1 x 1,
 1 x n and general paths, in both weight layouts, 600 depthwise layers through
-`arm_depthwise_conv_wrapper_s8`, and 2000 softmax rows at an input scale of
-1/16. A quarter of the layers use a power-of-two scale, which makes exact ties;
+`arm_depthwise_conv_wrapper_s8`, 2000 softmax rows at an input scale of
+1/16, and random max and average pools with padding and clamps, 124,139 and
+105,036 outputs. A quarter of the layers use a power-of-two scale, which makes exact ties;
 built with `FNN_ROUND_UP` instead, the same check finds hundreds of
 differences.
 
@@ -528,6 +608,14 @@ plus the bench's layers and a 10 x 4 filter. Against the TFLite interpreter,
 five layers including a stride-2 SAME layer and a filter larger than its
 input, bit for bit in `FNN_ROUND_GEMMLOWP`, the interpreter's rule for
 convolution.
+
+Pools and means against references in TFLite's terms: 3191 random pools of
+1 to 64 channels with windows up to 5 x 5, strides 1 to 3, VALID and SAME
+padding and random clamps, both kinds each time, and 2933 random means at
+equal, power-of-two and other scales. Global pools and means up to 300 values
+wide, with inputs all -128 and all 127. Against the TFLite interpreter, eight
+pools bit for bit in every rounding mode, and five means bit for bit in
+`FNN_ROUND_GEMMLOWP`.
 
 Activation tables: every entry of tanh, logistic, hard-swish, exp and
 exact-tie tables within half a step of the exact value, ties up, with clamping
