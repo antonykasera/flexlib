@@ -52,6 +52,10 @@ def load(libdir):
         lib.shim_dwconv_s8.argtypes = [ctypes.c_void_p] * 4 + [
             ctypes.c_int32, ctypes.c_void_p, ctypes.c_uint32] + [
             ctypes.c_int32] * 3 + [ctypes.c_void_p] * 2
+        lib.shim_pool_s8.argtypes = [ctypes.c_void_p] * 2 + [ctypes.c_int] + [
+            ctypes.c_int32] * 2 + [ctypes.c_void_p]
+        lib.shim_mean_s8.argtypes = [ctypes.c_void_p] + [ctypes.c_uint32] * 3 + [
+            ctypes.c_int32, ctypes.c_double, ctypes.c_int32, ctypes.c_void_p]
         assert lib.shim_rounding() == m, f"libfnn{m}.so is mode {lib.shim_rounding()}"
         libs.append(lib)
     return libs
@@ -253,6 +257,72 @@ def case_dwconv(libs, ih, iw, ic, mult, kh, kw, s, same, act, per_channel, seed,
     return name, runs * oh * ow * oc, bad
 
 
+def case_pool(libs, op, ih, iw, c, kh, kw, s, same, act, seed, runs=20):
+    """MAX_POOL_2D or AVERAGE_POOL_2D on random inputs."""
+    rng = np.random.default_rng(seed)
+    scale, zp = 0.05, int(rng.integers(-128, 128))
+    if same:
+        oh, ow = -(-ih // s), -(-iw // s)
+        pt = max((oh - 1) * s + kh - ih, 0) // 2
+        pl = max((ow - 1) * s + kw - iw, 0) // 2
+    else:
+        oh, ow, pt, pl = (ih - kh) // s + 1, (iw - kw) // s + 1, 0, 0
+    m = tfl.Model()
+    x = m.tensor("x", [1, ih, iw, c], tfl.INT8, scale=scale, zp=zp)
+    y = m.tensor("y", [1, oh, ow, c], tfl.INT8, scale=scale, zp=zp)
+    m.op(op, [x], [y], Padding=0 if same else 1, StrideW=s, StrideH=s,
+         FilterWidth=kw, FilterHeight=kh, FusedActivationFunction=act)
+    xs = [rng.integers(-128, 128, (1, ih, iw, c), dtype=np.int8)
+          for _ in range(runs)]
+    got = tfl.run_reference(m.build(), xs)
+    lo, hi = act_range(act, scale, zp)
+    dims = np.array([ih, iw, c, oh, ow, kh, kw, s, s, pt, pl], np.uint32)
+    out = np.zeros(oh * ow * c, np.int8)
+    bad = []
+    for lib in libs:
+        wrong = 0
+        for xv, ref in zip(xs, got):
+            xc = np.ascontiguousarray(xv.reshape(-1))
+            out[:] = 0
+            lib.shim_pool_s8(xc.ctypes.data, dims.ctypes.data,
+                             int(op == "AVERAGE_POOL_2D"), lo, hi, out.ctypes.data)
+            wrong += int(np.count_nonzero(out != ref.reshape(-1)))
+        bad.append(wrong)
+    name = ({"MAX_POOL_2D": "max", "AVERAGE_POOL_2D": "average"}[op]
+            + f" pool {kh}x{kw} stride {s}, {ih}x{iw}x{c} -> {oh}x{ow}x{c}"
+            + (", SAME" if same else "") + {0: "", RELU: ", ReLU", RELU6: ", ReLU6"}[act])
+    return name, runs * oh * ow * c, bad
+
+
+def case_mean(libs, h, w, c, s_in, s_out, seed, runs=50):
+    """MEAN over height and width, with keep_dims."""
+    rng = np.random.default_rng(seed)
+    zx, zy = int(rng.integers(-128, 128)), int(rng.integers(-128, 128))
+    if s_in == s_out:
+        zy = zx
+    m = tfl.Model()
+    x = m.tensor("x", [1, h, w, c], tfl.INT8, scale=s_in, zp=zx)
+    axes = m.tensor("axes", [2], tfl.INT32, data=[1, 2])
+    y = m.tensor("y", [1, 1, 1, c], tfl.INT8, scale=s_out, zp=zy)
+    m.op("MEAN", [x, axes], [y])
+    xs = [rng.integers(-128, 128, (1, h, w, c), dtype=np.int8)
+          for _ in range(runs)]
+    got = tfl.run_reference(m.build(), xs)
+    scale = float(np.float32(s_in)) / float(np.float32(s_out))
+    out = np.zeros(c, np.int8)
+    bad = []
+    for lib in libs:
+        wrong = 0
+        for xv, ref in zip(xs, got):
+            xc = np.ascontiguousarray(xv.reshape(-1))
+            out[:] = 0
+            lib.shim_mean_s8(xc.ctypes.data, h, w, c, zx, scale, zy, out.ctypes.data)
+            wrong += int(np.count_nonzero(out != ref.reshape(-1)))
+        bad.append(wrong)
+    name = f"mean of {h}x{w}x{c}, scales {s_in:g} / {s_out:g}"
+    return name, runs * c, bad
+
+
 def case_table(lib, op, s_in, zx, s_out, zy, f, seed, **options):
     """A one-input operator, as an exact table and as one read back from TFLite."""
     m = tfl.Model()
@@ -421,8 +491,26 @@ def main():
         name, n, bad = case_dwconv(libs, *c)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
         failed |= bad[GEMMLOWP] != 0
+    for c in (("MAX_POOL_2D", 16, 16, 16, 2, 2, 2, False, 0, 51),
+              ("MAX_POOL_2D", 7, 9, 5, 3, 3, 2, True, RELU, 52),
+              ("MAX_POOL_2D", 6, 6, 8, 3, 3, 1, True, RELU6, 53),
+              ("AVERAGE_POOL_2D", 5, 5, 64, 5, 5, 1, False, 0, 54),
+              ("AVERAGE_POOL_2D", 8, 8, 4, 2, 2, 2, False, 0, 55),
+              ("AVERAGE_POOL_2D", 7, 9, 5, 3, 3, 2, True, RELU, 56),
+              ("AVERAGE_POOL_2D", 6, 6, 8, 3, 3, 1, True, RELU6, 57),
+              ("AVERAGE_POOL_2D", 17, 17, 4, 17, 17, 1, False, 0, 58)):
+        name, n, bad = case_pool(libs, *c)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= any(bad)
+    for c in ((5, 5, 64, 0.05, 0.05, 61), (7, 7, 16, 0.1, 0.03, 62),
+              (2, 2, 16, 0.05, 0.05, 63), (1, 49, 10, 0.02, 0.0625, 64),
+              (20, 20, 8, 0.05, 0.05, 65)):
+        name, n, bad = case_mean(libs, *c)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= bad[GEMMLOWP] != 0
     print("\nmismatches per rounding mode: fully connected layers must match"
-          "\nFNN_ROUND_AWAY and convolutions FNN_ROUND_GEMMLOWP, the interpreter's rules\n")
+          "\nFNN_ROUND_AWAY, convolutions and means FNN_ROUND_GEMMLOWP, the interpreter's"
+          "\nrules; pools must match in every mode\n")
 
     tables = [
         ("LOGISTIC", 1.0 / 16.0, 0, 1.0 / 256.0, -128, logistic, 5),

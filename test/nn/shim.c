@@ -10,6 +10,7 @@
 #include "fnn_conv.h"
 #include "fnn_dense.h"
 #include "fnn_dwconv.h"
+#include "fnn_pool.h"
 #include "fnn_quant.h"
 
 int32_t shim_rounding(void);
@@ -26,6 +27,10 @@ void shim_dwconv_s8(const int8_t *x, const int8_t *w, const uint32_t *dims,
                     const int32_t *b, int32_t zx, const double *scales,
                     uint32_t nq, int32_t zy, int32_t lo, int32_t hi,
                     int32_t *bf, int8_t *y);
+void shim_pool_s8(const int8_t *x, const uint32_t *dims, int avg, int32_t lo,
+                  int32_t hi, int8_t *y);
+void shim_mean_s8(const int8_t *x, uint32_t h, uint32_t w, uint32_t c,
+                  int32_t zx, double scale, int32_t zy, int8_t *y);
 int8_t shim_requant_s8(int32_t acc, int32_t mult, int32_t rsh, int32_t zp,
                        int32_t lo, int32_t hi);
 
@@ -114,5 +119,37 @@ void shim_dwconv_s8(const int8_t *x, const int8_t *w, const uint32_t *dims,
                         {zy, lo, hi}};
   if (fnn_dwconv_check(&l) == FNN_OK) {
     fnn_dwconv_s8(&l, x, y);
+  }
+}
+
+/* dims holds ih, iw, c, oh, ow, kh, kw, sh, sw, pt, pl. */
+void shim_pool_s8(const int8_t *x, const uint32_t *dims, int avg, int32_t lo,
+                  int32_t hi, int8_t *y) {
+  const FNN_Pool p = {{dims[0], dims[1], dims[2]},
+                      {dims[3], dims[4], dims[2]},
+                      dims[5],
+                      dims[6],
+                      dims[7],
+                      dims[8],
+                      dims[9],
+                      dims[10],
+                      lo,
+                      hi};
+  if (fnn_pool_check(&p) != FNN_OK) {
+    return;
+  }
+  if (avg) {
+    fnn_avgpool_s8(&p, x, y);
+  } else {
+    fnn_maxpool_s8(&p, x, y);
+  }
+}
+
+void shim_mean_s8(const int8_t *x, uint32_t h, uint32_t w, uint32_t c,
+                  int32_t zx, double scale, int32_t zy, int8_t *y) {
+  FNN_Mean m = {{h, w, c}, zx, 0, 0, {zy, -128, 127}};
+  if (fnn_mean_quant(scale, h * w, &m.mult, &m.rsh) == FNN_OK &&
+      fnn_mean_check(&m) == FNN_OK) {
+    fnn_mean_s8(&m, x, y);
   }
 }
