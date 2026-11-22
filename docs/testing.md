@@ -26,6 +26,7 @@ failing runner prints it.
 | `make dist`, `make consumer` | the release archive, and a blank project built against it |
 | `make cmake-check` | a CMake project builds against the archive, on the host and for the Cortex-M3 |
 | `make nn-check` | flexnn against the TFLite interpreter's reference kernels, on models written without TensorFlow (needs uv) |
+| `make nn-cmsis` | flexnn in `FNN_ROUND_GEMMLOWP` against CMSIS-NN built for the host, layer by layer, bit for bit (needs `make deps`) |
 
 ## Terms
 

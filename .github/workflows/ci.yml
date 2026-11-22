@@ -37,6 +37,12 @@ jobs:
       - name: flexnn against the TFLite interpreter's reference kernels
         run: make nn-check
 
+      - name: CMSIS-NN
+        run: git submodule update --init --checkout third_party/cmsis-nn
+
+      - name: flexnn against CMSIS-NN, bit for bit
+        run: make nn-cmsis
+
   arm:
     runs-on: ubuntu-24.04
     steps:
