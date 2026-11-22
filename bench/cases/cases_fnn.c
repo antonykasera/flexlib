@@ -8,13 +8,13 @@
  */
 
 #include "bench.h"
+#include "fnn_dense.h"
 #include "fnn_quant.h"
 #ifdef BENCH_HAVE_CMSIS_NN
 #include "arm_nnfunctions.h"
 #include "arm_nnsupportfunctions.h"
 #endif
 
-#ifdef BENCH_HAVE_CMSIS_NN
 /* the layers take their weights from one flash pool, a 61-byte pattern over
  * and over; because 61 is prime, no two rows come out the same */
 #define W61                                                                    \
@@ -27,9 +27,8 @@
 #define W3904 W976, W976, W976, W976
 #define W15616 W3904, W3904, W3904, W3904
 #define WPOOL_LEN (61U * 270U)
-static const int8_t wpool[WPOOL_LEN] BENCH_TABLE = {W15616, W244, W244,
-                                                    W244,   W61,  W61};
-#endif
+static const int8_t wpool[WPOOL_LEN] BENCH_TABLE FX_ALIGN(4) = {
+    W15616, W244, W244, W244, W61, W61};
 
 #define CH 64U     /* channels */
 #define XLEN 4096U /* the largest input, the max pool's */
@@ -41,7 +40,7 @@ _Static_assert(BENCH_SCRATCH_SIZE >= 8192U, "inputs and outputs");
 #define xin ((int8_t *)(void *)bench_scratch)
 #define yout ((int8_t *)(void *)(bench_scratch + XLEN + XOFF))
 #define YMAX (BENCH_SCRATCH_SIZE - XLEN - XOFF)
-static int32_t acc[256 + 4], bias[CH];
+static int32_t acc[256 + 4], bias[CH], bf256[CH], bf64[12];
 static int32_t mult[CH], shift[CH]; /* CMSIS-NN takes TFLite's shifts */
 static int8_t rsh[CH];
 
@@ -75,6 +74,8 @@ static void setup(void) {
     (void)fnn_quant_from_scale((1.0 + c / 64.0) / 2048.0, &mult[c], &rsh[c]);
     shift[c] = -1 - rsh[c];
   }
+  fnn_fold_bias_s8(wpool, 256U, 64U, bias, ZX, bf256);
+  fnn_fold_bias_s8(wpool, 64U, 12U, bias, ZX, bf64);
 #ifdef BENCH_HAVE_CMSIS_NN
   c_check();
 #endif
@@ -98,6 +99,177 @@ static uint32_t requant(uint32_t off) {
   return 0U;
 }
 BLOCK(b_requant, requant(x), 256U)
+
+static const FNN_Dense fc256 = {wpool, bf256,           256U,           64U,
+                                0U,    {mult, rsh, 1U}, {ZY, -128, 127}};
+static const FNN_Dense fc256p = {wpool, bf256,           256U,           64U,
+                                 1U,    {mult, rsh, 1U}, {ZY, -128, 127}};
+static const FNN_Dense fc64 = {wpool,           bf64,           64U, 12U, 0U,
+                               {mult, rsh, 1U}, {ZY, -128, 127}};
+static const FNN_Dense fc64p = {wpool,           bf64,           64U, 12U, 1U,
+                                {mult, rsh, 1U}, {ZY, -128, 127}};
+
+static uint32_t dense(uint32_t off, const FNN_Dense *l) {
+  fnn_dense_s8(l, xin + off, yout);
+  return 0U;
+}
+BLOCK(b_fc256, dense(x, &fc256), 64U)
+BLOCK(b_fc256p, dense(x, &fc256p), 64U)
+BLOCK(b_fc64, dense(x, &fc64), 12U)
+BLOCK(b_fc64p, dense(x, &fc64p), 12U)
+
+/* candidates the packed kernel was chosen over, in a copy of its driver */
+typedef void Rows(const int8_t *x, const int8_t *w, uint32_t n, uint32_t *sum);
+
+/* every load before the multiplies */
+BENCH_CALL static void k_grouped(const int8_t *x, const int8_t *w, uint32_t n,
+                                 uint32_t *sum) {
+  const int8_t *w0 = w, *w1 = w + n, *w2 = w1 + n, *w3 = w2 + n;
+  uint32_t a0 = sum[0], a1 = sum[1], a2 = sum[2], a3 = sum[3];
+  for (uint32_t i = 0U; i < n; i++) {
+    int32_t xi = x[i], v0 = w0[i], v1 = w1[i], v2 = w2[i], v3 = w3[i];
+    __asm__("" : "+r"(xi), "+r"(v0), "+r"(v1), "+r"(v2), "+r"(v3));
+    a0 += (uint32_t)(xi * v0);
+    a1 += (uint32_t)(xi * v1);
+    a2 += (uint32_t)(xi * v2);
+    a3 += (uint32_t)(xi * v3);
+  }
+  sum[0] = a0;
+  sum[1] = a1;
+  sum[2] = a2;
+  sum[3] = a3;
+}
+
+/* the four rows' weights for one input in one word */
+BENCH_CALL static void k_word(const int8_t *x, const int8_t *w, uint32_t n,
+                              uint32_t *sum) {
+  const uint32_t *q = (const uint32_t *)(const void *)w;
+  uint32_t a0 = sum[0], a1 = sum[1], a2 = sum[2], a3 = sum[3];
+  for (uint32_t i = 0U; i < n; i++) {
+    int32_t xi = x[i];
+    uint32_t v = q[i];
+    a0 += (uint32_t)(xi * (int8_t)v);
+    a1 += (uint32_t)(xi * (int8_t)(v >> 8));
+    a2 += (uint32_t)(xi * (int8_t)(v >> 16));
+    a3 += (uint32_t)(xi * ((int32_t)v >> 24));
+  }
+  sum[0] = a0;
+  sum[1] = a1;
+  sum[2] = a2;
+  sum[3] = a3;
+}
+
+#define LANE(v, k) ((int32_t)((v) << (24U - 8U * (k))) >> 24)
+/* four inputs in one word, then the four rows' weights for each */
+BENCH_CALL static void k_x4(const int8_t *x, const int8_t *w, uint32_t n,
+                            uint32_t *sum) {
+  const uint32_t *q = (const uint32_t *)(const void *)w;
+  const uint32_t *xq = (const uint32_t *)(const void *)x;
+  uint32_t a0 = sum[0], a1 = sum[1], a2 = sum[2], a3 = sum[3];
+  for (uint32_t i = 0U; i < n / 4U; i++) {
+    uint32_t xs;
+    memcpy(&xs, &xq[i], 4U);
+    for (uint32_t k = 0U; k < 4U; k++) {
+      int32_t xk = LANE(xs, k);
+      uint32_t v = q[4U * i + k];
+      a0 += (uint32_t)(xk * (int8_t)v);
+      a1 += (uint32_t)(xk * (int8_t)(v >> 8));
+      a2 += (uint32_t)(xk * (int8_t)(v >> 16));
+      a3 += (uint32_t)(xk * ((int32_t)v >> 24));
+    }
+  }
+  sum[0] = a0;
+  sum[1] = a1;
+  sum[2] = a2;
+  sum[3] = a3;
+}
+
+/* eight rows' weights for one input in a double word */
+BENCH_CALL static void k_word8(const int8_t *x, const int8_t *w, uint32_t n,
+                               uint32_t *sum) {
+  const uint32_t *q = (const uint32_t *)(const void *)w;
+  uint32_t a[8];
+  for (uint32_t j = 0U; j < 8U; j++) {
+    a[j] = sum[j];
+  }
+  for (uint32_t i = 0U; i < n; i++) {
+    int32_t xi = x[i];
+    uint32_t v = q[2U * i], u = q[2U * i + 1U];
+    a[0] += (uint32_t)(xi * (int8_t)v);
+    a[1] += (uint32_t)(xi * (int8_t)(v >> 8));
+    a[2] += (uint32_t)(xi * (int8_t)(v >> 16));
+    a[3] += (uint32_t)(xi * ((int32_t)v >> 24));
+    a[4] += (uint32_t)(xi * (int8_t)u);
+    a[5] += (uint32_t)(xi * (int8_t)(u >> 8));
+    a[6] += (uint32_t)(xi * (int8_t)(u >> 16));
+    a[7] += (uint32_t)(xi * ((int32_t)u >> 24));
+  }
+  for (uint32_t j = 0U; j < 8U; j++) {
+    sum[j] = a[j];
+  }
+}
+
+static uint32_t dense_with(uint32_t off, Rows *k, uint32_t rows) {
+  const int8_t *x = xin + off;
+  for (uint32_t o = 0U; o < 64U; o += rows) {
+    uint32_t a[8];
+    for (uint32_t j = 0U; j < rows; j++) {
+      a[j] = (uint32_t)bf256[o + j];
+    }
+    k(x, wpool + o * 256U, 256U, a);
+    for (uint32_t j = 0U; j < rows; j++) {
+      int32_t v = fnn_requant((int32_t)a[j], mult[0], rsh[0]);
+      yout[o + j] = fnn_clamp_s8(v, ZY, -128, 127);
+    }
+  }
+  return 0U;
+}
+/* two rows share each multiply, their weights the halves of a word; the
+ * halves part every two inputs, before either can overflow */
+BENCH_CALL static void k_pairs(const int8_t *x, const int8_t *w, uint32_t n,
+                               uint32_t *sum) {
+  const int32_t *q = (const int32_t *)(const void *)w;
+  uint32_t a0 = sum[0], a1 = sum[1], a2 = sum[2], a3 = sum[3];
+  for (uint32_t i = 0U; i + 1U < n; i += 2U) {
+    int32_t x0 = x[i], x1 = x[i + 1U];
+    uint32_t p0 = (uint32_t)(x0 * q[2U * i]) + (uint32_t)(x1 * q[2U * i + 2U]);
+    uint32_t p1 =
+        (uint32_t)(x0 * q[2U * i + 1U]) + (uint32_t)(x1 * q[2U * i + 3U]);
+    int32_t l0 = (int16_t)p0, l1 = (int16_t)p1;
+    a0 += (uint32_t)l0;
+    a1 += (uint32_t)((int32_t)(p0 - (uint32_t)l0) >> 16);
+    a2 += (uint32_t)l1;
+    a3 += (uint32_t)((int32_t)(p1 - (uint32_t)l1) >> 16);
+  }
+  sum[0] = a0;
+  sum[1] = a1;
+  sum[2] = a2;
+  sum[3] = a3;
+}
+
+/* 256 -> 32: both layouts then fit the 16 KB pool */
+static uint32_t dense32(uint32_t off, Rows *k, uint32_t rows, uint32_t bytes) {
+  const int8_t *x = xin + off;
+  for (uint32_t o = 0U; o < 32U; o += rows) {
+    uint32_t a[8];
+    for (uint32_t j = 0U; j < rows; j++) {
+      a[j] = (uint32_t)bf256[o + j];
+    }
+    k(x, wpool + o * 256U * bytes, 256U, a);
+    for (uint32_t j = 0U; j < rows; j++) {
+      int32_t v = fnn_requant((int32_t)a[j], mult[0], rsh[0]);
+      yout[o + j] = fnn_clamp_s8(v, ZY, -128, 127);
+    }
+  }
+  return 0U;
+}
+BLOCK(b_fc32_word8, dense32(x, k_word8, 8U, 1U), 32U)
+BLOCK(b_fc32_pairs, dense32(x, k_pairs, 4U, 2U), 32U)
+
+BLOCK(b_fc_grouped, dense_with(x, k_grouped, 4U), 64U)
+BLOCK(b_fc_word, dense_with(x, k_word, 4U), 64U)
+BLOCK(b_fc_x4, dense_with(x & ~3U, k_x4, 4U), 64U)
+BLOCK(b_fc_word8, dense_with(x, k_word8, 8U), 64U)
 
 #ifdef BENCH_HAVE_CMSIS_NN
 /* CMSIS-NN as it ships, with gemmlowp's rounding */
@@ -245,6 +417,22 @@ static void c_check(void) {
 
 static const BenchCase cases[] = {
     {"fnn_requant_s8, 256 outputs, 64 channels", "flexlib", b_requant, true},
+    {"fnn_dense_s8, 256 -> 64", "flexlib", b_fc256, true},
+    {"fnn_dense_s8, 256 -> 64, packed", "flexlib", b_fc256p, true},
+    {"fnn_dense_s8, 64 -> 12", "flexlib", b_fc64, true},
+    {"fnn_dense_s8, 64 -> 12, packed", "flexlib", b_fc64p, true},
+    {"dense 256 -> 64, rows, loads before multiplies", "candidate",
+     b_fc_grouped, true},
+    {"dense 256 -> 64, four rows' weights per word", "candidate", b_fc_word,
+     true},
+    {"dense 256 -> 64, four rows per word, inputs four to a word", "candidate",
+     b_fc_x4, true},
+    {"dense 256 -> 64, eight rows per double word, one input a pass",
+     "candidate", b_fc_word8, true},
+    {"dense 256 -> 32, eight rows per double word", "candidate", b_fc32_word8,
+     true},
+    {"dense 256 -> 32, two rows per multiply (16-bit halves)", "candidate",
+     b_fc32_pairs, true},
 #ifdef BENCH_HAVE_CMSIS_NN
     {"arm_nn_requantize + clamp, 256 outputs, 64 channels", "CMSIS-NN",
      c_requant, false},
