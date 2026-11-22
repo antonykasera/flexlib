@@ -6,8 +6,9 @@
 flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It is in development and not part
-of a release yet. What is here so far: fully connected layers, and the step
-every layer ends with, turning its int32 sums into int8 outputs.
+of a release yet. What is here so far: fully connected layers, activation
+functions as tables, and the step every layer ends with, turning its int32
+sums into int8 outputs.
 
 ## Fully connected layers (`fnn_dense.h`)
 
@@ -73,6 +74,60 @@ Cycles on an STM32F103 at 72 MHz (`-O2`, weights in flash), against CMSIS-NN
 That is 5.0 cycles per multiply-accumulate packed, against CMSIS-NN's 7.4. On
 the Cortex-M3 the multiply-accumulate itself takes 2 of those cycles, and
 splitting four weights out of a word takes one more per weight.
+
+## Activation functions (`fnn_lut.h`)
+
+An int8 activation such as tanh or the logistic function has only 256
+possible inputs. You can compute all 256 outputs once, at startup, and the
+layer then costs one table lookup per value. Here tanh takes inputs at a
+scale of 1/16 to outputs at a scale of 1/128, the output scale TFLite uses
+for tanh:
+
+```c
+#include <math.h>
+#include <stdio.h>
+
+#include "fnn_lut.h"
+
+int main(void) {
+  /* tanh from inputs at a scale of 1/16 to outputs at 1/128, TFLite's */
+  static int8_t lut[256];
+  if (fnn_lut_s8_build(tanh, 1.0 / 16.0, 0, 1.0 / 128.0, 0, lut) != FNN_OK) {
+    return 1;
+  }
+
+  int8_t x[5] = {-32, -8, 0, 8, 32};
+  fnn_lut_s8(x, x, 5U, lut);
+  for (int i = 0; i < 5; i++) {
+    printf("%d ", x[i]);
+  }
+  printf("\n");
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+-123 -59 0 59 123
+```
+
+The inputs stand for -2, -0.5, 0, 0.5 and 2. Their tanh, -0.964 to 0.964,
+is -123.4 to 123.4 in steps of 1/128, and each rounds to the nearest integer.
+`fnn_lut_s8_build` takes any `double` function of one `double`: `tanh` from
+math.h, or one of your own for the logistic function, hard-swish or leaky
+ReLU. It works in double precision, which a Cortex-M3 runs in software: build
+tables at startup or ahead of time, not per inference. The output can
+overwrite the input, as it does here.
+
+Every entry is the exact value rounded once, ties up, and clamped to int8.
+TFLite computes some of these functions in fixed point instead, and its
+outputs can then differ by 1. When you need TFLite's outputs exactly, run the
+operator in the interpreter on all 256 inputs and use what comes out as the
+table, at index `(uint8_t)q` for input q.
+
+A table applied to 1024 values takes 3434 cycles on an STM32F103 at 72 MHz
+(`-O2`), 3.4 cycles per value.
 
 ## Requantisation (`fnn_quant.h`)
 
@@ -154,6 +209,15 @@ random layers of 0 to 256 inputs and 1 to 70 outputs, weights and inputs at
 their extremes, per-tensor and per-channel scales, fused clamps, and a folded
 bias that wraps past int32 while the true sum fits. Four layers, up to 256
 inputs and 70 outputs, against the TFLite interpreter, bit for bit.
+
+Activation tables: every entry of tanh, logistic, hard-swish, exp and
+exact-tie tables within half a step of the exact value, ties up, with clamping
+at both ends and NaN and infinite results. The kernel at every length to 40
+and up to 1030, every alignment, and in place, with guard bytes around the
+output. Against the TFLite interpreter for LOGISTIC, TANH, HARD_SWISH and
+LEAKY_RELU: the exact tables for LOGISTIC and TANH equal TFLite's on every
+entry, the other two differ on some entries by 1, and a table read back from
+the interpreter reproduces it on every output.
 
 Requantisation: every int32 sum, for 15 multiplier and shift pairs at the ends of their
 ranges, in each rounding mode, against an exact 64-bit model. Random sums,

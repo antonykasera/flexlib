@@ -264,6 +264,11 @@ void test_fnn_dense_wrap(void);
 void test_fnn_dense_edges(void);
 void test_fnn_dense_pack(void);
 
+/* --- fnn_lut (test_fnn_lut.c) --- */
+void test_fnn_lut_build(void);
+void test_fnn_lut_build_edges(void);
+void test_fnn_lut_apply(void);
+
 int main(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     if (sscanf(argv[i], "--shard=%u/%u", &test_shard, &test_shards) == 2) {
@@ -463,6 +468,9 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fnn_dense_wrap);
   TEST_RUN(test_fnn_dense_edges);
   TEST_RUN(test_fnn_dense_pack);
+  TEST_RUN(test_fnn_lut_build);
+  TEST_RUN(test_fnn_lut_build_edges);
+  TEST_RUN(test_fnn_lut_apply);
 
   return TEST_SUMMARY();
 }

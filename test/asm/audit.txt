@@ -384,3 +384,6 @@ dense_r8           no-calls mla sbfx !udiv
 dense_r4p          no-calls mla sbfx !udiv
 dense_r4           no-calls mla !udiv
 fnn_dense_s8       smlal !udiv
+
+# fnn_lut: byte loads and stores, none merged into unaligned words
+fnn_lut_s8         no-calls ldrb strb !ldrsb !bfi !str
