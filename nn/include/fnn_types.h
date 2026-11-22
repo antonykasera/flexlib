@@ -31,7 +31,8 @@
 #define FNN_ROUND_GEMMLOWP 2
 /** Round each layer as the TFLite interpreter's reference kernel for it does:
  * fully connected layers as `FNN_ROUND_AWAY`, every other layer as
- * `FNN_ROUND_GEMMLOWP`. A whole model then gives the interpreter's integers. */
+ * `FNN_ROUND_GEMMLOWP`. With the multipliers fnn_tflite.py writes, a whole
+ * model then gives the interpreter's integers. */
 #define FNN_ROUND_TFLITE 3
 /** @} */
 

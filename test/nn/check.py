@@ -812,6 +812,32 @@ def case_net(name, make, runs, out_dir, seed, tflite_tables=False):
     return name, n, bad
 
 
+# Scales where the interpreter's double-precision FULLY_CONNECTED and a 31-bit
+# multiplier from the float product of the scales round some sums apart.
+FC_TIE_SCALES = ((0.0281082876, 0.00989397056, 0.0380361415),
+                 (0.080838725, 0.00272454624, 0.0402170271),
+                 (0.0974520966, 0.00797197688, 0.0396611318))
+
+
+def case_fc_ties(s_in, s_w, s_out, out_dir):
+    """One input and 128 outputs of weight 1, their biases 256 apart, which
+    lets the 256 inputs reach every sum from -16384 to 16383."""
+    m = tfl.Model()
+    x = m.tensor("x", [1, 1], tfl.INT8, scale=s_in, zp=0)
+    w = m.tensor("w", [128, 1], tfl.INT8, scale=s_w, zp=0, data=np.ones((128, 1)))
+    b = m.tensor("b", [128], tfl.INT32, scale=float(np.float32(s_in) * np.float32(s_w)),
+                 zp=0, data=np.arange(-16384 + 128, 16384, 256, dtype=np.int32))
+    y = m.tensor("y", [1, 128], tfl.INT8, scale=s_out, zp=0)
+    m.op("FULLY_CONNECTED", [x, w, b], [y])
+    path = Path(out_dir) / f"fcties{int(s_out * 1e6)}.tflite"
+    path.write_bytes(m.build())
+    cname, _ = fnn_tflite.convert(path, out_dir)
+    feeds = [np.array([[v]], np.int8) for v in range(-128, 128)]
+    bad = [fnn_tflite.check(path, out_dir, cname, mode, feeds=feeds)[1]
+           for mode in ("up", "away", "gemmlowp", "tflite")]
+    return f"fully connected, sums -16384 .. 16383, out scale {s_out:.6g}", 256 * 128, bad
+
+
 def case_convert_errors(out_dir):
     """Models the converter must refuse, and the words its message must hold."""
     cases = []
@@ -1088,6 +1114,10 @@ def main():
         name, n, bad = case_exported(path, models)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
         failed |= bad[TFLITE] != 0
+    for sc in FC_TIE_SCALES:
+        name, n, bad = case_fc_ties(*sc, models)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= bad[AWAY] != 0 or bad[TFLITE] != 0
     for i, (name, make, runs) in enumerate(NETS):
         name, n, bad = case_net(name, make, runs, models, 120 + i)
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))

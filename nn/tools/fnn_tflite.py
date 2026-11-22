@@ -219,13 +219,19 @@ def _quant(n, mult, rsh):
             _array("int8_t", f"r{n}", rsh))
 
 
-def _channel_quant(op, x, w, y, n_out):
+def _channel_quant(op, x, w, y, n_out, double=False):
+    """Multipliers from the float32 product of the scales, as TFLite's
+    integer kernels derive them, or from their double product, which the
+    interpreter's FULLY_CONNECTED scales by."""
     if any(z != 0 for z in w.zp):
         raise _err(op, "weights must have zero points of 0")
     f32 = np.float32
     s_w = w.scale if len(w.scale) == n_out else w.scale[:1]
-    q = [quantize_multiplier(float(f32(x.scale[0]) * f32(s)) / float(f32(y.scale[0])))
-         for s in s_w]
+    if double:
+        q = [quantize_multiplier(x.scale[0] * s / y.scale[0]) for s in s_w]
+    else:
+        q = [quantize_multiplier(float(f32(x.scale[0]) * f32(s)) / float(f32(y.scale[0])))
+             for s in s_w]
     return [m for m, _ in q], [r for _, r in q]
 
 
@@ -276,10 +282,14 @@ def lower_fully_connected(op, T, ctx):
     wsum = w.data.astype(np.int64).sum(axis=1)
     folded = [wrap32(bias[c] - zx * wsum[c]) for c in range(n_out)]
     mult, rsh = _channel_quant(op, x, w, y, n_out)
+    dm, dr = _channel_quant(op, x, w, y, n_out, double=True)
+    q = _quant(n := op.idx, mult, rsh)
+    if (dm, dr) != (mult, rsh):
+        q = ("#if FNN_ROUNDING == FNN_ROUND_AWAY || FNN_ROUNDING == FNN_ROUND_TFLITE\n" +
+             _quant(n, dm, dr) + "#else\n" + q + "#endif\n")
     lo, hi = act_range(o.FusedActivationFunction(), y.scale[0], zy)
-    n = op.idx
     decls = (_array("int8_t", f"w{n}", w.data.reshape(-1).tolist()) +
-             _array("int32_t", f"b{n}", folded, per_line=8) + _quant(n, mult, rsh) +
+             _array("int32_t", f"b{n}", folded, per_line=8) + q +
              f"static const FNN_Dense l{n} = {{w{n}, b{n}, {n_in}u, {n_out}u, 0u, "
              f"{{m{n}, r{n}, {len(mult)}u}}, {{{zy}, {lo}, {hi}}}}};\n")
     return Layer(op, "dense", [x.idx], [y.idx], decls,
