@@ -161,6 +161,7 @@ extern const BenchGroup bench_group_libm_cold;
 extern const BenchGroup bench_group_linalg_cold;
 extern const BenchGroup bench_group_quat_cold;
 extern const BenchGroup bench_group_cmsis_cold;
+extern const BenchGroup bench_group_fnn_cold;
 
 const BenchGroup *const bench_cold_groups[] = {
 #ifdef BENCH_UTILS
@@ -180,6 +181,9 @@ const BenchGroup *const bench_cold_groups[] = {
 #endif
 #if defined(BENCH_HAVE_CMSIS_DSP) && defined(BENCH_MATH)
     &bench_group_cmsis_cold,
+#endif
+#ifdef BENCH_NN
+    &bench_group_fnn_cold,
 #endif
     NULL,
 };

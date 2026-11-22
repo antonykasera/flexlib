@@ -30,7 +30,7 @@
 #define W3904 W976, W976, W976, W976
 #define W15616 W3904, W3904, W3904, W3904
 #define WPOOL_LEN (61U * 270U)
-static const int8_t wpool[WPOOL_LEN] BENCH_TABLE FX_ALIGN(4) = {
+static const int8_t wpool[WPOOL_LEN] BENCH_TABLE FX_ALIGN(16) = {
     W15616, W244, W244, W244, W61, W61};
 
 #define CH 64U     /* channels */
@@ -51,7 +51,7 @@ _Static_assert(XLEN + XOFF + 2304U <= 7168U, "outputs clear of the table");
 #define FN 128U
 _Static_assert(XLEN + XOFF + 2304U <= 6464U && 6464U + 4U * (FN + 16U) <= 7168U,
                "float inputs clear of the outputs and the table");
-static int32_t acc[256 + 4], bias[CH], bf256[CH], bf64[12];
+static int32_t acc[256 + 4], bias[CH], bf256[CH], bf128[CH], bf64[12];
 static int32_t mult[CH], shift[CH]; /* CMSIS-NN takes TFLite's shifts */
 static int8_t rsh[CH];
 static int8_t lut[256];
@@ -98,6 +98,7 @@ static void setup(void) {
     etab[d] = etab[d - 1U] - etab[d - 1U] / 16U;
   }
   fnn_fold_bias_s8(wpool, 256U, 64U, bias, ZX, bf256);
+  fnn_fold_bias_s8(wpool, 128U, 64U, bias, ZX, bf128);
   fnn_fold_bias_s8(wpool, 64U, 12U, bias, ZX, bf64);
 #ifdef BENCH_HAVE_CMSIS_NN
   c_check();
@@ -127,6 +128,10 @@ static const FNN_Dense fc256 = {wpool, bf256,           256U,           64U,
                                 0U,    {mult, rsh, 1U}, {ZY, -128, 127}};
 static const FNN_Dense fc256p = {wpool, bf256,           256U,           64U,
                                  1U,    {mult, rsh, 1U}, {ZY, -128, 127}};
+static const FNN_Dense fc128 = {wpool, bf128,           128U,           64U,
+                                0U,    {mult, rsh, 1U}, {ZY, -128, 127}};
+static const FNN_Dense fc128p = {wpool, bf128,           128U,           64U,
+                                 1U,    {mult, rsh, 1U}, {ZY, -128, 127}};
 static const FNN_Dense fc64 = {wpool,           bf64,           64U, 12U, 0U,
                                {mult, rsh, 1U}, {ZY, -128, 127}};
 static const FNN_Dense fc64p = {wpool,           bf64,           64U, 12U, 1U,
@@ -136,10 +141,17 @@ static uint32_t dense(uint32_t off, const FNN_Dense *l) {
   fnn_dense_s8(l, xin + off, yout);
   return 0U;
 }
-BLOCK(b_fc256, dense(x, &fc256), 64U)
-BLOCK(b_fc256p, dense(x, &fc256p), 64U)
+BLOCK(b_fc128, dense(x, &fc128), 64U)
+BLOCK(b_fc128p, dense(x, &fc128p), 64U)
 BLOCK(b_fc64, dense(x, &fc64), 12U)
 BLOCK(b_fc64p, dense(x, &fc64p), 12U)
+
+/* 16 KB of weights fill the flash cache: these run from a flushed one. */
+#define BLOCK_COLD(name, call, bytes)                                          \
+  BENCH_UNARY_DEF(name, uint32_t, in_off, uint32_t, (uint32_t)(call),          \
+                  OUT(bytes), bench_cold_flush())
+BLOCK_COLD(b_fc256_cold, dense(x, &fc256), 64U)
+BLOCK_COLD(b_fc256p_cold, dense(x, &fc256p), 64U)
 
 /* candidates the packed kernel was chosen over, in a copy of its driver */
 typedef void Rows(const int8_t *x, const int8_t *w, uint32_t n, uint32_t *sum);
@@ -233,9 +245,9 @@ static uint32_t dense_with(uint32_t off, Rows *k, uint32_t rows) {
   for (uint32_t o = 0U; o < 64U; o += rows) {
     uint32_t a[8];
     for (uint32_t j = 0U; j < rows; j++) {
-      a[j] = (uint32_t)bf256[o + j];
+      a[j] = (uint32_t)bf128[o + j];
     }
-    k(x, wpool + o * 256U, 256U, a);
+    k(x, wpool + o * 128U, 128U, a);
     for (uint32_t j = 0U; j < rows; j++) {
       int32_t v = fnn_requant((int32_t)a[j], mult[0], rsh[0]);
       yout[o + j] = fnn_clamp_s8(v, ZY, -128, 127);
@@ -264,15 +276,15 @@ BENCH_CALL static void k_pairs(const int8_t *x, const int8_t *w, uint32_t n,
   sum[3] = a3;
 }
 
-/* 256 -> 32: both layouts then fit the 16 KB pool */
+/* At 128 inputs both layouts fit the flash cache. */
 static uint32_t dense32(uint32_t off, Rows *k, uint32_t rows, uint32_t bytes) {
   const int8_t *x = xin + off;
   for (uint32_t o = 0U; o < 32U; o += rows) {
     uint32_t a[8];
     for (uint32_t j = 0U; j < rows; j++) {
-      a[j] = (uint32_t)bf256[o + j];
+      a[j] = (uint32_t)bf128[o + j];
     }
-    k(x, wpool + o * 256U * bytes, 256U, a);
+    k(x, wpool + o * 128U * bytes, 128U, a);
     for (uint32_t j = 0U; j < rows; j++) {
       int32_t v = fnn_requant((int32_t)a[j], mult[0], rsh[0]);
       yout[o + j] = fnn_clamp_s8(v, ZY, -128, 127);
@@ -643,7 +655,8 @@ static uint32_t c_fc(uint32_t off, int32_t in, int32_t out) {
   return (uint32_t)arm_fully_connected_s8(&ctx, &fc_p, &q, &id, xin + off, &fd,
                                           wpool, &bd, bias, &od, yout);
 }
-BLOCK(c_fc_256, c_fc(x, 256, 64), 64U)
+BLOCK(c_fc_128, c_fc(x, 128, 64), 64U)
+BLOCK_COLD(c_fc_256_cold, c_fc(x, 256, 64), 64U)
 BLOCK(c_fc_64, c_fc(x, 64, 12), 12U)
 
 static uint32_t c_pw(uint32_t off) {
@@ -748,21 +761,21 @@ static void c_check(void) {
 
 static const BenchCase cases[] = {
     {"fnn_requant_s8, 256 outputs, 64 channels", "flexlib", b_requant, true},
-    {"fnn_dense_s8, 256 -> 64", "flexlib", b_fc256, true},
-    {"fnn_dense_s8, 256 -> 64, packed", "flexlib", b_fc256p, true},
+    {"fnn_dense_s8, 128 -> 64", "flexlib", b_fc128, true},
+    {"fnn_dense_s8, 128 -> 64, packed", "flexlib", b_fc128p, true},
     {"fnn_dense_s8, 64 -> 12", "flexlib", b_fc64, true},
     {"fnn_dense_s8, 64 -> 12, packed", "flexlib", b_fc64p, true},
-    {"dense 256 -> 64, rows, loads before multiplies", "candidate",
+    {"dense 128 -> 64, rows, loads before multiplies", "candidate",
      b_fc_grouped, true},
-    {"dense 256 -> 64, four rows' weights per word", "candidate", b_fc_word,
+    {"dense 128 -> 64, four rows' weights per word", "candidate", b_fc_word,
      true},
-    {"dense 256 -> 64, four rows per word, inputs four to a word", "candidate",
+    {"dense 128 -> 64, four rows per word, inputs four to a word", "candidate",
      b_fc_x4, true},
-    {"dense 256 -> 64, eight rows per double word, one input a pass",
+    {"dense 128 -> 64, eight rows per double word, one input a pass",
      "candidate", b_fc_word8, true},
-    {"dense 256 -> 32, eight rows per double word", "candidate", b_fc32_word8,
+    {"dense 128 -> 32, eight rows per double word", "candidate", b_fc32_word8,
      true},
-    {"dense 256 -> 32, two rows per multiply (16-bit halves)", "candidate",
+    {"dense 128 -> 32, two rows per multiply (16-bit halves)", "candidate",
      b_fc32_pairs, true},
     {"fnn_lut_s8, 1024", "flexlib", b_lut, true},
     {"table 1024, eight a pass, each looked up and stored in turn",
@@ -797,7 +810,7 @@ static const BenchCase cases[] = {
 #ifdef BENCH_HAVE_CMSIS_NN
     {"arm_nn_requantize + clamp, 256 outputs, 64 channels", "CMSIS-NN",
      c_requant, false},
-    {"arm_fully_connected_s8, 256 -> 64", "CMSIS-NN", c_fc_256, false},
+    {"arm_fully_connected_s8, 128 -> 64", "CMSIS-NN", c_fc_128, false},
     {"arm_fully_connected_s8, 64 -> 12", "CMSIS-NN", c_fc_64, false},
     {"arm_convolve_1x1_s8_fast, 64 -> 64, 5 x 5", "CMSIS-NN", c_pw_64, false},
     {"arm_convolve_s8, 3 x 3, 8 -> 16, 12 x 12", "CMSIS-NN", c_conv3_8, false},
@@ -814,3 +827,13 @@ static const BenchCase cases[] = {
 };
 
 const BenchGroup bench_group_fnn = {cases, BENCH_COUNT(cases)};
+
+static const BenchCase cold[] = {
+    {"fnn_dense_s8, 256 -> 64", "flexlib", b_fc256_cold, true},
+    {"fnn_dense_s8, 256 -> 64, packed", "flexlib", b_fc256p_cold, true},
+#ifdef BENCH_HAVE_CMSIS_NN
+    {"arm_fully_connected_s8, 256 -> 64", "CMSIS-NN", c_fc_256_cold, false},
+#endif
+};
+
+const BenchGroup bench_group_fnn_cold = {cold, BENCH_COUNT(cold)};
