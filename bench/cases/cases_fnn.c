@@ -158,6 +158,42 @@ BLOCK(b_fc128p, dense(x, &fc128p), 64U)
 BLOCK(b_fc64, dense(x, &fc64), 12U)
 BLOCK(b_fc64p, dense(x, &fc64p), 12U)
 
+/* The reference models, layer by layer, with packed weights from the pool. */
+#define FC(name, woff, n_in, n_out, zp, lo)                                    \
+  static const FNN_Dense name = {wpool + (woff), bias, n_in, n_out, 1U,        \
+                                 {mult, rsh, 1U},  {zp, lo, 127}}
+FC(r0a, 5000U, 2U, 4U, -128, -128);
+FC(r0b, 5012U, 4U, 1U, ZY, -128);
+FC(r1a, 2000U, 64U, 32U, -128, -128);
+FC(r1b, 4100U, 32U, 16U, -128, -128);
+FC(r1c, 4700U, 16U, 4U, ZY, -128);
+FC(r4a, 5100U, 64U, 32U, -128, -128);
+FC(r4b, 7200U, 32U, 8U, -128, -128);
+FC(r4c, 7500U, 8U, 32U, -128, -128);
+FC(r4d, 7800U, 32U, 64U, ZY, -128);
+static uint32_t model_r0(uint32_t off) {
+  fnn_dense_s8(&r0a, xin + off, yout + 64U);
+  fnn_dense_s8(&r0b, yout + 64U, yout);
+  return 0U;
+}
+static uint32_t model_r1(uint32_t off) {
+  fnn_dense_s8(&r1a, xin + off, yout + 64U);
+  fnn_dense_s8(&r1b, yout + 64U, yout + 128U);
+  fnn_dense_s8(&r1c, yout + 128U, yout + 192U);
+  fnn_softmax_s8(yout + 192U, yout, 4U, etab);
+  return 0U;
+}
+static uint32_t model_r4(uint32_t off) {
+  fnn_dense_s8(&r4a, xin + off, yout + 128U);
+  fnn_dense_s8(&r4b, yout + 128U, yout + 192U);
+  fnn_dense_s8(&r4c, yout + 192U, yout + 256U);
+  fnn_dense_s8(&r4d, yout + 256U, yout);
+  return 0U;
+}
+BLOCK(b_model_r0, model_r0(x), 1U)
+BLOCK(b_model_r1, model_r1(x), 4U)
+BLOCK(b_model_r4, model_r4(x), 64U)
+
 /* 16 KB of weights fill the flash cache: these run from a flushed one. */
 #define BLOCK_COLD(name, call, bytes)                                          \
   BENCH_UNARY_DEF(name, uint32_t, in_off, uint32_t, (uint32_t)(call),          \
@@ -418,6 +454,86 @@ static uint32_t pw_px2(uint32_t off) {
   return 0U;
 }
 BLOCK(b_pw_px2, pw_px2(x), 1600U)
+
+BENCH_CALL static void k_pw_w8(const int8_t *x, int8_t *y) {
+  const int8_t *w = wpool + 300U;
+  int32_t xp[64];
+  for (uint32_t p = 0U; p < 25U; p += 2U) {
+    const int8_t *xa = x + p * 64U, *xb = p + 1U < 25U ? xa + 64U : xa;
+    for (uint32_t i = 0U; i < 64U; i++) {
+      xp[i] = (int32_t)(((uint32_t)xb[i] << 16) + (uint32_t)xa[i]);
+    }
+    for (uint32_t o = 0U; o < 64U; o++) {
+      const int8_t *r = w + o * 64U;
+      uint32_t sa = (uint32_t)bias[o], sb = (uint32_t)bias[o];
+      for (uint32_t i = 0U; i < 64U; i += 2U) {
+        uint32_t t = (uint32_t)r[i] * (uint32_t)xp[i] +
+                     (uint32_t)r[i + 1U] * (uint32_t)xp[i + 1U];
+        int32_t lo = (int16_t)t;
+        sa += (uint32_t)lo;
+        sb += (uint32_t)((int32_t)(t - (uint32_t)lo) >> 16);
+      }
+      y[p * 64U + o] = fnn_clamp_s8(fnn_requant((int32_t)sa, mult[o], rsh[o]),
+                                    ZY, -128, 127);
+      if (p + 1U < 25U) {
+        y[(p + 1U) * 64U + o] = fnn_clamp_s8(
+            fnn_requant((int32_t)sb, mult[o], rsh[o]), ZY, -128, 127);
+      }
+    }
+  }
+}
+static uint32_t pw_w8(uint32_t off) {
+  k_pw_w8(xin + off, yout);
+  return 0U;
+}
+BLOCK(b_pw_w8, pw_w8(x), 1600U)
+
+static inline void copy_w(int8_t *d, const int8_t *s, uint32_t n, int fill,
+                          int32_t v) {
+  uint32_t w = (uint32_t)(uint8_t)v * 0x01010101U, i = 0U;
+  for (; i + 4U <= n; i += 4U) {
+    FX_OPAQUE(w);
+    if (!fill) {
+      memcpy(&w, s + i, 4U);
+    }
+    memcpy(d + i, &w, 4U);
+  }
+  for (; i < n; i++) {
+    FX_OPAQUE(w);
+    d[i] = fill ? (int8_t)w : s[i];
+  }
+}
+
+BENCH_CALL static void k_patches(const FNN_Conv *l, const int8_t *x,
+                                 int8_t *p) {
+  uint32_t c = l->in.c, run = l->kw * c;
+  for (uint32_t oy = 0U; oy < l->out.h; oy++) {
+    for (uint32_t ox = 0U; ox < l->out.w; ox++) {
+      int32_t iy = (int32_t)oy - (int32_t)l->pt, ix = (int32_t)ox - (int32_t)l->pl;
+      int32_t a = -ix > 0 ? -ix : 0, e = (int32_t)l->in.w - ix;
+      uint32_t kx0 = (uint32_t)(a < (int32_t)l->kw ? a : (int32_t)l->kw);
+      uint32_t kx1 = (uint32_t)(e < 0 ? 0 : (e > (int32_t)l->kw ? (int32_t)l->kw : e));
+      int8_t *q = p;
+      for (uint32_t ky = 0U; ky < l->kh; ky++, q += run) {
+        int32_t yy = iy + (int32_t)ky;
+        if (yy < 0 || yy >= (int32_t)l->in.h) {
+          copy_w(q, x, run, 1, l->zx);
+          continue;
+        }
+        const int8_t *row =
+            x + ((uint32_t)yy * l->in.w + (uint32_t)(ix + (int32_t)kx0)) * c;
+        copy_w(q, x, kx0 * c, 1, l->zx);
+        copy_w(q + kx0 * c, row, (kx1 - kx0) * c, 0, 0);
+        copy_w(q + kx1 * c, x, (l->kw - kx1) * c, 1, l->zx);
+      }
+    }
+  }
+}
+static uint32_t patches(uint32_t off) {
+  k_patches(&cv3, xin + off, yout);
+  return 0U;
+}
+BLOCK(b_cv3_patches, patches(x), 72U)
 
 /* candidates the packed kernel was chosen over, in a copy of its driver */
 typedef void Rows(const int8_t *x, const int8_t *w, uint32_t n, uint32_t *sum);
@@ -925,6 +1041,42 @@ BLOCK(c_fc_128, c_fc(x, 128, 64), 64U)
 BLOCK_COLD(c_fc_256_cold, c_fc(x, 256, 64), 64U)
 BLOCK(c_fc_64, c_fc(x, 64, 12), 12U)
 
+/* One model layer, from an input at zero point zx to an output at zy. */
+static void c_layer(const int8_t *in, uint32_t woff, int32_t n_in,
+                    int32_t n_out, int32_t zx, int32_t zy, int8_t *out) {
+  const cmsis_nn_context ctx = {NULL, 0};
+  const cmsis_nn_fc_params p = {-zx, 0, zy, {-128, 127}};
+  const cmsis_nn_per_tensor_quant_params q = {mult[0], shift[0]};
+  const cmsis_nn_dims id = {1, 1, 1, n_in}, fd = {n_in, 1, 1, n_out},
+                      bd = {1, 1, 1, n_out}, od = {1, 1, 1, n_out};
+  if (arm_fully_connected_s8(&ctx, &p, &q, &id, in, &fd, wpool + woff, &bd,
+                             bias, &od, out) != ARM_CMSIS_NN_SUCCESS) {
+    __builtin_trap();
+  }
+}
+static uint32_t c_r0(uint32_t off) {
+  c_layer(xin + off, 5000U, 2, 4, ZX, -128, yout + 64U);
+  c_layer(yout + 64U, 5012U, 4, 1, -128, ZY, yout);
+  return 0U;
+}
+static uint32_t c_r1(uint32_t off) {
+  c_layer(xin + off, 2000U, 64, 32, ZX, -128, yout + 64U);
+  c_layer(yout + 64U, 4100U, 32, 16, -128, -128, yout + 128U);
+  c_layer(yout + 128U, 4700U, 16, 4, -128, ZY, yout + 192U);
+  arm_softmax_s8(yout + 192U, 1, 4, 1 << 30, 23, -248, yout);
+  return 0U;
+}
+static uint32_t c_r4(uint32_t off) {
+  c_layer(xin + off, 5100U, 64, 32, ZX, -128, yout + 128U);
+  c_layer(yout + 128U, 7200U, 32, 8, -128, -128, yout + 192U);
+  c_layer(yout + 192U, 7500U, 8, 32, -128, -128, yout + 256U);
+  c_layer(yout + 256U, 7800U, 32, 64, -128, ZY, yout);
+  return 0U;
+}
+BLOCK(c_model_r0, c_r0(x), 1U)
+BLOCK(c_model_r1, c_r1(x), 4U)
+BLOCK(c_model_r4, c_r4(x), 64U)
+
 static uint32_t c_pw(uint32_t off) {
   const cmsis_nn_context ctx = {cbuf, sizeof cbuf};
   const cmsis_nn_per_channel_quant_params q = pc();
@@ -1038,6 +1190,10 @@ static const BenchCase cases[] = {
     {"fnn_dense_s8, 128 -> 64, packed", "flexlib", b_fc128p, true},
     {"fnn_dense_s8, 64 -> 12", "flexlib", b_fc64, true},
     {"fnn_dense_s8, 64 -> 12, packed", "flexlib", b_fc64p, true},
+    {"model R0, XOR MLP 2 -> 4 -> 1", "flexlib", b_model_r0, true},
+    {"model R1, MLP 64 -> 32 -> 16 -> 4, softmax", "flexlib", b_model_r1, true},
+    {"model R4, autoencoder 64 -> 32 -> 8 -> 32 -> 64", "flexlib", b_model_r4,
+     true},
     {"dense 128 -> 64, rows, loads before multiplies", "candidate",
      b_fc_grouped, true},
     {"dense 128 -> 64, four rows' weights per word", "candidate", b_fc_word,
@@ -1058,6 +1214,10 @@ static const BenchCase cases[] = {
     {"fnn_conv_s8, 5 taps, 16 -> 32, 64, packed", "flexlib", b_cv1dp, true},
     {"conv 1 x 1, 64 -> 64, 5 x 5, two pixels x four rows", "candidate",
      b_pw_px2, true},
+    {"conv 1 x 1, 64 -> 64, 5 x 5, two pixels in 16-bit fields (W8)",
+     "candidate", b_pw_w8, true},
+    {"conv 3 x 3, 8 -> 16, 12 x 12, the patch copies alone (C2's most)",
+     "candidate", b_cv3_patches, true},
     {"fnn_dwconv_s8, 3 x 3, 64 x 5 x 5", "flexlib", b_dw64, true},
     {"fnn_dwconv_s8, 3 x 3, 64 x 7 x 7 to 5 x 5, VALID", "flexlib", b_dw64v,
      true},
@@ -1107,6 +1267,12 @@ static const BenchCase cases[] = {
      c_requant, false},
     {"arm_fully_connected_s8, 128 -> 64", "CMSIS-NN", c_fc_128, false},
     {"arm_fully_connected_s8, 64 -> 12", "CMSIS-NN", c_fc_64, false},
+    {"CMSIS-NN layers, model R0, XOR MLP 2 -> 4 -> 1", "CMSIS-NN", c_model_r0,
+     false},
+    {"CMSIS-NN layers, model R1, MLP 64 -> 32 -> 16 -> 4, softmax", "CMSIS-NN",
+     c_model_r1, false},
+    {"CMSIS-NN layers, model R4, autoencoder 64 -> 32 -> 8 -> 32 -> 64",
+     "CMSIS-NN", c_model_r4, false},
     {"arm_convolve_1x1_s8_fast, 64 -> 64, 5 x 5", "CMSIS-NN", c_pw_64, false},
     {"arm_convolve_s8, 3 x 3, 8 -> 16, 12 x 12", "CMSIS-NN", c_conv3_8, false},
     {"arm_convolve_1_x_n_s8, 5 taps, 16 -> 32, 64", "CMSIS-NN", c_conv1d_16,
