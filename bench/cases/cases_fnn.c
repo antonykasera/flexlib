@@ -11,6 +11,7 @@
 #include "fnn_dense.h"
 #include "fnn_lut.h"
 #include "fnn_quant.h"
+#include "fnn_softmax.h"
 #ifdef BENCH_HAVE_CMSIS_NN
 #include "arm_nnfunctions.h"
 #include "arm_nnsupportfunctions.h"
@@ -40,6 +41,9 @@ _Static_assert(BENCH_SCRATCH_SIZE >= 8192U, "inputs and outputs");
 #define xin ((int8_t *)(void *)bench_scratch)
 #define yout ((int8_t *)(void *)(bench_scratch + XLEN + XOFF))
 #define YMAX (BENCH_SCRATCH_SIZE - XLEN - XOFF)
+/* The softmax table, past the largest output (2304 bytes). */
+#define etab ((uint32_t *)(void *)(bench_scratch + 7168U))
+_Static_assert(XLEN + XOFF + 2304U <= 7168U, "outputs clear of the table");
 static int32_t acc[256 + 4], bias[CH], bf256[CH], bf64[12];
 static int32_t mult[CH], shift[CH]; /* CMSIS-NN takes TFLite's shifts */
 static int8_t rsh[CH];
@@ -77,6 +81,11 @@ static void setup(void) {
   }
   for (unsigned i = 0U; i < 256U; i++) {
     lut[i] = (int8_t)rnd(&s);
+  }
+  /* About exp(-d / 16), in integers: the host and the board agree. */
+  etab[0] = 1U << 31;
+  for (unsigned d = 1U; d < 256U; d++) {
+    etab[d] = etab[d - 1U] - etab[d - 1U] / 16U;
   }
   fnn_fold_bias_s8(wpool, 256U, 64U, bias, ZX, bf256);
   fnn_fold_bias_s8(wpool, 64U, 12U, bias, ZX, bf64);
@@ -438,6 +447,83 @@ BLOCK(b_lutw, lut_with(x, k_lutw), 1024U)
 BLOCK(b_lut8s, lut_with(x, k_lut8s), 1024U)
 BLOCK(b_lutu8, lut_with(x, k_lutu8), 1024U)
 
+static uint32_t softmax(uint32_t off, uint32_t n) {
+  fnn_softmax_s8(xin + off, yout, n, etab);
+  return 0U;
+}
+BLOCK(b_softmax12, softmax(x, 12U), 12U)
+BLOCK(b_softmax256, softmax(x, 256U), 256U)
+
+BENCH_CALL static void k_softmax_div(const int8_t *x, int8_t *y, uint32_t n,
+                                     const uint32_t *t) {
+  int32_t mx = x[0];
+  for (uint32_t i = 1U; i < n; i++) {
+    mx = x[i] > mx ? x[i] : mx;
+  }
+  uint64_t s = 0U;
+  for (uint32_t i = 0U; i < n; i++) {
+    s += t[mx - x[i]];
+  }
+  for (uint32_t i = 0U; i < n; i++) {
+    uint64_t q = (512U * (uint64_t)t[mx - x[i]] + s) / (2U * s);
+    y[i] = q > 255U ? 127 : (int8_t)((int32_t)q - 128);
+  }
+}
+BENCH_CALL static void k_softmax_fix(const int8_t *x, int8_t *y, uint32_t n,
+                                     const uint32_t *t) {
+  int32_t mx = x[0];
+  for (uint32_t i = 1U; i < n; i++) {
+    mx = x[i] > mx ? x[i] : mx;
+  }
+  uint64_t s = 0U;
+  for (uint32_t i = 0U; i < n; i++) {
+    s += t[mx - x[i]];
+  }
+  uint32_t hi = (uint32_t)(s >> 32);
+  uint32_t sh = hi != 0U ? 41U - fx_clz(hi) : 9U;
+  uint64_t h = s >> 1;
+  uint32_t b = (uint32_t)(s >> sh) + 1U, ht = (uint32_t)(h >> sh);
+  for (uint32_t i = 0U; i < n; i++) {
+    uint32_t e = t[mx - x[i]];
+    uint32_t q = ((e >> (sh - 8U)) + ht) / b;
+    uint64_t r = ((uint64_t)e << 8) + h - (uint64_t)q * s;
+    q += r >= s ? 1U : 0U;
+    y[i] = q > 255U ? 127 : (int8_t)((int32_t)q - 128);
+  }
+}
+static uint32_t softmax_fix(uint32_t off, uint32_t n) {
+  k_softmax_fix(xin + off, yout, n, etab);
+  return 0U;
+}
+BLOCK(b_softmax12_fix, softmax_fix(x, 12U), 12U)
+
+static uint32_t softmax_div(uint32_t off, uint32_t n) {
+  k_softmax_div(xin + off, yout, n, etab);
+  return 0U;
+}
+BLOCK(b_softmax12_div, softmax_div(x, 12U), 12U)
+
+BENCH_CALL static uint32_t k_argmax2(const int8_t *x, uint32_t n) {
+  int32_t mx = x[0];
+  for (uint32_t i = 1U; i < n; i++) {
+    mx = x[i] > mx ? x[i] : mx;
+  }
+  uint32_t k = 0U;
+  while (x[k] != mx) {
+    k++;
+  }
+  return k;
+}
+BENCH_UNARY_DEF(b_argmax12_2, uint32_t, in_off, uint32_t,
+                k_argmax2(xin + x, 12U), (void)0, (void)0)
+BENCH_UNARY_DEF(b_argmax256_2, uint32_t, in_off, uint32_t,
+                k_argmax2(xin + x, 256U), (void)0, (void)0)
+
+BENCH_UNARY_DEF(b_argmax12, uint32_t, in_off, uint32_t,
+                fnn_argmax_s8(xin + x, 12U), (void)0, (void)0)
+BENCH_UNARY_DEF(b_argmax256, uint32_t, in_off, uint32_t,
+                fnn_argmax_s8(xin + x, 256U), (void)0, (void)0)
+
 #ifdef BENCH_HAVE_CMSIS_NN
 /* CMSIS-NN as it ships, with gemmlowp's rounding */
 
@@ -609,6 +695,17 @@ static const BenchCase cases[] = {
      b_lut8s, true},
     {"table 1024 by bit pattern, sixteen a pass in eights", "candidate",
      b_lutu8, true},
+    {"fnn_softmax_s8, 12", "flexlib", b_softmax12, true},
+    {"fnn_softmax_s8, 256", "flexlib", b_softmax256, true},
+    {"softmax 12, a 64-bit division per output", "candidate", b_softmax12_div,
+     true},
+    {"softmax 12, a 64-bit correction per output", "candidate",
+     b_softmax12_fix, true},
+    {"fnn_argmax_s8, 12", "flexlib", b_argmax12, true},
+    {"fnn_argmax_s8, 256", "flexlib", b_argmax256, true},
+    {"argmax 12, the maximum, then its index", "candidate", b_argmax12_2, true},
+    {"argmax 256, the maximum, then its index", "candidate", b_argmax256_2,
+     true},
 #ifdef BENCH_HAVE_CMSIS_NN
     {"arm_nn_requantize + clamp, 256 outputs, 64 channels", "CMSIS-NN",
      c_requant, false},

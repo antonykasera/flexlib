@@ -482,6 +482,14 @@ const BenchGolden bench_golden[] = {
     {"table 1024, four to a word", 0xCDBDBAC2U},
     {"table 1024, eight a pass, lookups before byte stores", 0xCDBDBAC2U},
     {"table 1024 by bit pattern, sixteen a pass in eights", 0x630AE59FU},
+    {"fnn_softmax_s8, 12", 0xDB1A6B95U},
+    {"fnn_softmax_s8, 256", 0x88D041FCU},
+    {"softmax 12, a 64-bit division per output", 0xDB1A6B95U},
+    {"softmax 12, a 64-bit correction per output", 0xDB1A6B95U},
+    {"fnn_argmax_s8, 12", 0xE66D2B49U},
+    {"fnn_argmax_s8, 256", 0x3D6A7EF9U},
+    {"argmax 12, the maximum, then its index", 0xE66D2B49U},
+    {"argmax 256, the maximum, then its index", 0x3D6A7EF9U},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);
