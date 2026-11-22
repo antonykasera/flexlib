@@ -25,7 +25,8 @@ failing runner prints it.
 | `make deps` | fetches the submodules the bench needs |
 | `make dist`, `make consumer` | the release archive, and a blank project built against it |
 | `make cmake-check` | a CMake project builds against the archive, on the host and for the Cortex-M3 |
-| `make nn-check` | flexnn against the TFLite interpreter's reference kernels, on models written without TensorFlow (needs uv) |
+| `make nn-check` | flexnn and its converter against the TFLite interpreter's reference kernels, on models written without TensorFlow and on the ones in `test/nn/models/` (needs uv) |
+| `python3 test/nn/gen_models.py` | rewrites `test/nn/models/` with TensorFlow's own converter (needs TensorFlow) |
 | `make nn-cmsis` | flexnn in `FNN_ROUND_GEMMLOWP` against CMSIS-NN built for the host, layer by layer, bit for bit (needs `make deps`) |
 
 ## Terms
