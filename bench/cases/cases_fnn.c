@@ -9,6 +9,7 @@
 
 #include "bench.h"
 #include "fnn_dense.h"
+#include "fnn_lut.h"
 #include "fnn_quant.h"
 #ifdef BENCH_HAVE_CMSIS_NN
 #include "arm_nnfunctions.h"
@@ -43,6 +44,7 @@ _Static_assert(BENCH_SCRATCH_SIZE >= 8192U, "inputs and outputs");
 static int32_t acc[256 + 4], bias[CH], bf256[CH], bf64[12];
 static int32_t mult[CH], shift[CH]; /* CMSIS-NN takes TFLite's shifts */
 static int8_t rsh[CH];
+static int8_t lut[256];
 
 static uint32_t rnd(uint32_t *s) {
   *s ^= *s << 13;
@@ -73,6 +75,9 @@ static void setup(void) {
     /* scales near 2^-11 bring a 256-term sum into int8 range */
     (void)fnn_quant_from_scale((1.0 + c / 64.0) / 2048.0, &mult[c], &rsh[c]);
     shift[c] = -1 - rsh[c];
+  }
+  for (unsigned i = 0U; i < 256U; i++) {
+    lut[i] = (int8_t)rnd(&s);
   }
   fnn_fold_bias_s8(wpool, 256U, 64U, bias, ZX, bf256);
   fnn_fold_bias_s8(wpool, 64U, 12U, bias, ZX, bf64);
@@ -271,6 +276,180 @@ BLOCK(b_fc_word, dense_with(x, k_word, 4U), 64U)
 BLOCK(b_fc_x4, dense_with(x & ~3U, k_x4, 4U), 64U)
 BLOCK(b_fc_word8, dense_with(x, k_word8, 8U), 64U)
 
+static uint32_t lut_lib(uint32_t off) {
+  fnn_lut_s8(xin + off, yout, 1024U, lut);
+  return 0U;
+}
+BLOCK(b_lut, lut_lib(x), 1024U)
+
+/* candidates the table kernel was chosen over */
+typedef void Lut(const int8_t *x, int8_t *y, uint32_t n, const int8_t *t);
+
+/* Looks up and stores eight values a pass, one at a time. */
+BENCH_CALL static void k_lut8(const int8_t *x, int8_t *y, uint32_t n,
+                              const int8_t *lut8) {
+  const int8_t *t = lut8 + 128;
+  uint32_t i = 0U;
+  for (; i + 8U <= n; i += 8U) {
+    int32_t a = x[i], b = x[i + 1U], c = x[i + 2U], d = x[i + 3U];
+    int32_t e = x[i + 4U], f = x[i + 5U], g = x[i + 6U], h = x[i + 7U];
+    __asm__("" : "+r"(a), "+r"(b), "+r"(c), "+r"(d), "+r"(e), "+r"(f),
+                 "+r"(g), "+r"(h));
+    y[i] = t[a];
+    y[i + 1U] = t[b];
+    y[i + 2U] = t[c];
+    y[i + 3U] = t[d];
+    y[i + 4U] = t[e];
+    y[i + 5U] = t[f];
+    y[i + 6U] = t[g];
+    y[i + 7U] = t[h];
+  }
+  for (; i < n; i++) {
+    y[i] = t[x[i]];
+  }
+}
+
+/* Does every lookup before the stores, which GCC then merges into words. */
+BENCH_CALL static void k_lut8g(const int8_t *x, int8_t *y, uint32_t n,
+                               const int8_t *lut8) {
+  const int8_t *t = lut8 + 128;
+  uint32_t i = 0U;
+  for (; i + 8U <= n; i += 8U) {
+    int32_t a = x[i], b = x[i + 1U], c = x[i + 2U], d = x[i + 3U];
+    int32_t e = x[i + 4U], f = x[i + 5U], g = x[i + 6U], h = x[i + 7U];
+    __asm__("" : "+r"(a), "+r"(b), "+r"(c), "+r"(d), "+r"(e), "+r"(f),
+                 "+r"(g), "+r"(h));
+    a = t[a];
+    b = t[b];
+    c = t[c];
+    d = t[d];
+    e = t[e];
+    f = t[f];
+    g = t[g];
+    h = t[h];
+    __asm__("" : "+r"(a), "+r"(b), "+r"(c), "+r"(d), "+r"(e), "+r"(f),
+                 "+r"(g), "+r"(h));
+    y[i] = (int8_t)a;
+    y[i + 1U] = (int8_t)b;
+    y[i + 2U] = (int8_t)c;
+    y[i + 3U] = (int8_t)d;
+    y[i + 4U] = (int8_t)e;
+    y[i + 5U] = (int8_t)f;
+    y[i + 6U] = (int8_t)g;
+    y[i + 7U] = (int8_t)h;
+  }
+  for (; i < n; i++) {
+    y[i] = t[x[i]];
+  }
+}
+
+/* Reads four values as a word and flips them to unsigned indexes. */
+BENCH_CALL static void k_lutw(const int8_t *x, int8_t *y, uint32_t n,
+                              const int8_t *lut8) {
+  const uint8_t *t = (const uint8_t *)lut8;
+  uint32_t i = 0U;
+  for (; i + 4U <= n; i += 4U) {
+    uint32_t v;
+    memcpy(&v, x + i, 4U);
+    v ^= 0x80808080U;
+    uint32_t o = (uint32_t)t[v & 255U] | (uint32_t)t[(v >> 8) & 255U] << 8 |
+                 (uint32_t)t[(v >> 16) & 255U] << 16 |
+                 (uint32_t)t[v >> 24] << 24;
+    memcpy(y + i, &o, 4U);
+  }
+  for (; i < n; i++) {
+    y[i] = lut8[x[i] + 128];
+  }
+}
+
+/* Runs the library's group of eight in signed order, one group a pass. */
+#define HOLD8(a, b, c, d, e, f, g, h)                                          \
+  __asm__("" : "+r"(a), "+r"(b), "+r"(c), "+r"(d), "+r"(e), "+r"(f), "+r"(g),  \
+          "+r"(h))
+#define STORE(p, v)                                                            \
+  do {                                                                         \
+    *(p) = (int8_t)(v);                                                        \
+    __asm__("" ::: "memory");                                                  \
+  } while (0)
+BENCH_CALL static void k_lut8s(const int8_t *x, int8_t *y, uint32_t n,
+                               const int8_t *lut8) {
+  const int8_t *t = lut8 + 128;
+  for (uint32_t i = 0U; i + 8U <= n; i += 8U) {
+    int32_t a = x[i], b = x[i + 1U], c = x[i + 2U], d = x[i + 3U];
+    int32_t e = x[i + 4U], f = x[i + 5U], g = x[i + 6U], h = x[i + 7U];
+    HOLD8(a, b, c, d, e, f, g, h);
+    a = t[a];
+    b = t[b];
+    c = t[c];
+    d = t[d];
+    e = t[e];
+    f = t[f];
+    g = t[g];
+    h = t[h];
+    HOLD8(a, b, c, d, e, f, g, h);
+    STORE(y + i, a);
+    STORE(y + i + 1U, b);
+    STORE(y + i + 2U, c);
+    STORE(y + i + 3U, d);
+    STORE(y + i + 4U, e);
+    STORE(y + i + 5U, f);
+    STORE(y + i + 6U, g);
+    STORE(y + i + 7U, h);
+  }
+}
+
+/* Uses the library's order and loop, with groups of eight. */
+#define STOREU(p, v)                                                           \
+  do {                                                                         \
+    *(p) = (uint8_t)(v);                                                       \
+    __asm__("" ::: "memory");                                                  \
+  } while (0)
+FX_INLINE void lutu8(const uint8_t *x, uint8_t *y, const uint8_t *t) {
+  uint32_t a = x[0], b = x[1], c = x[2], d = x[3];
+  uint32_t e = x[4], f = x[5], g = x[6], h = x[7];
+  HOLD8(a, b, c, d, e, f, g, h);
+  a = t[a];
+  b = t[b];
+  c = t[c];
+  d = t[d];
+  e = t[e];
+  f = t[f];
+  g = t[g];
+  h = t[h];
+  HOLD8(a, b, c, d, e, f, g, h);
+  STOREU(y, a);
+  STOREU(y + 1, b);
+  STOREU(y + 2, c);
+  STOREU(y + 3, d);
+  STOREU(y + 4, e);
+  STOREU(y + 5, f);
+  STOREU(y + 6, g);
+  STOREU(y + 7, h);
+}
+BENCH_CALL static void k_lutu8(const int8_t *xs, int8_t *ys, uint32_t n,
+                               const int8_t *lut8) {
+  const uint8_t *x = (const uint8_t *)xs, *t = (const uint8_t *)lut8;
+  uint8_t *y = (uint8_t *)ys;
+  const uint8_t *end = x + (n & ~15U);
+  while (x != end) {
+    lutu8(x, y, t);
+    lutu8(x + 8, y + 8, t);
+    x += 16;
+    y += 16;
+    FX_OPAQUE(y);
+  }
+}
+
+static uint32_t lut_with(uint32_t off, Lut *k) {
+  k(xin + off, yout, 1024U, lut);
+  return 0U;
+}
+BLOCK(b_lut8, lut_with(x, k_lut8), 1024U)
+BLOCK(b_lut8g, lut_with(x, k_lut8g), 1024U)
+BLOCK(b_lutw, lut_with(x, k_lutw), 1024U)
+BLOCK(b_lut8s, lut_with(x, k_lut8s), 1024U)
+BLOCK(b_lutu8, lut_with(x, k_lutu8), 1024U)
+
 #ifdef BENCH_HAVE_CMSIS_NN
 /* CMSIS-NN as it ships, with gemmlowp's rounding */
 
@@ -433,6 +612,16 @@ static const BenchCase cases[] = {
      true},
     {"dense 256 -> 32, two rows per multiply (16-bit halves)", "candidate",
      b_fc32_pairs, true},
+    {"fnn_lut_s8, 1024", "flexlib", b_lut, true},
+    {"table 1024, eight a pass, each looked up and stored in turn",
+     "candidate", b_lut8, true},
+    {"table 1024, eight a pass, stores merged into words", "candidate",
+     b_lut8g, true},
+    {"table 1024, four to a word", "candidate", b_lutw, true},
+    {"table 1024, eight a pass, lookups before byte stores", "candidate",
+     b_lut8s, true},
+    {"table 1024 by bit pattern, sixteen a pass in eights", "candidate",
+     b_lutu8, true},
 #ifdef BENCH_HAVE_CMSIS_NN
     {"arm_nn_requantize + clamp, 256 outputs, 64 channels", "CMSIS-NN",
      c_requant, false},

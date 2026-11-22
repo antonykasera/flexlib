@@ -476,6 +476,12 @@ const BenchGolden bench_golden[] = {
     {"dense 256 -> 64, eight rows per double word, one input a pass", 0x1909843FU},
     {"dense 256 -> 32, eight rows per double word", 0x8D1F0B56U},
     {"dense 256 -> 32, two rows per multiply (16-bit halves)", 0x0F01DDE5U},
+    {"fnn_lut_s8, 1024", 0x630AE59FU},
+    {"table 1024, eight a pass, each looked up and stored in turn", 0xCDBDBAC2U},
+    {"table 1024, eight a pass, stores merged into words", 0xCDBDBAC2U},
+    {"table 1024, four to a word", 0xCDBDBAC2U},
+    {"table 1024, eight a pass, lookups before byte stores", 0xCDBDBAC2U},
+    {"table 1024 by bit pattern, sixteen a pass in eights", 0x630AE59FU},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);
