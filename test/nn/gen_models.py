@@ -47,9 +47,29 @@ def mlp_keras():
     return int8_model(model, (4, 16), 2)
 
 
+def cnn_keras():
+    """A small image classifier with a residual add, an explicit pad before a
+    strided convolution and global average pooling, the layers whose export
+    matters."""
+    tf.keras.utils.set_random_seed(3)
+    L = tf.keras.layers
+    x = tf.keras.Input((16, 16, 3))
+    a = L.Conv2D(8, 3, padding="same", activation="relu")(x)
+    a = L.MaxPooling2D(2)(a)
+    b = L.DepthwiseConv2D(3, padding="same", activation="relu")(a)
+    b = L.Conv2D(8, 1)(b)
+    a = L.Add()([a, b])
+    a = L.ZeroPadding2D(((1, 0), (1, 0)))(a)
+    a = L.Conv2D(16, 3, strides=2, padding="valid", activation="relu")(a)
+    a = L.GlobalAveragePooling2D()(a)
+    a = L.Dense(5)(a)
+    y = L.Softmax()(a)
+    return int8_model(tf.keras.Model(x, y), (16, 16, 3), 4)
+
+
 def main():
     OUT.mkdir(exist_ok=True)
-    for name, make in (("mlp_keras", mlp_keras),):
+    for name, make in (("mlp_keras", mlp_keras), ("cnn_keras", cnn_keras)):
         blob = make()
         (OUT / f"{name}.tflite").write_bytes(blob)
         print(f"{name}.tflite: {len(blob)} bytes")
