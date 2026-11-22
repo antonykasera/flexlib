@@ -12,7 +12,7 @@
 #include "test_stats.h"
 #include <math.h>
 
-#define MODE ((RefRound)FNN_ROUNDING)
+#define MODE REF_MODE
 #define COUNT(a) ((unsigned)(sizeof(a) / sizeof((a)[0])))
 
 static const int32_t accs[] = {0,
@@ -61,7 +61,7 @@ void test_fnn_requant_ties(void) {
       {767, {1, 1, 2}},  {-767, {-1, -1, -1}}, {0, {0, 0, 0}},
   };
   for (unsigned i = 0U; i < COUNT(t); i++) {
-    ASSERT_EQ(fnn_requant(t[i].acc, 1 << 30, 7), t[i].want[FNN_ROUNDING]);
+    ASSERT_EQ(fnn_requant(t[i].acc, 1 << 30, 7), t[i].want[REF_MODE]);
   }
 }
 

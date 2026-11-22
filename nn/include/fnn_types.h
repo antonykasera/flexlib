@@ -18,7 +18,7 @@
 
 /** @name Rounding modes
  * You pick one for the whole build by defining `FNN_ROUNDING`. They only
- * differ in how a sum is requantised, and never by more than 1.
+ * differ in how a sum is requantised, and never by more than 1 in a layer.
  * @{ */
 /** Round once, ties up. The default, and what CMSIS-NN does when built with
  * `CMSIS_NN_USE_SINGLE_ROUNDING`. */
@@ -29,6 +29,10 @@
 /** Round twice, the way gemmlowp does: CMSIS-NN's default build, TFLite Micro
  * on Cortex-M, and the TFLite interpreter's reference convolution. */
 #define FNN_ROUND_GEMMLOWP 2
+/** Round each layer as the TFLite interpreter's reference kernel for it does:
+ * fully connected layers as `FNN_ROUND_AWAY`, every other layer as
+ * `FNN_ROUND_GEMMLOWP`. A whole model then gives the interpreter's integers. */
+#define FNN_ROUND_TFLITE 3
 /** @} */
 
 #ifndef FNN_ROUNDING

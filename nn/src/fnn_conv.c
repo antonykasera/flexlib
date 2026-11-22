@@ -9,6 +9,7 @@
 #include "fnn_conv.h"
 #include "fnn_copy.h"
 #include "fnn_dense.h"
+#include "fnn_internal.h"
 #include "fx_arch.h"
 
 static int fits(uint32_t in, uint32_t out, uint32_t k, uint32_t s, uint32_t p) {
@@ -74,7 +75,7 @@ void fnn_conv_s8(const FNN_Conv *l, const int8_t *x, int8_t *y,
         patch(l, x, iy, ix, scratch);
         p = scratch;
       }
-      fnn_dense_s8(&d, p, y);
+      FNN_DENSE_CONV(&d, p, y);
       y += m;
     }
   }

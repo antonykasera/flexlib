@@ -20,11 +20,52 @@
 #include <stdint.h>
 
 /** @cond */
-int32_t fnn_requant_wide(int32_t acc, int32_t mult, int32_t rsh);
+/* FNN_RULE_FC is how this build rounds fully connected layers, and FNN_RULE
+ * every other layer. */
+#if FNN_ROUNDING == FNN_ROUND_TFLITE
+#define FNN_RULE_FC FNN_ROUND_AWAY
+#define FNN_RULE FNN_ROUND_GEMMLOWP
+#else
+#define FNN_RULE_FC FNN_ROUNDING
+#define FNN_RULE FNN_ROUNDING
+#endif
+
+int32_t fnn_requant_wide_up(int32_t acc, int32_t mult, int32_t rsh);
+int32_t fnn_requant_wide_away(int32_t acc, int32_t mult, int32_t rsh);
+int32_t fnn_requant_wide_gemmlowp(int32_t acc, int32_t mult, int32_t rsh);
+
+FX_INLINE int32_t fnn_requant_as(int32_t acc, int32_t mult, int32_t rsh,
+                                 int mode) {
+  if (FX_UNLIKELY(rsh < 0)) {
+    return mode == FNN_ROUND_GEMMLOWP ? fnn_requant_wide_gemmlowp(acc, mult, rsh)
+           : mode == FNN_ROUND_AWAY   ? fnn_requant_wide_away(acc, mult, rsh)
+                                      : fnn_requant_wide_up(acc, mult, rsh);
+  }
+  uint32_t s = (uint32_t)rsh;
+  if (mode == FNN_ROUND_GEMMLOWP) {
+    /* gemmlowp's doubling multiply rounds ties up, and its division by
+     * 2^(rsh + 1) rounds them away from zero */
+    int32_t v = (int32_t)(fx_smlal(1LL << 30, acc, mult) >> 31);
+    uint32_t mask = (2U << s) - 1U;
+    uint32_t thr = (mask >> 1) + (uint32_t)(v < 0);
+    return (v >> (s + 1U)) + (int32_t)(((uint32_t)v & mask) > thr);
+  }
+  /* starting the sum at half a final step leaves the high word, shifted by
+   * rsh, already rounded */
+  uint64_t r =
+      ((uint64_t)((1U << s) >> 1) << 32) | (s == 0U ? 0x80000000U : 0U);
+  if (mode == FNN_ROUND_AWAY) {
+    /* one less makes negative ties round down */
+    r += (uint64_t)(int64_t)(acc >> 31);
+  }
+  return (int32_t)(fx_smlal((int64_t)r, acc, mult) >> 32) >> s;
+}
 /** @endcond */
 
 /**
- * Scale a sum by $mult 2^{-32 - rsh}$ and round it as `FNN_ROUNDING` says.
+ * Scale a sum by $mult 2^{-32 - rsh}$ and round it as `FNN_ROUNDING` says,
+ * which under `FNN_ROUND_TFLITE` is the rule for every layer but a fully
+ * connected one.
  *
  * @param acc  any int32
  * @param mult $[0, 2^{31})$
@@ -32,28 +73,7 @@ int32_t fnn_requant_wide(int32_t acc, int32_t mult, int32_t rsh);
  *             slower path
  */
 FX_INLINE int32_t fnn_requant(int32_t acc, int32_t mult, int32_t rsh) {
-  if (FX_UNLIKELY(rsh < 0)) {
-    return fnn_requant_wide(acc, mult, rsh);
-  }
-  uint32_t s = (uint32_t)rsh;
-#if FNN_ROUNDING == FNN_ROUND_GEMMLOWP
-  /* gemmlowp's doubling multiply rounds ties up, and its division by
-   * 2^(rsh + 1) rounds them away from zero */
-  int32_t v = (int32_t)(fx_smlal(1LL << 30, acc, mult) >> 31);
-  uint32_t mask = (2U << s) - 1U;
-  uint32_t thr = (mask >> 1) + (uint32_t)(v < 0);
-  return (v >> (s + 1U)) + (int32_t)(((uint32_t)v & mask) > thr);
-#else
-  /* starting the sum at half a final step leaves the high word, shifted by
-   * rsh, already rounded */
-  uint64_t r =
-      ((uint64_t)((1U << s) >> 1) << 32) | (s == 0U ? 0x80000000U : 0U);
-#if FNN_ROUNDING == FNN_ROUND_AWAY
-  /* one less makes negative ties round down */
-  r += (uint64_t)(int64_t)(acc >> 31);
-#endif
-  return (int32_t)(fx_smlal((int64_t)r, acc, mult) >> 32) >> s;
-#endif
+  return fnn_requant_as(acc, mult, rsh, FNN_RULE);
 }
 
 /** Add the zero point to v, which can be any int32, and clamp the result to

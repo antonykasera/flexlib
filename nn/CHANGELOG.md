@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `FNN_ROUND_TFLITE`, a fourth rounding mode: each layer rounds as the TFLite interpreter's reference kernel for it does, so a whole model gives the interpreter's integers. The other modes compile to the same code as before.
 - `nn/tools/fnn_tflite.py`: a full-integer int8 `.tflite` model to C, with the weights as constants, a memory plan for the tensors between layers, and `--check` against the TFLite interpreter. Fully connected layers, softmax and reshapes so far, with the shape arithmetic TensorFlow's exporter writes around them worked out at conversion.
 - `fnn.h`: every flexnn header in one include.
 

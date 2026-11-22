@@ -13,7 +13,7 @@
 #include "test_stats.h"
 #include <math.h>
 
-#define MODE ((RefRound)FNN_ROUNDING)
+#define MODE REF_MODE
 #define XMAX 4096U
 
 static int8_t x[XMAX], y[XMAX + 1U], want[XMAX];

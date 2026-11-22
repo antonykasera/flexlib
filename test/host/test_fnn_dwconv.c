@@ -13,7 +13,7 @@
 #include "test_stats.h"
 #include <math.h>
 
-#define MODE ((RefRound)FNN_ROUNDING)
+#define MODE REF_MODE
 #define XMAX 4096U
 #define CMAX 80U
 

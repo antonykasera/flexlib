@@ -65,7 +65,7 @@ void fnn_dequantize_s8_q15(const int8_t *x, int16_t *y, uint32_t n,
     for (uint32_t i = 0U; i < n; i++) {
       int32_t k = x[i] - zp;
       int64_t r = 1LL << 31;
-#if FNN_ROUNDING == FNN_ROUND_AWAY
+#if FNN_RULE == FNN_ROUND_AWAY
       r += k >> 31;
 #endif
       y[i] = sat16(

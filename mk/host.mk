@@ -6,7 +6,7 @@ HOST_CFLAGS = $(STD) $(WARN) $(WERROR) -O2 -g \
               -fno-omit-frame-pointer $(LIB_INC) $(LIB_PRIV) -Itest/host
 TEST_SRCS   = $(wildcard test/host/*.c) $(LIB_SRCS)
 
-HOST_RUNNERS           = all crc_small dsp fft4096 round_away round_gemmlowp
+HOST_RUNNERS           = all crc_small dsp fft4096 round_away round_gemmlowp round_tflite
 HOST_SHARDS_all        = 0 1 2 3 4 5 6 7 8 9 10 11
 HOST_SHARDS_dsp        = 0 1 2
 HOST_DEFS_crc_small    = -DFU_CRC_SMALL
@@ -19,6 +19,8 @@ HOST_DEFS_round_away   = -DFNN_ROUNDING=FNN_ROUND_AWAY
 HOST_TESTS_round_away  = fnn_
 HOST_DEFS_round_gemmlowp  = -DFNN_ROUNDING=FNN_ROUND_GEMMLOWP
 HOST_TESTS_round_gemmlowp = fnn_
+HOST_DEFS_round_tflite    = -DFNN_ROUNDING=FNN_ROUND_TFLITE
+HOST_TESTS_round_tflite   = fnn_
 
 define HOST_RUNNER
 $(HOST_BUILD)/$(1)/%.o: %.c

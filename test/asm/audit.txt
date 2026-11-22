@@ -377,7 +377,9 @@ fd_biquad_f32     smull !call=__aeabi_fmul !call=__aeabi_fadd !udiv
 
 # fnn_quant: one SMLAL per output, 64-bit shifts inline (no libgcc calls)
 fnn_requant_s8     smlal
-fnn_requant_wide   no-calls smlal
+fnn_requant_wide_up       no-calls smlal
+fnn_requant_wide_away     no-calls smlal
+fnn_requant_wide_gemmlowp no-calls smlal
 
 # fnn_dense: one MLA per product, the packed kernels' weights split by SBFX
 dense_r8           no-calls mla sbfx !udiv

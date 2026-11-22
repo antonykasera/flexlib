@@ -17,6 +17,7 @@ lint:
 		dsp/src/fd_fft.c dsp/src/fd_rfft.c
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFNN_ROUNDING=FNN_ROUND_AWAY $(LIB_INC) nn/src/*.c
 	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFNN_ROUNDING=FNN_ROUND_GEMMLOWP $(LIB_INC) nn/src/*.c
+	$(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) -DFNN_ROUNDING=FNN_ROUND_TFLITE $(LIB_INC) nn/src/*.c
 	@for h in $(LINT_HEADERS); do \
 		echo "  header $$h"; \
 		printf '#include "%s"\ntypedef int lint_tu;\n' $$h | $(ARM_CC) $(M3_FLAGS) $(LINT_FLAGS) $(LIB_INC) \

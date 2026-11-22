@@ -15,7 +15,7 @@ static int s8(int32_t v) { return v >= -128 && v <= 127; }
 
 static int scale_ok(double s) { return s > 0.0 && isfinite(s); }
 
-#if FNN_ROUNDING != FNN_ROUND_GEMMLOWP
+#if FNN_RULE != FNN_ROUND_GEMMLOWP
 /* Doubles instead of calling ldexp, which brings in newlib's errno data. */
 static double pow2(int32_t e) {
   double p = 1.0;
@@ -43,7 +43,7 @@ FNN_Status fnn_add_init(FNN_Add *a, double s1, int32_t z1, double s2,
   a->z2 = z2;
   a->o = o;
   int8_t r[3];
-#if FNN_ROUNDING == FNN_ROUND_GEMMLOWP
+#if FNN_RULE == FNN_ROUND_GEMMLOWP
   /* TFLite scales both inputs, shifted up 20 bits, to half the larger scale. */
   double twice = 2.0 * big;
   (void)fnn_quant_from_scale(s1 / twice, &a->m[0], &r[0]);
@@ -73,7 +73,7 @@ FNN_Status fnn_add_init(FNN_Add *a, double s1, int32_t z1, double s2,
   return FNN_OK;
 }
 
-#if FNN_ROUNDING == FNN_ROUND_GEMMLOWP
+#if FNN_RULE == FNN_ROUND_GEMMLOWP
 /* Applies gemmlowp's doubling multiply, then its division by 2^e. */
 FX_INLINE int32_t mbq(int32_t x, int32_t m, uint32_t e) {
   int32_t v = (int32_t)(fx_smlal(1LL << 30, x, m) >> 31);
@@ -112,7 +112,7 @@ FX_INLINE void add_run(const FNN_Add *a, const int8_t *x1, const int8_t *x2,
     int32_t d1 = (int32_t)((uint32_t)x1[i] << t);
     int32_t d2 = (int32_t)((uint32_t)x2[i] << t);
     int64_t p = fx_smlal(fx_smlal(k, d1, m1), d2, m2);
-#if FNN_ROUNDING == FNN_ROUND_AWAY
+#if FNN_RULE == FNN_ROUND_AWAY
     p -= (int64_t)(p < c);
 #endif
     int32_t v = (int32_t)(p >> 32) >> u;

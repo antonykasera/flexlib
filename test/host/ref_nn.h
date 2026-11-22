@@ -10,6 +10,7 @@
 #ifndef REF_NN_H
 #define REF_NN_H
 
+#include "fnn_types.h"
 #include <stdint.h>
 
 /** The three rounding modes, numbered as in fnn_types.h. */
@@ -18,6 +19,16 @@ typedef enum {
   REF_ROUND_AWAY = 1,
   REF_ROUND_GEMMLOWP = 2
 } RefRound;
+
+/* REF_MODE_FC is the reference mode for this build's fully connected layers,
+ * and REF_MODE for every other layer. */
+#if FNN_ROUNDING == FNN_ROUND_TFLITE
+#define REF_MODE_FC REF_ROUND_AWAY
+#define REF_MODE REF_ROUND_GEMMLOWP
+#else
+#define REF_MODE_FC ((RefRound)FNN_ROUNDING)
+#define REF_MODE ((RefRound)FNN_ROUNDING)
+#endif
 
 /* acc mult 2^(shift - 31) rounded by mode, saturated where TFLite's result
  * is undefined */

@@ -7,6 +7,7 @@
  */
 
 #include "fnn_dense.h"
+#include "fnn_internal.h"
 #include "fnn_quant.h"
 #include <stddef.h>
 #include <string.h>
@@ -87,7 +88,8 @@ static void dense_r1(const int8_t *x, const int8_t *w, uint32_t n,
   *sum = a;
 }
 
-void fnn_dense_s8(const FNN_Dense *l, const int8_t *x, int8_t *y) {
+FX_INLINE void dense(const FNN_Dense *l, const int8_t *x, int8_t *y,
+                     int mode) {
   const int8_t *w = l->w;
   const int32_t *b = l->b;
   const int32_t *mult = l->q.mult;
@@ -109,12 +111,22 @@ void fnn_dense_s8(const FNN_Dense *l, const int8_t *x, int8_t *y) {
     k(x, w + o * n, n, sum);
     for (uint32_t j = 0U; j < rows; j++) {
       uint32_t c = (o + j) * step;
-      int32_t v = fnn_requant((int32_t)sum[j], mult[c], rsh[c]);
+      int32_t v = fnn_requant_as((int32_t)sum[j], mult[c], rsh[c], mode);
       y[o + j] = fnn_clamp_s8(v, zp, lo, hi);
     }
     o += rows;
   }
 }
+
+void fnn_dense_s8(const FNN_Dense *l, const int8_t *x, int8_t *y) {
+  dense(l, x, y, FNN_RULE_FC);
+}
+
+#if FNN_RULE_FC != FNN_RULE
+void fnn_dense_conv_s8(const FNN_Dense *l, const int8_t *x, int8_t *y) {
+  dense(l, x, y, FNN_RULE);
+}
+#endif
 
 static void interleave(const int8_t *w, uint32_t n, uint32_t rows, int8_t *p) {
   for (uint32_t i = 0U; i < n; i++) {

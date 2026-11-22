@@ -14,7 +14,7 @@
 #include <math.h>
 #include <string.h>
 
-#define MODE ((RefRound)FNN_ROUNDING)
+#define MODE REF_MODE
 
 static int8_t clamp8(int64_t v) {
   return (int8_t)(v < -128 ? -128 : (v > 127 ? 127 : v));
@@ -137,7 +137,7 @@ void test_fnn_quantize_f32(void) {
         /* Within half a step of x / s, allowing for the 31-bit multiplier. */
         double w = (double)x[i] / scales[c] + (double)zp;
         if (isfinite(w) && w > -128.0 && w < 127.0 &&
-            FNN_ROUNDING != FNN_ROUND_GEMMLOWP) {
+            MODE != REF_ROUND_GEMMLOWP) {
           near += fabs((double)y[i] - w) > 0.5 + fabs(w) * 0x1p-29;
         }
       }
@@ -157,7 +157,7 @@ void test_fnn_quantize_f32(void) {
   ASSERT_EQ(out[2], -128);
   ASSERT_EQ(out[3], -128);
   ASSERT_EQ(out[4], 6);
-  ASSERT_EQ(out[5], FNN_ROUNDING == FNN_ROUND_UP ? 1 : 0);
+  ASSERT_EQ(out[5], MODE == REF_ROUND_UP ? 1 : 0);
   /* a zero multiplier gives the zero point, even for infinity */
   fnn_quantize_f32_s8(in, out, 2U, 0, -1, 3);
   ASSERT_EQ(out[0], 3);

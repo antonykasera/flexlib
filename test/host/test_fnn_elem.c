@@ -7,13 +7,14 @@
  */
 
 #include "fnn_elem.h"
+#include "fnn_quant.h"
 #include "fnn_shape.h"
 #include "ref_nn.h"
 #include "test_assert.h"
 #include "test_stats.h"
 #include <string.h>
 
-#define MODE ((RefRound)FNN_ROUNDING)
+#define MODE REF_MODE
 
 static int8_t x1[65536], x2[65536], y[65536 + 1], want[65536];
 
@@ -81,7 +82,7 @@ void test_fnn_add_random(void) {
   ASSERT_EQ(bad, 0U);
 }
 
-#if FNN_ROUNDING == FNN_ROUND_GEMMLOWP
+#if FNN_RULE == FNN_ROUND_GEMMLOWP
 /* With these multipliers the output is (d2 + 1) / 2 rounded down, as
  * gemmlowp's doubling multiply rounds ties up. */
 void test_fnn_add_ties(void) {

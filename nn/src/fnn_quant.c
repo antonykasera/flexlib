@@ -13,18 +13,21 @@ static int32_t sat32(int64_t v) {
   return v < INT32_MIN ? INT32_MIN : (v > INT32_MAX ? INT32_MAX : (int32_t)v);
 }
 
-FX_COLD int32_t fnn_requant_wide(int32_t acc, int32_t mult, int32_t rsh) {
-#if FNN_ROUNDING == FNN_ROUND_GEMMLOWP
+FX_COLD int32_t fnn_requant_wide_gemmlowp(int32_t acc, int32_t mult,
+                                          int32_t rsh) {
   int64_t x = (int64_t)acc * (1LL << (-1 - rsh));
   return (int32_t)(fx_smlal(1LL << 30, sat32(x), mult) >> 31);
-#else
+}
+
+FX_COLD int32_t fnn_requant_wide_up(int32_t acc, int32_t mult, int32_t rsh) {
   uint32_t ts = (uint32_t)(32 + rsh);
-  int64_t r = 1LL << (ts - 1U);
-#if FNN_ROUNDING == FNN_ROUND_AWAY
-  r -= (int64_t)(acc < 0);
-#endif
+  return sat32(fx_smlal(1LL << (ts - 1U), acc, mult) >> ts);
+}
+
+FX_COLD int32_t fnn_requant_wide_away(int32_t acc, int32_t mult, int32_t rsh) {
+  uint32_t ts = (uint32_t)(32 + rsh);
+  int64_t r = (1LL << (ts - 1U)) - (int64_t)(acc < 0);
   return sat32(fx_smlal(r, acc, mult) >> ts);
-#endif
 }
 
 void fnn_requant_s8(const int32_t *acc, int8_t *y, uint32_t n,

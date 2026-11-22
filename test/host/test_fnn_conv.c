@@ -15,7 +15,7 @@
 #include <math.h>
 #include <string.h>
 
-#define MODE ((RefRound)FNN_ROUNDING)
+#define MODE REF_MODE
 #define XMAX 4096U
 #define WMAX 12000U
 #define CMAX 64U
