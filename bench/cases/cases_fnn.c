@@ -13,6 +13,7 @@
 #include "fnn_dense.h"
 #include "fnn_dwconv.h"
 #include "fnn_lut.h"
+#include "fnn_pool.h"
 #include "fnn_quant.h"
 #include "fnn_softmax.h"
 #include <math.h>
@@ -57,6 +58,7 @@ static int32_t acc[256 + 4], bias[CH], bf256[CH], bf128[CH], bf64[12];
 static int32_t mult[CH], shift[CH]; /* CMSIS-NN takes TFLite's shifts */
 static int8_t rsh[CH];
 static int8_t lut[256];
+static FNN_Mean mean64 = {{5U, 5U, 64U}, ZX, 0, 0, {ZY, -128, 127}};
 
 static uint32_t rnd(uint32_t *s) {
   *s ^= *s << 13;
@@ -102,6 +104,7 @@ static void setup(void) {
   fnn_fold_bias_s8(wpool, 256U, 64U, bias, ZX, bf256);
   fnn_fold_bias_s8(wpool, 128U, 64U, bias, ZX, bf128);
   fnn_fold_bias_s8(wpool, 64U, 12U, bias, ZX, bf64);
+  (void)fnn_mean_quant(1.0, 25U, &mean64.mult, &mean64.rsh);
 #ifdef BENCH_HAVE_CMSIS_NN
   c_check();
 #endif
@@ -202,6 +205,113 @@ static uint32_t dwconv_valid(uint32_t off) {
   return 0U;
 }
 BLOCK(b_dw64v, dwconv_valid(x), 1600U)
+
+static const FNN_Pool mp16 = {{16U, 16U, 16U}, {8U, 8U, 16U}, 2U, 2U, 2U, 2U,
+                              0U,              0U,            -128, 127};
+static const FNN_Pool ap64 = {{5U, 5U, 64U}, {1U, 1U, 64U}, 5U, 5U, 1U, 1U,
+                              0U,            0U,            -128, 127};
+static uint32_t pool(uint32_t off, const FNN_Pool *p, int avg) {
+  if (avg) {
+    fnn_avgpool_s8(p, xin + off, yout);
+  } else {
+    fnn_maxpool_s8(p, xin + off, yout);
+  }
+  return 0U;
+}
+static uint32_t mean(uint32_t off) {
+  fnn_mean_s8(&mean64, xin + off, yout);
+  return 0U;
+}
+BLOCK(b_maxpool16, pool(x, &mp16, 0), 1024U)
+BLOCK(b_avgpool64, pool(x, &ap64, 1), 64U)
+BLOCK(b_mean64, mean(x), 64U)
+
+/* The library's window, for the candidates below. */
+static const int8_t *win(const FNN_Pool *p, const int8_t *x, uint32_t oy,
+                         uint32_t ox, uint32_t *nky, uint32_t *nkx) {
+  int32_t iy = (int32_t)(oy * p->sh) - (int32_t)p->pt;
+  int32_t ix = (int32_t)(ox * p->sw) - (int32_t)p->pl;
+  int32_t ky0 = -iy > 0 ? -iy : 0, kx0 = -ix > 0 ? -ix : 0;
+  int32_t ky1 = (int32_t)p->in.h - iy, kx1 = (int32_t)p->in.w - ix;
+  ky1 = ky1 < (int32_t)p->kh ? ky1 : (int32_t)p->kh;
+  kx1 = kx1 < (int32_t)p->kw ? kx1 : (int32_t)p->kw;
+  *nky = (uint32_t)(ky1 - ky0);
+  *nkx = (uint32_t)(kx1 - kx0);
+  return x + ((uint32_t)(iy + ky0) * p->in.w + (uint32_t)(ix + kx0)) * p->in.c;
+}
+
+BENCH_CALL static void k_maxpool4(const FNN_Pool *p, const int8_t *x,
+                                  int8_t *y) {
+  uint32_t c = p->in.c, row = p->in.w * c;
+  for (uint32_t oy = 0U; oy < p->out.h; oy++) {
+    for (uint32_t ox = 0U; ox < p->out.w; ox++, y += c) {
+      uint32_t nky, nkx;
+      const int8_t *w = win(p, x, oy, ox, &nky, &nkx);
+      for (uint32_t j = 0U; j + 4U <= c; j += 4U) {
+        const int8_t *r = w + j;
+        int32_t m0 = -128, m1 = -128, m2 = -128, m3 = -128;
+        for (uint32_t ky = 0U; ky < nky; ky++, r += row) {
+          const int8_t *q = r;
+          for (uint32_t kx = 0U; kx < nkx; kx++, q += c) {
+            m0 = q[0] > m0 ? q[0] : m0;
+            m1 = q[1] > m1 ? q[1] : m1;
+            m2 = q[2] > m2 ? q[2] : m2;
+            m3 = q[3] > m3 ? q[3] : m3;
+          }
+        }
+        y[j] = (int8_t)(m0 < p->lo ? p->lo : (m0 > p->hi ? p->hi : m0));
+        y[j + 1U] = (int8_t)(m1 < p->lo ? p->lo : (m1 > p->hi ? p->hi : m1));
+        y[j + 2U] = (int8_t)(m2 < p->lo ? p->lo : (m2 > p->hi ? p->hi : m2));
+        y[j + 3U] = (int8_t)(m3 < p->lo ? p->lo : (m3 > p->hi ? p->hi : m3));
+      }
+    }
+  }
+}
+
+static int32_t avg_away(int32_t s, int32_t n) {
+  return (s > 0 ? s + n / 2 : s - n / 2) / n;
+}
+
+BENCH_CALL static void k_avgpool_lanes(const FNN_Pool *p, const int8_t *x,
+                                       int8_t *y) {
+  uint32_t c = p->in.c, row = p->in.w * c;
+  for (uint32_t oy = 0U; oy < p->out.h; oy++) {
+    for (uint32_t ox = 0U; ox < p->out.w; ox++, y += c) {
+      uint32_t nky, nkx;
+      const int8_t *w = win(p, x, oy, ox, &nky, &nkx);
+      uint32_t n = nky * nkx;
+      for (uint32_t j = 0U; j + 4U <= c; j += 4U) {
+        const int8_t *r = w + j;
+        uint32_t e = 0U, o = 0U;
+        for (uint32_t ky = 0U; ky < nky; ky++, r += row) {
+          const int8_t *q = r;
+          for (uint32_t kx = 0U; kx < nkx; kx++, q += c) {
+            uint32_t v;
+            memcpy(&v, q, 4U);
+            v ^= 0x80808080U;
+            e += v & 0x00FF00FFU;
+            o += (v >> 8) & 0x00FF00FFU;
+          }
+        }
+        uint32_t s[4] = {e & 0xFFFFU, o & 0xFFFFU, e >> 16, o >> 16};
+        for (uint32_t i = 0U; i < 4U; i++) {
+          int32_t v = avg_away((int32_t)(s[i] - 128U * n), (int32_t)n);
+          y[j + i] =
+              (int8_t)(v < p->lo ? p->lo : (v > p->hi ? p->hi : v));
+        }
+      }
+    }
+  }
+}
+
+static uint32_t pool_with(uint32_t off, const FNN_Pool *p,
+                          void (*k)(const FNN_Pool *, const int8_t *,
+                                    int8_t *)) {
+  k(p, xin + off, yout);
+  return 0U;
+}
+BLOCK(b_maxpool4, pool_with(x, &mp16, k_maxpool4), 1024U)
+BLOCK(b_avgpool_lanes, pool_with(x, &ap64, k_avgpool_lanes), 64U)
 
 BENCH_CALL static void k_px2(const int8_t *xa, const int8_t *xb,
                              const int8_t *w, uint32_t half, uint32_t n,
@@ -895,6 +1005,13 @@ static const BenchCase cases[] = {
     {"fnn_dwconv_s8, 3 x 3, 64 x 5 x 5", "flexlib", b_dw64, true},
     {"fnn_dwconv_s8, 3 x 3, 64 x 7 x 7 to 5 x 5, VALID", "flexlib", b_dw64v,
      true},
+    {"fnn_maxpool_s8, 2 x 2, 16 x 16 x 16", "flexlib", b_maxpool16, true},
+    {"fnn_avgpool_s8, 5 x 5 x 64 to 1 x 1", "flexlib", b_avgpool64, true},
+    {"fnn_mean_s8, 5 x 5 x 64", "flexlib", b_mean64, true},
+    {"max pool 2 x 2, 16 x 16 x 16, four channels in registers", "candidate",
+     b_maxpool4, true},
+    {"average pool 5 x 5 x 64, four channels in 16-bit lanes of two words",
+     "candidate", b_avgpool_lanes, true},
     {"fnn_lut_s8, 1024", "flexlib", b_lut, true},
     {"table 1024, eight a pass, each looked up and stored in turn",
      "candidate", b_lut8, true},
