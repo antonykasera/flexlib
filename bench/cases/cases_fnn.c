@@ -1000,7 +1000,13 @@ BLOCK(b_dequant_mul, dequant_mul(x), 4U * FN)
 #ifdef BENCH_HAVE_CMSIS_NN
 /* CMSIS-NN as it ships, with gemmlowp's rounding */
 
-static int8_t cbuf[1024];
+/* The largest buffer a case asks for: 2 x 16 x 5 int16 for the 1 x n
+ * convolution, or 64 x 3 x 3 for the depthwise kernel's DSP path. */
+#ifdef __ARM_FEATURE_DSP
+static int8_t cbuf[1152];
+#else
+static int8_t cbuf[512];
+#endif
 
 static const cmsis_nn_fc_params fc_p = {-ZX, 0, ZY, {-128, 127}};
 static const cmsis_nn_conv_params conv_p = {-ZX,    ZY,     {1, 1},
