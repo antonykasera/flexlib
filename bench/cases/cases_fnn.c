@@ -8,10 +8,12 @@
  */
 
 #include "bench.h"
+#include "fnn_convert.h"
 #include "fnn_dense.h"
 #include "fnn_lut.h"
 #include "fnn_quant.h"
 #include "fnn_softmax.h"
+#include <math.h>
 #ifdef BENCH_HAVE_CMSIS_NN
 #include "arm_nnfunctions.h"
 #include "arm_nnsupportfunctions.h"
@@ -44,6 +46,11 @@ _Static_assert(BENCH_SCRATCH_SIZE >= 8192U, "inputs and outputs");
 /* The softmax table, past the largest output (2304 bytes). */
 #define etab ((uint32_t *)(void *)(bench_scratch + 7168U))
 _Static_assert(XLEN + XOFF + 2304U <= 7168U, "outputs clear of the table");
+/* Float inputs sit between the largest output and the table. */
+#define fin ((float *)(void *)(bench_scratch + 6464U))
+#define FN 128U
+_Static_assert(XLEN + XOFF + 2304U <= 6464U && 6464U + 4U * (FN + 16U) <= 7168U,
+               "float inputs clear of the outputs and the table");
 static int32_t acc[256 + 4], bias[CH], bf256[CH], bf64[12];
 static int32_t mult[CH], shift[CH]; /* CMSIS-NN takes TFLite's shifts */
 static int8_t rsh[CH];
@@ -83,6 +90,9 @@ static void setup(void) {
     lut[i] = (int8_t)rnd(&s);
   }
   /* About exp(-d / 16), in integers: the host and the board agree. */
+  for (unsigned i = 0U; i < FN + 16U; i++) {
+    fin[i] = (float)(int32_t)rnd(&s) * 0x1p-31f * 6.0f;
+  }
   etab[0] = 1U << 31;
   for (unsigned d = 1U; d < 256U; d++) {
     etab[d] = etab[d - 1U] - etab[d - 1U] / 16U;
@@ -524,6 +534,75 @@ BENCH_UNARY_DEF(b_argmax12, uint32_t, in_off, uint32_t,
 BENCH_UNARY_DEF(b_argmax256, uint32_t, in_off, uint32_t,
                 fnn_argmax_s8(xin + x, 256U), (void)0, (void)0)
 
+#define SCALE 0.05f
+static int32_t qm15, qm31, qmf, dm15;
+static int8_t qr15, qr31, qrf, dr15;
+
+static void conv_setup(void) {
+  static bool done;
+  if (!done) {
+    done = true;
+    (void)fnn_quant_from_scale(0x1p-15 / (double)SCALE, &qm15, &qr15);
+    (void)fnn_quant_from_scale(0x1p-31 / (double)SCALE, &qm31, &qr31);
+    (void)fnn_quant_from_scale(1.0 / (double)SCALE, &qmf, &qrf);
+    (void)fnn_quant_from_scale(0x1p15 * (double)SCALE, &dm15, &dr15);
+  }
+}
+
+static uint32_t quant(uint32_t off, unsigned kind) {
+  conv_setup();
+  switch (kind) {
+  case 0:
+    fnn_quantize_q15_s8((const int16_t *)(void *)(xin + (off & ~1U)), yout,
+                        256U, qm15, qr15, ZY);
+    break;
+  case 1:
+    fnn_quantize_q31_s8((const int32_t *)(void *)(xin + (off & ~3U)), yout,
+                        256U, qm31, qr31, ZY);
+    break;
+  case 2:
+    fnn_quantize_f32_s8(fin + off % 16U, yout, FN, qmf, qrf, ZY);
+    break;
+  case 3:
+    fnn_dequantize_s8_q15(xin + off, (int16_t *)(void *)yout, 256U, dm15,
+                          dr15, ZY);
+    break;
+  default:
+    fnn_dequantize_s8_f32(xin + off, (float *)(void *)yout, FN, SCALE, ZY);
+    break;
+  }
+  return 0U;
+}
+BLOCK(b_quant_q15, quant(x, 0U), 256U)
+BLOCK(b_quant_q31, quant(x, 1U), 256U)
+BLOCK(b_quant_f32, quant(x, 2U), FN)
+BLOCK(b_dequant_q15, quant(x, 3U), 512U)
+BLOCK(b_dequant_f32, quant(x, 4U), 4U * FN)
+
+BENCH_CALL static void k_quant_tfl(const float *x, int8_t *y, uint32_t n,
+                                   float s, int32_t zp) {
+  for (uint32_t i = 0U; i < n; i++) {
+    int32_t v = (int32_t)roundf(x[i] / s) + zp;
+    y[i] = (int8_t)(v < -128 ? -128 : (v > 127 ? 127 : v));
+  }
+}
+BENCH_CALL static void k_dequant_mul(const int8_t *x, float *y, uint32_t n,
+                                     float s, int32_t zp) {
+  for (uint32_t i = 0U; i < n; i++) {
+    y[i] = s * (float)(x[i] - zp);
+  }
+}
+static uint32_t quant_tfl(uint32_t off) {
+  k_quant_tfl(fin + off % 16U, yout, FN, SCALE, ZY);
+  return 0U;
+}
+static uint32_t dequant_mul(uint32_t off) {
+  k_dequant_mul(xin + off, (float *)(void *)yout, FN, SCALE, ZY);
+  return 0U;
+}
+BLOCK(b_quant_tfl, quant_tfl(x), FN)
+BLOCK(b_dequant_mul, dequant_mul(x), 4U * FN)
+
 #ifdef BENCH_HAVE_CMSIS_NN
 /* CMSIS-NN as it ships, with gemmlowp's rounding */
 
@@ -706,6 +785,15 @@ static const BenchCase cases[] = {
     {"argmax 12, the maximum, then its index", "candidate", b_argmax12_2, true},
     {"argmax 256, the maximum, then its index", "candidate", b_argmax256_2,
      true},
+    {"fnn_quantize_q15_s8, 256", "flexlib", b_quant_q15, true},
+    {"fnn_quantize_q31_s8, 256", "flexlib", b_quant_q31, true},
+    {"fnn_quantize_f32_s8, 128", "flexlib", b_quant_f32, true},
+    {"quantise 128 floats, roundf(x / s) in soft float", "candidate",
+     b_quant_tfl, true},
+    {"fnn_dequantize_s8_q15, 256", "flexlib", b_dequant_q15, true},
+    {"fnn_dequantize_s8_f32, 128", "flexlib", b_dequant_f32, true},
+    {"dequantise 128 to float, the soft-float multiply", "candidate",
+     b_dequant_mul, true},
 #ifdef BENCH_HAVE_CMSIS_NN
     {"arm_nn_requantize + clamp, 256 outputs, 64 channels", "CMSIS-NN",
      c_requant, false},

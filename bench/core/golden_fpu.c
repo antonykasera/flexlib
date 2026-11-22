@@ -490,6 +490,13 @@ const BenchGolden bench_golden[] = {
     {"fnn_argmax_s8, 256", 0x3D6A7EF9U},
     {"argmax 12, the maximum, then its index", 0xE66D2B49U},
     {"argmax 256, the maximum, then its index", 0x3D6A7EF9U},
+    {"fnn_quantize_q15_s8, 256", 0xC6F7C2ECU},
+    {"fnn_quantize_q31_s8, 256", 0xE67ED324U},
+    {"fnn_quantize_f32_s8, 128", 0xE3F283BFU},
+    {"quantise 128 floats, roundf(x / s) in soft float", 0xE3F283BFU},
+    {"fnn_dequantize_s8_q15, 256", 0x6387D70AU},
+    {"fnn_dequantize_s8_f32, 128", 0x0F0F8FFBU},
+    {"dequantise 128 to float, the soft-float multiply", 0x0F0F8FFBU},
 };
 
 const unsigned bench_golden_n = BENCH_COUNT(bench_golden);
