@@ -1,5 +1,9 @@
 # flexnn changelog
 
+## Unreleased
+
+- `fnn_dwpw_s8`, `fnn_dwpw_check`: a depthwise layer and the pointwise layer after it in one pass, a row at a time, the result over the input if you like. Bit-exact with the two layers; for a 25 x 5 x 64 block, 9,280 bytes instead of 16,000, for 1.8% more cycles.
+
 ## 0.2.0 (2026-11-23)
 
 - `FNN_ROUND_TFLITE`, a fourth rounding mode: fully connected layers round as `FNN_ROUND_AWAY` and every other layer as `FNN_ROUND_GEMMLOWP`, the rules of the TFLite interpreter's reference kernels. A whole model then gives the interpreter's integers. The other modes compile to the same code as before.

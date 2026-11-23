@@ -14,6 +14,7 @@
 #include "fnn_dense.h"
 #include "fnn_dwconv.h"
 #include "fnn_elem.h"
+#include "fnn_fused.h"
 #include "fnn_lut.h"
 #include "fnn_pool.h"
 #include "fnn_quant.h"

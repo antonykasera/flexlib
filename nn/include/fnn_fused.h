@@ -1,0 +1,48 @@
+/**
+ * @file fnn_fused.h
+ * @brief Layer pairs run together to save memory
+ *
+ * fnn_dwpw_s8() runs a depthwise layer and the pointwise layer after it a row
+ * at a time. The depthwise output never exists whole, and the result can go
+ * over the input: a block that held three tensors holds one, plus a few rows
+ * of scratch. The outputs are the two layers' bit for bit.
+ *
+ * Copyright (c) 2026 Antony Kasera
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#ifndef FNN_FUSED_H
+#define FNN_FUSED_H
+
+#include "fnn_conv.h"
+#include "fnn_dwconv.h"
+#include "fnn_types.h"
+#include <stdint.h>
+
+/** Scratch bytes fnn_dwpw_s8() needs: kh rows of the input and one row of the
+ * depthwise output. */
+#define FNN_DWPW_SCRATCH(kh, w, c_in, c_dw) ((kh) * (w) * (c_in) + (w) * (c_dw))
+
+/**
+ * Check that two layers can run as one: a depthwise layer of stride 1 whose
+ * output has its input's size, then a 1 x 1 convolution of stride 1 over it.
+ *
+ * @return `FNN_ERR_SHAPE` or `FNN_ERR_RANGE` when either layer fails its own
+ *         check, `FNN_ERR_SHAPE` when they do not fit together
+ */
+FNN_Status fnn_dwpw_check(const FNN_DwConv *dw, const FNN_Conv *pw);
+
+/**
+ * Run a depthwise layer and the pointwise layer after it.
+ *
+ * @param dw      the depthwise layer
+ * @param pw      the pointwise layer
+ * @param x       the input, `dw->in` values
+ * @param y       the output, `pw->out` values; may be x when a row of y is no
+ *                longer than a row of x
+ * @param scratch FNN_DWPW_SCRATCH() bytes; not x or y
+ */
+void fnn_dwpw_s8(const FNN_DwConv *dw, const FNN_Conv *pw, const int8_t *x,
+                 int8_t *y, int8_t *scratch);
+
+#endif /* FNN_FUSED_H */
