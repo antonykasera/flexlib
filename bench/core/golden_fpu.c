@@ -522,6 +522,8 @@ const BenchGolden bench_golden[] = {
     {"model R2, IMU gesture, converted", 0x1AA4F5A3U},
     {"model R5, 28 x 28 CNN, converted", 0xEDF46B48U},
     {"model R3, keyword spotting DS-CNN, converted", 0x4BA155EAU},
+    {"model R2 streamed, 4 new columns and the window they end", 0x354D12D5U},
+    {"model R2 run whole on the windows the streamed R2 ends", 0x354D12D5U},
     {"fnn_dwpw_s8, 3 x 3 then 1 x 1, 12 x 5 x 64, in place", 0x475D9FC7U},
     {"fnn_dwconv_s8 then fnn_conv_s8, 12 x 5 x 64", 0x475D9FC7U},
     {"fnn_convpool_s8, 3 x 3 then 2 x 2 max, 14 x 14 x 8 to 7 x 7 x 16", 0x4ADC87A3U},

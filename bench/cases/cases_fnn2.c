@@ -87,6 +87,58 @@ MODEL(b_r2, r2(x), R2_OUT_LEN)
 MODEL(b_r5, r5(x), R5_OUT_LEN)
 MODEL(b_r3, r3(x), R3_OUT_LEN)
 
+/* R2 over a signal of 380 columns whose last 124 repeat its first. Sample i
+ * pushes columns 124 + 4i to 127 + 4i, which end the window from column 4i. */
+#define PERIOD 256U
+#define r2_sig ((int8_t *)(void *)(bench_scratch + 1056U))
+#define r2_st ((R2_Stream *)(void *)(bench_scratch + 2208U))
+#define r2_step_arena ((uint8_t *)(void *)(bench_scratch + 4736U))
+#define r2_win_arena ((uint8_t *)(void *)(bench_scratch + 4800U))
+_Static_assert((PERIOD + 124U) * R2_STEP_IN_LEN <= 2208U - 1056U &&
+                   2208U + sizeof(R2_Stream) <= 4736U &&
+                   R2_STEP_ARENA_SIZE <= 64U &&
+                   4800U + R2_ARENA_SIZE <= BENCH_SCRATCH_SIZE &&
+                   R2_STEP_HOP == 4U && R2_IN_LEN == 128U * R2_STEP_IN_LEN,
+               "the streamed R2's buffers");
+
+static const int8_t *column(uint32_t t) {
+  return r2_sig + (t % PERIOD) * R2_STEP_IN_LEN;
+}
+
+/* Each run starts from a fresh stream, filled up to its first window. */
+static inline uint32_t window_idx(uint32_t u) {
+  static uint32_t calls;
+  (void)u;
+  setup();
+  if (calls % BENCH_N == 0U) {
+    for (uint32_t i = 0U; i < (PERIOD + 124U) * R2_STEP_IN_LEN; i++) {
+      r2_sig[i] = xin[i % (PERIOD * R2_STEP_IN_LEN)];
+    }
+    r2_stream_init(r2_st);
+    for (uint32_t t = 0U; t < 124U; t++) {
+      (void)r2_step(r2_st, column(t), yout, r2_step_arena);
+    }
+  }
+  return calls++ % BENCH_N;
+}
+
+static uint32_t r2_hop(uint32_t i) {
+  uint32_t t = 124U + 4U * i, got = 0U;
+  for (uint32_t k = 0U; k < 4U; k++) {
+    got += r2_step(r2_st, column(t + k), yout, r2_step_arena);
+  }
+  return got;
+}
+static uint32_t r2_window(uint32_t i) {
+  r2_run(column(4U * i), yout, r2_win_arena);
+  return 1U;
+}
+#define WINDOW(name, call)                                                     \
+  BENCH_UNARY_DEF(name, uint32_t, window_idx, uint32_t, (call),                \
+                  h = bench_hash(h, yout, R2_OUT_LEN), (void)0)
+WINDOW(b_r2_hop, r2_hop(x))
+WINDOW(b_r2_window, r2_window(x))
+
 #define W61                                                                    \
   2, 40, 2, -63, -50, 13, 45, 7, -82, 15, -32, 91, 42, -51, -14, -53, 12, -32, \
       120, 79, -21, -86, -102, 108, -112, -127, -112, -80, -62, -124, 40, 67,  \
@@ -260,6 +312,10 @@ static const BenchCase cases[] = {
     {"model R2, IMU gesture, converted", "flexlib", b_r2, true},
     {"model R5, 28 x 28 CNN, converted", "flexlib", b_r5, true},
     {"model R3, keyword spotting DS-CNN, converted", "flexlib", b_r3, true},
+    {"model R2 streamed, 4 new columns and the window they end", "flexlib",
+     b_r2_hop, true},
+    {"model R2 run whole on the windows the streamed R2 ends", "flexlib",
+     b_r2_window, true},
     {"fnn_dwpw_s8, 3 x 3 then 1 x 1, 12 x 5 x 64, in place", "flexlib", b_dwpw,
      true},
     {"fnn_dwconv_s8 then fnn_conv_s8, 12 x 5 x 64", "flexlib", b_dw_pw, true},
