@@ -196,11 +196,12 @@ class Layer:
     buffers."""
 
     def __init__(self, op, kind, reads, writes, decls="", call="", flash=0,
-                 macs=0, scratch=0, in_place=(), outer=0, packed=False):
+                 macs=0, scratch=0, in_place=(), outer=0, packed=False, geom=None):
         self.op, self.kind, self.reads, self.writes = op, kind, reads, writes
         self.decls, self.call, self.flash = decls, call, flash
         self.macs, self.scratch = macs, scratch
         self.in_place, self.outer, self.packed = in_place, outer, packed
+        self.geom, self.ops = geom, (op,)
 
 
 def pack_rows(w):
@@ -354,7 +355,8 @@ def lower_conv(op, T, ctx):
              f"1u, {zx}, {{m{n}, r{n}, {len(mult)}u}}, {{{zy}, {lo}, {hi}}}}};\n")
     return Layer(op, "conv", [xin.idx], [y.idx], decls,
                  f"fnn_conv_s8(&l{n}, {{x0}}, {{y}}, {{s}});", w.data.size + 9 * oc,
-                 oh * ow * oc * kh * kw * c, scratch=kh * kw * c, packed=True)
+                 oh * ow * oc * kh * kw * c, scratch=kh * kw * c, packed=True,
+                 geom=(h, iw, c, oh, ow, oc, kh, kw, sh, sw, pt, pl))
 
 
 def lower_depthwise(op, T, ctx):
@@ -383,7 +385,7 @@ def lower_depthwise(op, T, ctx):
              f"{zx}, {{m{n}, r{n}, {len(mult)}u}}, {{{zy}, {lo}, {hi}}}}};\n")
     return Layer(op, "depthwise", [xin.idx], [y.idx], decls,
                  f"fnn_dwconv_s8(&l{n}, {{x0}}, {{y}});", w.data.size + 9 * oc,
-                 oh * ow * oc * kh * kw)
+                 oh * ow * oc * kh * kw, geom=(h, iw, c, oh, ow, oc, kh, kw, sh, sw, pt, pl))
 
 
 def _same_quant(op, a, b):
@@ -754,6 +756,49 @@ def lower(tensors, ops, ctx):
     return layers
 
 
+def fusible(layers, outputs):
+    """Each depthwise layer that fnn_dwpw_s8() can run with the 1 x 1
+    convolution reading its output, mapped to that convolution."""
+    find = _alias_root(layers)
+    ends = {find(t) for t in outputs}
+    pairs = {}
+    for i, L in enumerate(layers):
+        if L.kind != "depthwise":
+            continue
+        r = find(L.writes[0])
+        readers = [j for j, M in enumerate(layers)
+                   if M.kind != "alias" and any(find(t) == r for t in M.reads)]
+        if r in ends or len(readers) != 1:
+            continue
+        P = layers[readers[0]]
+        h, w, _, oh, ow, _, _, _, sh, sw, _, _ = L.geom
+        if (P.kind == "conv" and P.reads == L.writes and sh == sw == 1 and
+                (oh, ow) == (h, w) and P.geom[6:10] == (1, 1, 1, 1)):
+            pairs[i] = readers[0]
+    return pairs
+
+
+def fuse(layers, pairs):
+    """The layers with each pair in pairs run as one fnn_dwpw_s8() call."""
+    by_pw = {j: i for i, j in pairs.items()}
+    out = []
+    for j, P in enumerate(layers):
+        if j in pairs:
+            continue
+        if j not in by_pw:
+            out.append(P)
+            continue
+        D = layers[by_pw[j]]
+        _, w, c, _, _, c_dw, kh = D.geom[:7]
+        F = Layer(D.op, "dwpw", D.reads, P.writes, D.decls + P.decls,
+                  f"fnn_dwpw_s8(&l{D.op.idx}, &l{P.op.idx}, {{x0}}, {{y}}, {{s}});",
+                  D.flash + P.flash, D.macs + P.macs, scratch=kh * w * c + w * c_dw,
+                  in_place=(0,) if P.geom[5] <= c else (), packed=P.packed)
+        F.ops = (D.op, P.op)
+        out.append(F)
+    return out
+
+
 def _alias_root(layers):
     group = {}
 
@@ -1051,9 +1096,21 @@ def convert(path, out_dir, name=None, tflite_tables=False):
     rest, v = fold(tensors, ops, outputs)
     rest, pads = fold_pads(tensors, rest, outputs, v)
     ctx = {"T": tensors, "v": v, "pad": pads, "tflite_tables": tflite_tables}
-    layers = lower(tensors, rest, ctx)
-    p = min((plan(tensors, layers, inputs, outputs, a, b) for a in (True, False)
-             for b in (True, False)), key=lambda q: (q.arena, -len(q.sliced), -len(q.over)))
+    lowered = lower(tensors, rest, ctx)
+
+    def best(layers):
+        return min((plan(tensors, layers, inputs, outputs, a, b) for a in (True, False)
+                    for b in (True, False)),
+                   key=lambda q: (q.arena, -len(q.sliced), -len(q.over)))
+    # A fused pair runs slower and is kept only when it shrinks the arena.
+    pairs = can = fusible(lowered, outputs)
+    p = best(fuse(lowered, pairs))
+    for i in list(pairs):
+        fewer = {k: j for k, j in pairs.items() if k != i}
+        q = best(fuse(lowered, fewer))
+        if q.arena <= p.arena:
+            pairs, p = fewer, q
+    layers = fuse(lowered, pairs)
     verify(tensors, layers, inputs, outputs, p)
     name = ident(name or Path(path).stem)
     h, c = emit(name, Path(path).name, tensors, layers, p, inputs, outputs)
@@ -1061,12 +1118,16 @@ def convert(path, out_dir, name=None, tflite_tables=False):
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{name}.h").write_text(h)
     (out / f"{name}.c").write_text(c)
-    folded = len(ops) - len(layers) - len(pads)
+    folded = len(ops) - len(lowered) - len(pads)
+    idx = ["+".join(str(o.idx) for o in L.ops) for L in layers]
+    wide = max(3, *map(len, idx))
     rows = [f"{name}: {len(ops)} operators, {folded} of them only shapes and "
             f"{len(pads)} padding{'' if len(pads) == 1 else 's'}. Arena {p.arena} B, "
             f"with {p.bound} B live at the "
-            f"busiest layer. Constants {sum(L.flash for L in layers)} B.",
-            f"  {'op':>3}  {'operator':18} {'kernel':9} {'MACs':>9} {'flash':>7}  "
+            f"busiest layer. Constants {sum(L.flash for L in layers)} B." +
+            (f" {len(pairs)} of {len(can)} depthwise and pointwise pairs fused." if can
+             else ""),
+            f"  {'op':>{wide}}  {'operator':18} {'kernel':9} {'MACs':>9} {'flash':>7}  "
             f"{'reads':12} {'writes':16} scratch"]
     for i, L in enumerate(layers):
         if L.kind == "alias":
@@ -1074,7 +1135,7 @@ def convert(path, out_dir, name=None, tflite_tables=False):
         reads = ", ".join(str(p.where[t]) for t in L.reads)
         writes = str(p.where[L.writes[0]]) + (", in place" if i in p.over else "")
         kind = "no copy" if i in p.sliced else L.kind
-        rows.append(f"  {L.op.idx:3}  {L.op.name:18} {kind:9} {L.macs:9} {L.flash:5} B  "
+        rows.append(f"  {idx[i]:>{wide}}  {L.op.name:18} {kind:9} {L.macs:9} {L.flash:5} B  "
                     f"{reads:12} {writes:16} {p.scratch.get(i, '')}".rstrip())
     return name, "\n".join(rows)
 

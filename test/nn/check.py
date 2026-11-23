@@ -890,7 +890,7 @@ def case_plans(out_dir, count=300, checked=10, seed=500):
     return count, shared, bad
 
 
-ARENAS = {"r2": 2928, "r5": 6284, "r3": 16064, "rows": 400, "mixed": 2048,
+ARENAS = {"r2": 2928, "r5": 6284, "r3": 9280, "rows": 400, "mixed": 2048,
           "cnn_keras": 2076, "mlp_keras": 48}
 
 
