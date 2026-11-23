@@ -24,7 +24,6 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-# FNN_LAYOUT_VERSION of the order pack_rows() writes.
 LAYOUT_VERSION = 1
 
 
@@ -194,7 +193,7 @@ def lut_table(f, s_x, zx, s_y, zy):
 class Layer:
     """One flexnn call, with the tensors it reads and writes, its constants as
     C, and the call text in which {x0}, {x1}, {y} and {s} stand for its
-    buffers. in_place lists the inputs the kernel may write its output over."""
+    buffers."""
 
     def __init__(self, op, kind, reads, writes, decls="", call="", flash=0,
                  macs=0, scratch=0, in_place=(), outer=0, packed=False):
@@ -237,8 +236,7 @@ def _quant(n, mult, rsh):
 
 
 def _channel_quant(op, x, w, y, n_out):
-    """Multiplies the scales in double. A float32 product rounds some
-    multipliers differently."""
+    """A float32 product of the scales rounds some multipliers differently."""
     if any(z != 0 for z in w.zp):
         raise _err(op, "weights must have zero points of 0")
     s_w = w.scale if len(w.scale) == n_out else w.scale[:1]
@@ -770,19 +768,13 @@ def _alias_root(layers):
 
 
 class Plan:
-    """Where each tensor lives, the arena offset of each layer's scratch, the
-    concatenations that need no copy and the layers that write over an
-    input."""
-
     def __init__(self, where, scratch, arena, bound, sliced, over):
         self.where, self.scratch, self.arena, self.bound = where, scratch, arena, bound
         self.sliced, self.over = sliced, over
 
 
 def plan(tensors, layers, inputs, outputs, in_place=True, slices=True):
-    """Gives every tensor a buffer and every layer's scratch an offset. Live
-    buffers share bytes only where a layer writes over an input that dies
-    there, or where a concatenation's inputs are written straight into it."""
+    """Live buffers share bytes only for an output over a dying input or a join's slices."""
     find = _alias_root(layers)
     ext = {}
     for t in inputs:
@@ -920,9 +912,7 @@ def plan(tensors, layers, inputs, outputs, in_place=True, slices=True):
 
 
 def verify(tensors, layers, inputs, outputs, p):
-    """Replays the plan with every byte tagged by the value it holds, and
-    fails where a layer would read an overwritten value or write over one it
-    may not."""
+    """Replays the plan byte by byte, each byte tagged with the value it holds."""
     find = _alias_root(layers)
     made = {find(layers[i].writes[0]): layers[i] for i in p.sliced}
 
@@ -1062,7 +1052,6 @@ def convert(path, out_dir, name=None, tflite_tables=False):
     rest, pads = fold_pads(tensors, rest, outputs, v)
     ctx = {"T": tensors, "v": v, "pad": pads, "tflite_tables": tflite_tables}
     layers = lower(tensors, rest, ctx)
-    # The smallest arena wins, then the plan that leaves out the most copies.
     p = min((plan(tensors, layers, inputs, outputs, a, b) for a in (True, False)
              for b in (True, False)), key=lambda q: (q.arena, -len(q.sliced), -len(q.over)))
     verify(tensors, layers, inputs, outputs, p)

@@ -83,7 +83,6 @@ def load(libdir):
 
 
 def tfl_round(v):
-    """Rounds half away from zero."""
     return int(np.sign(v) * np.floor(abs(v) + 0.5))
 
 
@@ -806,8 +805,7 @@ def net_mixed(rng):
 
 
 def net_rows(rng):
-    """Joins along a single row where the model is busiest, and layers the
-    planner must not run in place."""
+    """Joins at the busiest point, and layers that must not run in place."""
     n = Net([1, 4, 4, 2], rng)
     n.conv(4, 3, 3)
     n.pool("MAX_POOL_2D", 3, 3, (1, 1), same=True)
@@ -835,7 +833,6 @@ def net_rows(rng):
 
 
 def net_random(rng):
-    """A random graph of layers that can share memory."""
     n = Net([1, int(rng.integers(3, 9)), int(rng.integers(3, 9)),
              int(rng.choice([1, 3, 4, 8]))], rng)
     maps = [n.x]
@@ -876,8 +873,7 @@ def net_random(rng):
 
 
 def case_plans(out_dir, count=300, checked=10, seed=500):
-    """Random graphs converted, each plan replayed byte by byte inside the
-    converter, and the first few run against the interpreter."""
+    """Random graphs converted, the first few run against the interpreter."""
     bad, shared = 0, 0
     for k in range(count):
         path = Path(out_dir) / f"plan{k}.tflite"
@@ -894,14 +890,12 @@ def case_plans(out_dir, count=300, checked=10, seed=500):
     return count, shared, bad
 
 
-# The arena each model should get.
 ARENAS = {"r2": 2928, "r5": 6284, "r3": 16064, "rows": 400, "mixed": 2048,
           "cnn_keras": 2076, "mlp_keras": 48}
 
 
 def case_arenas(out_dir):
-    """Converts the named models and returns their arenas, live bounds and
-    the arenas they should get."""
+    """Each named model's arena, live bound and wanted arena."""
     rows = []
     made = [("r2", net_r2), ("r5", net_r5), ("r3", net_r3), ("rows", net_rows),
             ("mixed", net_mixed)]
@@ -939,8 +933,7 @@ def case_net(name, make, runs, out_dir, seed, tflite_tables=False):
     return name, n, bad
 
 
-# At these scales a multiplier from the float32 product of the scales rounds some
-# sums differently from the interpreter's fully connected layer.
+# Scales where a multiplier from the float32 product rounds some sums apart.
 FC_TIE_SCALES = ((0.0281082876, 0.00989397056, 0.0380361415),
                  (0.080838725, 0.00272454624, 0.0402170271),
                  (0.0974520966, 0.00797197688, 0.0396611318))

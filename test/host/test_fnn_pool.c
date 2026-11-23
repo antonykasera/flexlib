@@ -41,8 +41,7 @@ static int dims(uint32_t in, uint32_t k, uint32_t s, int same, uint32_t *out,
   return 1;
 }
 
-/* Runs both pools, on a new x when fill is set, and in place over a copy of x
- * when nothing pads the window above or to the left. */
+/* Runs both pools, on a new x when fill is set, then in place where allowed. */
 static unsigned run(const Case *t, uint64_t *r, int fill, int *ran) {
   uint32_t oh, ow, pt, pl;
   *ran = 0;

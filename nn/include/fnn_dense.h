@@ -46,8 +46,7 @@ void fnn_dense_s8(const FNN_Dense *l, const int8_t *x, int8_t *y);
 void fnn_dense_pack_s8(const int8_t *w, uint32_t n_in, uint32_t n_out,
                        int8_t *packed);
 
-/** The order fnn_dense_pack_s8() writes. It goes up whenever that order
- * changes, and code that stores packed weights can check it. */
+/** The order fnn_dense_pack_s8() writes, raised whenever it changes. */
 #define FNN_LAYOUT_VERSION 1
 
 /**
