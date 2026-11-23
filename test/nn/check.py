@@ -109,7 +109,7 @@ def case_fc_requant(libs, s_in, s_w, s_out, zx, zy, step, act=0, n=16):
     xs = list(range(-128, 128))
     got = tfl.run_reference(m.build(), [np.array([[v]], np.int8) for v in xs])
 
-    eff = float(np.float32(s_in) * np.float32(s_w)) / float(np.float32(s_out))
+    eff = float(np.float32(s_in)) * float(np.float32(s_w)) / float(np.float32(s_out))
     lo, hi = act_range(act, s_out, zy)
     bad = []
     for lib in libs:
@@ -145,7 +145,7 @@ def case_dense(libs, n_in, n_out, act, seed, runs=200):
     xs = [rng.integers(-128, 128, (1, n_in), dtype=np.int8) for _ in range(runs)]
     got = tfl.run_reference(m.build(), xs)
 
-    eff = float(np.float32(s_in) * np.float32(s_w)) / float(np.float32(s_out))
+    eff = float(np.float32(s_in)) * float(np.float32(s_w)) / float(np.float32(s_out))
     lo, hi = act_range(act, s_out, zy)
     wc = np.ascontiguousarray(w)
     packed = np.zeros(n_in * n_out, np.int8)
@@ -195,7 +195,8 @@ def case_conv(libs, ih, iw, ic, oc, kh, kw, s, same, act, per_channel, seed,
     xs = [rng.integers(-128, 128, (1, ih, iw, ic), dtype=np.int8)
           for _ in range(runs)]
     got = tfl.run_reference(m.build(), xs)
-    scales = np.array([v / float(np.float32(s_out)) for v in bscale])
+    scales = np.array([float(np.float32(s_in)) * float(v) / float(np.float32(s_out))
+                       for v in s_w])
     lo, hi = act_range(act, s_out, zy)
     dims = np.array([ih, iw, ic, oh, ow, oc, kh, kw, s, s, pt, pl], np.uint32)
     wc = np.ascontiguousarray(w)
@@ -252,7 +253,8 @@ def case_dwconv(libs, ih, iw, ic, mult, kh, kw, s, same, act, per_channel, seed,
     xs = [rng.integers(-128, 128, (1, ih, iw, ic), dtype=np.int8)
           for _ in range(runs)]
     got = tfl.run_reference(m.build(), xs)
-    scales = np.array([v / float(np.float32(s_out)) for v in bscale])
+    scales = np.array([float(np.float32(s_in)) * float(v) / float(np.float32(s_out))
+                       for v in s_w])
     lo, hi = act_range(act, s_out, zy)
     dims = np.array([ih, iw, ic, oh, ow, oc, kh, kw, s, s, pt, pl], np.uint32)
     wc = np.ascontiguousarray(w.reshape(-1))
@@ -437,7 +439,7 @@ def build_model(layers, softmax, rng):
                      scale=float(f32(s_x) * f32(s_w)), zp=0, data=bias)
         y = m.tensor(f"y{i}", [1, n_out], tfl.INT8, scale=s_y, zp=z_y)
         m.op("FULLY_CONNECTED", [cur, wt, b], [y], FusedActivationFunction=act)
-        eff = float(f32(s_x) * f32(s_w)) / float(f32(s_y))
+        eff = float(f32(s_x)) * float(f32(s_w)) / float(f32(s_y))
         plan.append((np.ascontiguousarray(w), bias, z_x, eff, z_y)
                     + act_range(act, s_y, z_y))
         cur, s_x, z_x = y, s_y, z_y
@@ -812,8 +814,8 @@ def case_net(name, make, runs, out_dir, seed, tflite_tables=False):
     return name, n, bad
 
 
-# Scales where the interpreter's double-precision FULLY_CONNECTED and a 31-bit
-# multiplier from the float product of the scales round some sums apart.
+# At these scales a multiplier from the float32 product of the scales rounds some
+# sums differently from the interpreter's fully connected layer.
 FC_TIE_SCALES = ((0.0281082876, 0.00989397056, 0.0380361415),
                  (0.080838725, 0.00272454624, 0.0402170271),
                  (0.0974520966, 0.00797197688, 0.0396611318))
