@@ -20,11 +20,49 @@ FNN_Status fnn_dwpw_check(const FNN_DwConv *dw, const FNN_Conv *pw) {
   if (dw->sh != 1U || dw->sw != 1U || dw->out.h != dw->in.h ||
       dw->out.w != dw->in.w || pw->kh != 1U || pw->kw != 1U || pw->sh != 1U ||
       pw->sw != 1U || pw->pt != 0U || pw->pl != 0U || pw->in.h != dw->out.h ||
-      pw->in.w != dw->out.w || pw->in.c != dw->out.c ||
-      pw->out.h != pw->in.h || pw->out.w != pw->in.w) {
+      pw->in.w != dw->out.w || pw->in.c != dw->out.c || pw->out.h != pw->in.h ||
+      pw->out.w != pw->in.w) {
     return FNN_ERR_SHAPE;
   }
   return FNN_OK;
+}
+
+FNN_Status fnn_convpool_check(const FNN_Conv *c, const FNN_Pool *p) {
+  FNN_Status s = fnn_conv_check(c);
+  if (s == FNN_OK) {
+    s = fnn_pool_check(p);
+  }
+  if (s != FNN_OK) {
+    return s;
+  }
+  if (p->in.h != c->out.h || p->in.w != c->out.w || p->in.c != c->out.c) {
+    return FNN_ERR_SHAPE;
+  }
+  return FNN_OK;
+}
+
+void fnn_convpool_s8(const FNN_Conv *c, const FNN_Pool *p, const int8_t *x,
+                     int8_t *y, int8_t *scratch) {
+  uint32_t row = c->in.w * c->in.c, out_row = p->out.w * p->out.c;
+  int8_t *patch = scratch + p->kh * c->out.w * c->out.c;
+  FNN_Conv rows = *c;
+  FNN_Pool one = *p;
+  one.out.h = 1U;
+  one.pt = 0U;
+  for (uint32_t r = 0U; r < p->out.h; r++) {
+    /* The window's conv rows, r0 to r1 - 1, and the input rows they start at.
+     */
+    uint32_t top = r * p->sh, r0 = top > p->pt ? top - p->pt : 0U;
+    uint32_t r1 =
+        top + p->kh - p->pt < c->out.h ? top + p->kh - p->pt : c->out.h;
+    uint32_t iy = r0 * c->sh, a = iy > c->pt ? iy - c->pt : 0U;
+    rows.in.h = c->in.h - a;
+    rows.out.h = r1 - r0;
+    rows.pt = c->pt > iy ? c->pt - iy : 0U;
+    fnn_conv_s8(&rows, x + a * row, scratch, patch);
+    one.in.h = r1 - r0;
+    fnn_maxpool_s8(&one, scratch, y + r * out_row);
+  }
 }
 
 void fnn_dwpw_s8(const FNN_DwConv *dw, const FNN_Conv *pw, const int8_t *x,

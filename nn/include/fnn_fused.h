@@ -5,7 +5,9 @@
  * fnn_dwpw_s8() runs a depthwise layer and the pointwise layer after it a row
  * at a time. The depthwise output never exists whole, and the result can go
  * over the input: a block that held three tensors holds one, plus a few rows
- * of scratch. The outputs are the two layers' bit for bit.
+ * of scratch. fnn_convpool_s8() runs a convolution and the max pool after it
+ * a pooled row at a time, and the convolution's output never exists whole
+ * either. The outputs are the two layers' bit for bit.
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0
@@ -16,6 +18,7 @@
 
 #include "fnn_conv.h"
 #include "fnn_dwconv.h"
+#include "fnn_pool.h"
 #include "fnn_types.h"
 #include <stdint.h>
 
@@ -44,5 +47,31 @@ FNN_Status fnn_dwpw_check(const FNN_DwConv *dw, const FNN_Conv *pw);
  */
 void fnn_dwpw_s8(const FNN_DwConv *dw, const FNN_Conv *pw, const int8_t *x,
                  int8_t *y, int8_t *scratch);
+
+/** Scratch bytes fnn_convpool_s8() needs: pkh rows of the convolution's output,
+ * w by c_out, and its kh x kw x c_in patch. */
+#define FNN_CONVPOOL_SCRATCH(pkh, w, c_out, kh, kw, c_in)                      \
+  ((pkh) * (w) * (c_out) + (kh) * (kw) * (c_in))
+
+/**
+ * Check that two layers can run as one: a convolution, then a max pool over
+ * its output.
+ *
+ * @return `FNN_ERR_SHAPE` or `FNN_ERR_RANGE` when either layer fails its own
+ *         check, `FNN_ERR_SHAPE` when they do not fit together
+ */
+FNN_Status fnn_convpool_check(const FNN_Conv *c, const FNN_Pool *p);
+
+/**
+ * Run a convolution and the max pool after it.
+ *
+ * @param c       the convolution
+ * @param p       the max pool
+ * @param x       the input, `c->in` values
+ * @param y       the output, `p->out` values; not x
+ * @param scratch FNN_CONVPOOL_SCRATCH() bytes; not x or y
+ */
+void fnn_convpool_s8(const FNN_Conv *c, const FNN_Pool *p, const int8_t *x,
+                     int8_t *y, int8_t *scratch);
 
 #endif /* FNN_FUSED_H */
