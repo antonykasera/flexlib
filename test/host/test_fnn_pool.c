@@ -12,11 +12,13 @@
 #include "test_assert.h"
 #include "test_stats.h"
 #include <math.h>
+#include <string.h>
 
 #define MODE REF_MODE
 #define XMAX 4096U
 
-static int8_t x[XMAX], y[XMAX + 1U], want[XMAX];
+static int8_t x[XMAX], y[XMAX + 1U], z[XMAX + 1U], want[XMAX];
+static unsigned in_place;
 
 typedef struct {
   uint32_t ih, iw, c, kh, kw, sh, sw;
@@ -39,7 +41,8 @@ static int dims(uint32_t in, uint32_t k, uint32_t s, int same, uint32_t *out,
   return 1;
 }
 
-/* Runs both pools, on a new x when fill is set. */
+/* Runs both pools, on a new x when fill is set, and in place over a copy of x
+ * when nothing pads the window above or to the left. */
 static unsigned run(const Case *t, uint64_t *r, int fill, int *ran) {
   uint32_t oh, ow, pt, pl;
   *ran = 0;
@@ -84,6 +87,20 @@ static unsigned run(const Case *t, uint64_t *r, int fill, int *ran) {
     for (uint32_t i = 0U; i < ny; i++) {
       bad += y[i] != want[i];
     }
+    if (pt == 0U && pl == 0U) {
+      memcpy(z, x, nx);
+      z[nx] = 55;
+      if (avg) {
+        fnn_avgpool_s8(&p, z, z);
+      } else {
+        fnn_maxpool_s8(&p, z, z);
+      }
+      bad += z[nx] != 55;
+      for (uint32_t i = 0U; i < ny; i++) {
+        bad += z[i] != want[i];
+      }
+      in_place++;
+    }
   }
   return bad;
 }
@@ -92,6 +109,7 @@ void test_fnn_pool_random(void) {
   static const uint32_t chans[] = {1, 2, 3, 4, 5, 7, 8, 9, 16, 17, 64};
   uint64_t r = 0x9001U;
   unsigned bad = 0U, ran = 0U;
+  in_place = 0U;
   for (unsigned rep = 0U; rep < 4000U; rep++) {
     Case t;
     t.ih = 1U + test_rng_u32(&r) % 9U;
@@ -108,6 +126,7 @@ void test_fnn_pool_random(void) {
   }
   ASSERT_EQ(bad, 0U);
   ASSERT_TRUE(ran > 3000U);
+  ASSERT_TRUE(in_place > 3000U);
 }
 
 /* Runs the bench's layers, global pools and the extremes. */

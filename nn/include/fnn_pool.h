@@ -42,12 +42,12 @@ typedef struct {
  */
 FNN_Status fnn_pool_check(const FNN_Pool *p);
 
-/** Keep the largest value under each window, then clamp it; y must not be
- * x. */
+/** Keep the largest value under each window, then clamp it. y may be x when
+ * pt and pl are 0. */
 void fnn_maxpool_s8(const FNN_Pool *p, const int8_t *x, int8_t *y);
 
 /** Average the values under each window, rounding half away from zero as
- * TFLite does, then clamp; y must not be x. */
+ * TFLite does, then clamp. y may be x when pt and pl are 0. */
 void fnn_avgpool_s8(const FNN_Pool *p, const int8_t *x, int8_t *y);
 
 /** A mean over height and width, with one output per channel. */
