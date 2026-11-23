@@ -1,6 +1,6 @@
 # flexdsp changelog
 
-## Unreleased
+## 0.6.0 (2026-11-23)
 
 - `fd_mfcc.h`: mel filter banks (`fd_mel_init`, `fd_mel_q15`), natural logs in Q16.16 (`fd_log_q16`) and the orthonormal DCT-II (`fd_dct2_init`, `fd_dct2_q31`), all integer. A 512-sample MFCC frame takes 60,247 cycles on the Cortex-M3 against 199,630 for `arm_mfcc_q15`.
 

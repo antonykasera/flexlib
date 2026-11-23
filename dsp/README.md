@@ -7,10 +7,10 @@
 flexdsp is signal processing for Cortex-M parts without an FPU: arithmetic
 on blocks of samples, FIR and biquad filters, windows, tone detection, noise,
 FFTs, correlation, adaptive filters, sample-rate conversion and the features
-speech models read. It works in
-Q15 and Q31 on flexmath's fixed-point core, and the FIR, biquad, FFT,
-convolution, correlation and sums also come in float, computed on the same
-integer kernels, and need no FPU either. Plain C11, no allocation.
+speech models read. It works in Q15 and Q31 on flexmath's fixed-point core,
+and the FIR, biquad, FFT, convolution, correlation and sums also come in
+float, computed on the same integer kernels, and need no FPU either. Plain
+C11, no allocation.
 
 Here a 31-tap lowpass at 0.1 cycles per sample is fed DC plus a tone at half
 the sample rate:

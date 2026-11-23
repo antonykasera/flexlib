@@ -4,6 +4,14 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md),
 [nn/CHANGELOG.md](nn/CHANGELOG.md).
 
+## v0.10.0 (2026-11-23)
+
+flexnn 0.3.0, flexdsp 0.6.0.
+
+- flexnn: a depthwise layer and its 1 x 1 convolution, and a convolution and its max pool, run as one pass, and `fnn_tflite.py` fuses them when that shrinks the arena. 1-D layers run one input column at a time (`fnn_stream.h`), and `fnn_tflite.py --stream` writes a step function for a whole model. `fnn_dwconv_s8` is 6-14% faster ([nn/CHANGELOG.md](nn/CHANGELOG.md)).
+- flexdsp: mel bands, their logs and the DCT-II for speech features, all integer (`fd_mfcc.h`, [dsp/CHANGELOG.md](dsp/CHANGELOG.md)).
+- Bench: the keyword-spotting model R3 converted, the fused pairs, R2 streamed and MFCC frames against CMSIS-DSP's.
+
 ## v0.9.0 (2026-11-23)
 
 flexnn 0.2.0.

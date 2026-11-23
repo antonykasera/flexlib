@@ -7,11 +7,11 @@
 flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It has fully connected, convolution
-and depthwise layers, a depthwise and pointwise pair and a convolution and its
-max pool in one pass, pooling and mean, add and concatenation, activation functions as tables, softmax and
-argmax, conversions in and out of int8, and the step every layer ends with,
-turning its int32 sums into int8 outputs. `fnn_tflite.py` turns a TFLite model
-into C that calls these layers, as
+and depthwise layers, pooling and mean, add and concatenation, activation
+functions as tables, softmax and argmax, conversions in and out of int8, and
+the step every layer ends with, turning its int32 sums into int8 outputs. Layer
+pairs run in one pass, and 1-D layers one input column at a time.
+`fnn_tflite.py` turns a TFLite model into C that calls these layers, as
 [Converting a model](#converting-a-model-nntoolsfnn_tflitepy) shows, and
 [A whole model, by hand](#a-whole-model-by-hand) puts one together without it.
 

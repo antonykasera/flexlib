@@ -18,7 +18,8 @@ FPU, signal processing, and small neural networks:
   features, in fixed point and float.
 - **[flexnn](nn/README.md)** (`fnn_`): int8 inference with the arithmetic of
   TFLite's models: fully connected, convolution and depthwise layers, pooling,
-  activations, softmax, and a converter from `.tflite` to C.
+  activations, softmax, a converter from `.tflite` to C, and 1-D models run
+  as their input arrives.
 
 It is C11 with no dependencies and no dynamic memory. Every function states
 how accurate it is, and each library's README shows how many cycles it takes
@@ -68,9 +69,9 @@ release archive:
 
 ```sh
 git submodule add https://github.com/antonykasera/flexlib.git lib/flexlib
-git -C lib/flexlib checkout v0.9.0
+git -C lib/flexlib checkout v0.10.0
 # or
-tar xf flexlib-0.9.0.tar.gz -C lib
+tar xf flexlib-0.10.0.tar.gz -C lib
 ```
 
 With [flex](https://github.com/antonykasera/STM32F1-HAL) v1.1.2 or later,
@@ -94,7 +95,7 @@ brings the ones it depends on, and your toolchain and MCU flags apply to
 flexlib as to the rest of your code:
 
 ```cmake
-set(FLEXLIB_REQUIRE 0.9.0)                   # optional: stop if lib/flexlib is older
+set(FLEXLIB_REQUIRE 0.10.0)                   # optional: stop if lib/flexlib is older
 set(FLEXLIB_DEFINES "FU_CRC_SMALL")          # optional: the build options
 add_subdirectory(lib/flexlib)
 target_link_libraries(app PRIVATE flexlib::dsp)   # or flexlib::nn, ::math, ::utils
@@ -107,8 +108,8 @@ directory:
 ```cmake
 include(FetchContent)
 FetchContent_Declare(flexlib
-  URL https://github.com/antonykasera/flexlib/releases/download/v0.9.0/flexlib-0.9.0.tar.gz
-  URL_HASH SHA256=...)   # the hash in the release's flexlib-0.9.0.tar.gz.sha256
+  URL https://github.com/antonykasera/flexlib/releases/download/v0.10.0/flexlib-0.10.0.tar.gz
+  URL_HASH SHA256=...)   # the hash in the release's flexlib-0.10.0.tar.gz.sha256
 FetchContent_MakeAvailable(flexlib)
 target_link_libraries(app PRIVATE flexlib::dsp)
 ```
@@ -121,7 +122,7 @@ failed argument check traps by default. Define `FX_ASSERT_FAIL(file, line)`
 to report it your own way, or `FX_DISABLE_ASSERT` to remove the checks. Each
 library's README lists its other options.
 
-If you set `FLEXLIB_REQUIRE := 0.9.0` before the include, the build stops
+If you set `FLEXLIB_REQUIRE := 0.10.0` before the include, the build stops
 when `lib/flexlib` is older than that.
 
 To upgrade, read the CHANGELOGs, then check out the new tag or unpack the new
@@ -130,9 +131,9 @@ not.
 
 ## Versions
 
-Each library has its own version and tags (`flexdsp-v0.5.0`). A repository
-release (`v0.9.0`) bundles one of each: flexutils 0.1.2, flexmath 0.2.5,
-flexdsp 0.5.0, flexnn 0.2.0. The `fx_` prefix is the shared layer under all
+Each library has its own version and tags (`flexdsp-v0.6.0`). A repository
+release (`v0.10.0`) bundles one of each: flexutils 0.1.2, flexmath 0.2.5,
+flexdsp 0.6.0, flexnn 0.3.0. The `fx_` prefix is the shared layer under all
 four.
 
 Planned: flexctrl (`fct_`, control), flexcomm (`fco_`, protocols),

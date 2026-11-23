@@ -12,7 +12,7 @@
 /** Major version. */
 #define FLEXLIB_VERSION_MAJOR 0
 /** Minor version. */
-#define FLEXLIB_VERSION_MINOR 9
+#define FLEXLIB_VERSION_MINOR 10
 /** Patch version. */
 #define FLEXLIB_VERSION_PATCH 0
 

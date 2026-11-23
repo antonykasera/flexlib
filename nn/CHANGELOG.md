@@ -1,6 +1,6 @@
 # flexnn changelog
 
-## Unreleased
+## 0.3.0 (2026-11-23)
 
 - `fnn_dwpw_s8`, `fnn_dwpw_check`: a depthwise layer and the 1 x 1 convolution after it in one pass, in place. A 25 x 5 x 64 block needs 9,280 bytes instead of 16,000.
 - `fnn_tflite.py` fuses a depthwise layer and its 1 x 1 convolution when that shrinks the arena. R3 needs 9,280 bytes instead of 16,064.
