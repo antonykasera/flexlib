@@ -7,8 +7,8 @@
 flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It has fully connected, convolution
-and depthwise layers, a depthwise and pointwise pair in one pass, pooling and
-mean, add and concatenation, activation functions as tables, softmax and
+and depthwise layers, a depthwise and pointwise pair and a convolution and its
+max pool in one pass, pooling and mean, add and concatenation, activation functions as tables, softmax and
 argmax, conversions in and out of int8, and the step every layer ends with,
 turning its int32 sums into int8 outputs. `fnn_tflite.py` turns a TFLite model
 into C that calls these layers, as
@@ -314,6 +314,74 @@ The fused block takes 1.9% more cycles, for the rows it copies, and a third
 less memory. The keyword-spotting model's 25 x 5 x 64 blocks go from 16,000
 bytes to 9,280. `fnn_tflite.py` fuses such a pair whenever that makes a
 model's arena smaller.
+
+## A convolution and its max pool in one pass (`fnn_fused.h`)
+
+A convolution followed by a max pool holds the convolution's whole output, often
+the largest tensor in a small CNN, only for the pool to keep a quarter of it.
+`fnn_convpool_s8` runs the convolution on just the rows one pooled row needs
+and pools them straight into the result:
+
+```c
+#include <stdio.h>
+
+#include "fnn_fused.h"
+#include "fnn_quant.h"
+
+int main(void) {
+  /* a 4 x 4 image of one channel, counting 1 to 16 */
+  int8_t x[16], w[9], y[4];
+  for (int i = 0; i < 16; i++) {
+    x[i] = (int8_t)(i + 1);
+  }
+  for (int i = 0; i < 9; i++) {
+    w[i] = 1;
+  }
+  int32_t mult;
+  int8_t rsh;
+  fnn_quant_from_scale(1.0, &mult, &rsh);
+  const FNN_Conv c = {w, NULL, {4, 4, 1}, {4, 4, 1}, 3, 3, 1, 1, 1, 1, 0, 0,
+                      {&mult, &rsh, 1}, {0, -128, 127}};
+  const FNN_Pool p = {{4, 4, 1}, {2, 2, 1}, 2, 2, 2, 2, 0, 0, -128, 127};
+  int8_t scratch[FNN_CONVPOOL_SCRATCH(2, 4, 1, 3, 3, 1)];
+  if (fnn_convpool_check(&c, &p) != FNN_OK) {
+    return 1;
+  }
+  fnn_convpool_s8(&c, &p, x, y, scratch);
+  printf("%d %d\n%d %d\n", y[0], y[1], y[2], y[3]);
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+54 63
+90 99
+```
+
+Each convolution output adds its 3 x 3 neighbourhood, with the padding at zero,
+and the pool keeps the largest sum in each quarter of the image: 54 around 6,
+63 around 7, 90 around 10 and 99 around 11. The 16 convolution outputs never
+existed at once. The scratch held two of their rows and the convolution's
+9-value patch, 17 bytes.
+
+`fnn_convpool_check` accepts any convolution and any max pool over its output,
+with any window, stride and padding. Pool windows that overlap compute the rows
+they share again, which costs time but not exactness. The outputs are the two
+layers' bit for bit, and the result may not go over the input.
+
+For R5's second pair, a 3 x 3 convolution from 8 to 16 channels on 14 x 14 and
+a 2 x 2 max pool, on an STM32F103 at 72 MHz (`-O2`):
+
+| block | memory | cycles |
+| --- | --: | --: |
+| `fnn_conv_s8` then `fnn_maxpool_s8` | 5560 B | 1250333 |
+| `fnn_convpool_s8` | 2872 B | 1252292 |
+
+The fused pair takes 0.2% more cycles and half the memory. `fnn_tflite.py`
+fuses a convolution and the max pool reading its output whenever that makes a
+model's arena smaller, and R5 then needs 2,872 bytes instead of 6,284.
 
 ## Pooling and mean (`fnn_pool.h`)
 
@@ -837,27 +905,25 @@ later layer reads, and their rows say so. Here is the start of the report for
 the small CNN in `test/nn/models/cnn_keras.tflite`:
 
 ```text
-cnn_keras: 10 operators, 0 of them only shapes and 1 padding. Arena 2076 B, with 2075 B live at the busiest layer. Constants 3013 B. 0 of 1 depthwise and pointwise pairs fused.
+cnn_keras: 10 operators, 0 of them only shapes and 1 padding. Arena 1280 B, with 1280 B live at the busiest layer. Constants 3013 B. 2 of 2 layer pairs fused.
    op  operator           kernel         MACs   flash  reads        writes           scratch
-    0  CONV_2D            conv          55296   288 B  in           0                2048
-    1  MAX_POOL_2D        pool              0     0 B  0            0, in place
-    2  DEPTHWISE_CONV_2D  depthwise      4608   144 B  0            512
-    3  CONV_2D            conv           4096   136 B  512          1024             1536
-    4  ADD                add               0     0 B  0, 1024      0, in place
+  0+1  CONV_2D            convpool      55296   288 B  in           0                512
+  2+3  DEPTHWISE_CONV_2D  dwpw           8704   280 B  0            512              1024
+    4  ADD                add               0     0 B  0, 512       0, in place
 ```
 
-The max pool writes its 512 bytes over the start of the convolution's 2048, and
-the residual add writes over its first input. Without those two the arena would
-be 2560 bytes. A concatenation of single rows, such as heads joined after a
-global pool, needs no copy either: each head is written straight into its
-place in the result, and the row says "no copy". A depthwise layer whose output
-only a 1 x 1 convolution reads can run with it as one `fnn_dwpw_s8` call. The
-fused call takes about 2% longer, and the converter fuses a pair only when that
-makes the arena smaller. Its row then names both operators, as in `1+2`. In
-this model the first convolution sets the arena, and operators 2 and 3 run
-apart. The first line counts the pairs fused and gives the most bytes live at
-any one layer. When the arena matches that, no other placement of these tensors
-is smaller.
+The first convolution and its max pool run as one `fnn_convpool_s8` call, and
+the row names both operators. The convolution's 2048-byte output never exists.
+The pool's 512 bytes are written a row at a time from scratch at offset 512.
+The depthwise layer and the 1 x 1 convolution after it run the same way through
+`fnn_dwpw_s8`, and the residual add writes over its first input. Run apart,
+the same layers need 2076 bytes. A fused call takes up to 2% longer, and the
+converter fuses a pair only when that makes the arena smaller. A concatenation
+of single rows, such as heads joined after a global pool, needs no copy either.
+Each head is written straight into its place in the result, and the row says
+"no copy". The first line counts the pairs fused and gives the most bytes live
+at any one layer. When the arena matches that, no other placement of these
+tensors is smaller.
 
 `--check` builds the generated C with flexnn on your PC, runs it and the TFLite
 interpreter on 200 random inputs, or on the inputs in a `.npy` file given with
@@ -889,12 +955,13 @@ weights in flash:
 | model | multiply-accumulates | arena | flexnn | CMSIS-NN |
 | --- | --: | --: | --: | --: |
 | R2, IMU gesture, three 1-D convolutions, pools, a mean, dense 8 | 261,440 | 2928 B | 1,446,289 | 1,769,539 |
-| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 6284 B | 2,329,052 | 2,857,898 |
-| R3, keyword spotting, a 10 x 4 convolution, four depthwise and pointwise pairs, mean, dense 12, softmax | 2,656,768 | 9280 B | 17,821,522 | |
+| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 2872 B | 2,329,423 | 2,856,783 |
+| R3, keyword spotting, a 10 x 4 convolution, four depthwise and pointwise pairs, mean, dense 12, softmax | 2,656,768 | 9280 B | 17,820,503 | |
 
 R2 and R5 run about 1.2 times as fast as CMSIS-NN: R2 in 20 ms and R5 in
-32 ms. CMSIS-NN has no MEAN, and its R2 uses a global average pool in its
-place. R3 takes 248 ms with its four depthwise and pointwise pairs fused.
+32 ms. R5 runs each convolution with its max pool fused, in 2872 bytes where
+the layers apart need 6284. CMSIS-NN has no MEAN, and its R2 uses a global
+average pool in its place. R3 takes 248 ms with its four depthwise and pointwise pairs fused.
 Through CMSIS-NN's layers it would need 16,000 bytes for one pair's depthwise
 output and result alone, more than the F103 can spare next to the bench, and it
 has no CMSIS-NN time here.
@@ -1020,6 +1087,11 @@ other: 3000 random blocks with filters up to 5 x 5 and any padding, channel
 multipliers 1 and 2, 1 to 24 output channels and both weight layouts, in
 every rounding mode, each also run in place where a row of the result fits in
 a row of the input, with guard bytes after the output and the scratch.
+Convolutions and the max pools after them against the two layers run one after
+the other: 3000 random pairs with filters up to 4 x 4, strides 1 and 2, any
+padding, pool windows up to 3 x 3 with any stride and padding, among them 510
+whose windows overlap and 1140 padded above, both weight layouts, in every
+rounding mode, with guard bytes after the output and the scratch.
 
 Convolutions against a reference written in TFLite's terms, which subtracts
 the zero point per tap and skips the taps outside the input: 3000 random layers
@@ -1070,8 +1142,13 @@ It fuses one that shrinks the arena, also behind a PAD or with two outputs per
 channel, and runs it in place when a row of the result fits. It leaves apart a
 depthwise layer of stride 2, even on a single row, one that shrinks the map, a
 3 x 3 convolution after one, a depthwise output read twice or given as the
-model's output, and pairs that would not shrink the arena. Each block also runs
-against the interpreter.
+model's output, and pairs that would not shrink the arena. Eight more check the
+convolution and max pool pairs. It fuses a 2 x 2 pool and an overlapping SAME
+pool, and leaves apart an average pool, a RESHAPE between the two, a
+convolution output read twice or given as the model's output, and a pair that
+would not shrink the arena. A depthwise layer, a 1 x 1 convolution and a max
+pool in a row make two pairs that share the convolution, and only the first
+fuses. Each block also runs against the interpreter.
 
 Adds against a reference in TFLite's terms for `FNN_ROUND_GEMMLOWP` and an
 exact 64-bit sum for the other modes: all 65,536 pairs of int8 inputs at nine
