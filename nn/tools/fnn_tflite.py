@@ -24,6 +24,8 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
+# FNN_LAYOUT_VERSION of the order pack_rows() writes.
+LAYOUT_VERSION = 1
 
 
 def _mod(name):
@@ -195,11 +197,25 @@ class Layer:
     buffers. in_place lists the inputs the kernel may write its output over."""
 
     def __init__(self, op, kind, reads, writes, decls="", call="", flash=0,
-                 macs=0, scratch=0, in_place=(), outer=0):
+                 macs=0, scratch=0, in_place=(), outer=0, packed=False):
         self.op, self.kind, self.reads, self.writes = op, kind, reads, writes
         self.decls, self.call, self.flash = decls, call, flash
         self.macs, self.scratch = macs, scratch
-        self.in_place, self.outer = in_place, outer
+        self.in_place, self.outer, self.packed = in_place, outer, packed
+
+
+def pack_rows(w):
+    """The rows of w in the order fnn_dense_pack_s8() writes."""
+    n_out = w.shape[0]
+    parts, o = [], 0
+    while n_out - o >= 8:
+        parts.append(w[o:o + 8].T.reshape(-1))
+        o += 8
+    if n_out - o >= 4:
+        parts.append(w[o:o + 4].T.reshape(-1))
+        o += 4
+    parts.append(w[o:].reshape(-1))
+    return np.concatenate(parts).tolist()
 
 
 def _int8(op, t, what):
@@ -279,13 +295,13 @@ def lower_fully_connected(op, T, ctx):
     mult, rsh = _channel_quant(op, x, w, y, n_out)
     lo, hi = act_range(o.FusedActivationFunction(), y.scale[0], zy)
     n = op.idx
-    decls = (_array("int8_t", f"w{n}", w.data.reshape(-1).tolist()) +
+    decls = (_array("int8_t", f"w{n}", pack_rows(w.data), align=True) +
              _array("int32_t", f"b{n}", folded, per_line=8) + _quant(n, mult, rsh) +
-             f"static const FNN_Dense l{n} = {{w{n}, b{n}, {n_in}u, {n_out}u, 0u, "
+             f"static const FNN_Dense l{n} = {{w{n}, b{n}, {n_in}u, {n_out}u, 1u, "
              f"{{m{n}, r{n}, {len(mult)}u}}, {{{zy}, {lo}, {hi}}}}};\n")
     return Layer(op, "dense", [x.idx], [y.idx], decls,
                  f"fnn_dense_s8(&l{n}, {{x0}}, {{y}});",
-                 w.data.size + 9 * n_out, n_in * n_out)
+                 w.data.size + 9 * n_out, n_in * n_out, packed=True)
 
 
 def _window(op, x_t, y_t, k_h, k_w, o, ctx):
@@ -333,14 +349,14 @@ def lower_conv(op, T, ctx):
     mult, rsh = _channel_quant(op, xin, w, y, oc)
     lo, hi = act_range(o.FusedActivationFunction(), y.scale[0], zy)
     n = op.idx
-    decls = (_array("int8_t", f"w{n}", w.data.reshape(-1).tolist()) +
+    decls = (_array("int8_t", f"w{n}", pack_rows(w.data.reshape(oc, -1)), align=True) +
              _array("int32_t", f"b{n}", folded, per_line=8) + _quant(n, mult, rsh) +
              f"static const FNN_Conv l{n} = {{w{n}, b{n}, {{{h}u, {iw}u, {c}u}}, "
              f"{{{oh}u, {ow}u, {oc}u}}, {kh}u, {kw}u, {sh}u, {sw}u, {pt}u, {pl}u, "
-             f"0u, {zx}, {{m{n}, r{n}, {len(mult)}u}}, {{{zy}, {lo}, {hi}}}}};\n")
+             f"1u, {zx}, {{m{n}, r{n}, {len(mult)}u}}, {{{zy}, {lo}, {hi}}}}};\n")
     return Layer(op, "conv", [xin.idx], [y.idx], decls,
                  f"fnn_conv_s8(&l{n}, {{x0}}, {{y}}, {{s}});", w.data.size + 9 * oc,
-                 oh * ow * oc * kh * kw * c, scratch=kh * kw * c)
+                 oh * ow * oc * kh * kw * c, scratch=kh * kw * c, packed=True)
 
 
 def lower_depthwise(op, T, ctx):
@@ -963,14 +979,15 @@ def verify(tensors, layers, inputs, outputs, p):
         raise ConvertError("the memory plan leaves the wrong values in the output")
 
 
-def _array(ctype, name, values, per_line=16):
+def _array(ctype, name, values, per_line=16, align=False):
     vals = [str(v) if ctype != "int32_t" or v != -(1 << 31) else "(-2147483647 - 1)"
             for v in values]
     if ctype == "uint32_t":
         vals = [v + "u" for v in vals]
     lines = [", ".join(vals[i:i + per_line]) for i in range(0, len(vals), per_line)]
     body = ",\n    ".join(lines)
-    return f"static const {ctype} {name}[{len(values)}] = {{\n    {body}}};\n"
+    spec = "static _Alignas(4) const" if align else "static const"
+    return f"{spec} {ctype} {name}[{len(values)}] = {{\n    {body}}};\n"
 
 
 def _float(v):
@@ -1003,6 +1020,10 @@ def emit(name, src, tensors, layers, p, inputs, outputs):
          f"void {name}_run(const int8_t *in, int8_t *out, uint8_t *arena);\n\n",
          f"#endif /* {up}_H */\n"]
     c = [banner, f'#include "{name}.h"\n#include "fnn.h"\n\n']
+    if any(L.packed for L in layers):
+        c.append(f"_Static_assert(FNN_LAYOUT_VERSION == {LAYOUT_VERSION},\n"
+                 '               "these weights are packed for another version of flexnn: "\n'
+                 '               "convert the model again");\n\n')
     run = []
 
     def buf(t, const):
