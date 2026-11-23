@@ -63,6 +63,7 @@ help:
 	@echo "make consumer        a blank project builds against that archive"
 	@echo "make cmake-check     a CMake project builds against it, host and Cortex-M3"
 	@echo "make nn-check        flexnn against the TFLite interpreter (needs uv)"
+	@echo "make nn-models       rewrite bench/models/ after a converter change (needs uv)"
 	@echo "make nn-cmsis        flexnn against CMSIS-NN, bit for bit (needs make deps)"
 	@echo "make clean"
 

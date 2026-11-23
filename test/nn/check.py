@@ -1255,6 +1255,13 @@ def main():
     print(f"{'random graphs, plans replayed byte by byte':58} {n:8}  {bad:8} wrong"
           f"  ({shared} share memory)")
     failed |= bad != 0
+    import bench_models
+    stale = bench_models.stale(Path(__file__).resolve().parents[2] / "bench" / "models")
+    print(f"{'the bench\'s converted models, converted again':58} "
+          f"{2 * len(bench_models.MODELS):8}  {len(stale):8} out of date")
+    for f in stale:
+        print(f"  bench/models/{f}: run make nn-models")
+    failed |= bool(stale)
     n, bad = case_converter_arith(libs[AWAY], libs[GEMMLOWP])
     print(f"{'the converter\'s arithmetic against flexnn\'s':58} {n:8}  {bad:8} differ")
     failed |= bad != 0

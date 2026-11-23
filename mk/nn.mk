@@ -3,7 +3,7 @@
 
 NN_VENV ?= $(BUILD)/nn-venv
 NN_PY   := $(NN_VENV)/bin/python
-# bin/python links to uv's interpreter, so the stamp is a file of its own
+# bin/python links to uv's interpreter. The stamp is a file of its own.
 NN_DONE := $(NN_VENV)/.installed
 NN_SRCS  = test/nn/shim.c $(filter nn/% math/% utils/%,$(LIB_SRCS))
 NN_LIBS  = $(foreach m,0 1 2 3,$(BUILD)/nn-check/libfnn$(m).so)
@@ -21,7 +21,10 @@ $(BUILD)/nn-check/libfnn%.so: $(NN_SRCS) $(wildcard nn/include/*.h arch/*.h)
 nn-check: $(NN_DONE) $(NN_LIBS)
 	$(NN_PY) test/nn/check.py $(BUILD)/nn-check
 
-.PHONY: nn-check
+nn-models: $(NN_DONE)
+	$(NN_PY) test/nn/bench_models.py bench/models
+
+.PHONY: nn-check nn-models
 
 # nn-cmsis runs flexnn in FNN_ROUND_GEMMLOWP against CMSIS-NN built for the host.
 NN_CMSIS_DIR  ?= third_party/cmsis-nn
