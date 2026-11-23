@@ -3,7 +3,7 @@
  * @brief Status codes, rounding modes and a layer's output parameters
  *
  * A flexnn tensor is int8 with a scale and a zero point: a value q stands for
- * $s (q - z)$, as in TFLite. Every layer ends by turning its int32 sums
+ * $s (q - z)$. Every layer ends by turning its int32 sums
  * into int8: FNN_Quant holds the multiplier of each channel, and FNN_Out the
  * zero point and the clamp.
  *
@@ -20,19 +20,20 @@
  * You pick one for the whole build by defining `FNN_ROUNDING`. They only
  * differ in how a sum is requantised, and never by more than 1 in a layer.
  * @{ */
-/** Round once, ties up. The default, and what CMSIS-NN does when built with
- * `CMSIS_NN_USE_SINGLE_ROUNDING`. */
+/** Round once, ties up. The default, and CMSIS-NN's rounding when it is
+ * built with `CMSIS_NN_USE_SINGLE_ROUNDING`. */
 #define FNN_ROUND_UP 0
-/** Round once, ties away from zero, as the TFLite interpreter's reference
- * fully connected kernel does. */
+/** Round once, ties away from zero. This is the TFLite interpreter's
+ * reference fully connected kernel. */
 #define FNN_ROUND_AWAY 1
-/** Round twice, the way gemmlowp does: CMSIS-NN's default build, TFLite Micro
- * on Cortex-M, and the TFLite interpreter's reference convolution. */
+/** Round twice, with gemmlowp's arithmetic. CMSIS-NN's default build, TFLite
+ * Micro on Cortex-M and the TFLite interpreter's reference convolution all
+ * round this way. */
 #define FNN_ROUND_GEMMLOWP 2
-/** Round each layer as the TFLite interpreter's reference kernel for it does:
- * fully connected layers as `FNN_ROUND_AWAY`, every other layer as
- * `FNN_ROUND_GEMMLOWP`. With the multipliers fnn_tflite.py writes, a whole
- * model then gives the interpreter's integers. */
+/** Round fully connected layers as `FNN_ROUND_AWAY` and every other layer as
+ * `FNN_ROUND_GEMMLOWP`, the rules of the TFLite interpreter's reference
+ * kernels. With the multipliers fnn_tflite.py writes, a whole model then gives
+ * the interpreter's integers. */
 #define FNN_ROUND_TFLITE 3
 /** @} */
 

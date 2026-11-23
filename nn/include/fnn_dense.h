@@ -49,7 +49,7 @@ void fnn_dense_pack_s8(const int8_t *w, uint32_t n_in, uint32_t n_out,
 /**
  * Fold the input zero point into the biases: `b_out[o] = b[o] - zx sum w[o]`.
  * Wrapping arithmetic keeps every sum the kernel forms exact whenever the
- * layer's true output sum fits int32, as TFLite requires.
+ * layer's true output sum fits int32.
  *
  * @param w     `n_out` rows of `n_in` weights, before packing
  * @param n_in  inputs

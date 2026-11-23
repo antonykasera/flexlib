@@ -138,15 +138,15 @@ to 9 + 2 x 9 + 9 = 36, and 36 / 4 = 9. At the top the window overhangs the image
 and the padding row adds nothing: 27 / 4 = 6.75 rounds to 7. On the right the
 padding column reads as 0 and the sum turns negative.
 
-Tensors are NHWC, as in TFLite, and the filter keeps TFLite's
-`[c_out][kh][kw][c_in]` order. That is a dense layer's rows of kh kw c_in
-inputs, which is why `fnn_fold_bias_s8` takes it as it is, and why
-`fnn_dense_pack_s8` packs it for the same faster kernel. Padded taps read the
-input zero point, and with the folded bias they add exactly nothing, as in
-TFLite. The kernel copies a window into the scratch only where it overhangs the
-input or spans more than one run of memory: a 1 x 1 filter, or a 1-row filter
-over a signal, reads the input in place. `fnn_conv_check` tells you whether a
-layer's shapes, strides and padding fit together.
+Tensors are NHWC, and the filter keeps TFLite's `[c_out][kh][kw][c_in]` order.
+That is a dense layer's rows of kh kw c_in inputs, which is why
+`fnn_fold_bias_s8` takes it as it is, and why `fnn_dense_pack_s8` packs it for
+the same faster kernel. Padded taps read the input zero point, and with the
+folded bias they add exactly nothing. The kernel copies a window into the
+scratch only where it overhangs the input or spans more than one run of memory:
+a 1 x 1 filter, or a 1-row filter over a signal, reads the input in place.
+`fnn_conv_check` tells you whether a layer's shapes, strides and padding fit
+together.
 
 Cycles on an STM32F103 at 72 MHz (`-O2`, weights in the flash cache), against
 CMSIS-NN 8.0.0 built the same way, with a multiplier per output channel:
@@ -212,7 +212,7 @@ Channel 0 sums its nine pixels, 1 + 2 + ... + 9 = 45, and channel 1 keeps the
 centre, 50. The filter is TFLite's `[kh][kw][c_out]`, channel-minor like the
 image, and `fnn_dwconv_fold_bias_s8` folds the zero point over its taps. With a
 channel multiplier m, `out.c` is m times `in.c` and output channel c reads
-input channel c / m. Padding reads the input zero point, as in TFLite.
+input channel c / m. Padded taps take the input zero point.
 
 Cycles on an STM32F103 at 72 MHz (`-O2`), against CMSIS-NN 8.0.0 built the same
 way, with a multiplier per channel:
@@ -278,21 +278,21 @@ mean 9
 
 The top-left window holds 1, 2, 5 and 6: its maximum is 6 and its average 3.5,
 which rounds to 4. The bottom-left one averages to -2.5 and rounds to -3:
-averages round half away from zero, as TFLite's do, in every rounding mode.
-Pools keep the input's scale and zero point, so they take no multiplier, only
-a clamp for a fused ReLU. Taps that fall in the padding are left out, so a
-window on the border averages fewer values. A window the size of the input
-pools globally. A pool can also write its output over its input, as long as
-no padding sits above or to the left of the input. Each window then starts at
-or after the output it writes, and you save the output's buffer.
+averages round half away from zero in every rounding mode. Pools keep the
+input's scale and zero point. They take no multiplier, only a clamp for a fused
+ReLU. Taps that fall in the padding are left out, and a window on the border
+averages fewer values. A window the size of the input pools globally. A pool
+can also write its output over its input, as long as no padding sits above or
+to the left of the input. Each window then starts at or after the output it
+writes, and you save the output's buffer.
 
 The mean sums the 16 values to 68 and scales the sum by the input scale over
 the output scale, here 2, divided by 16: 8.5, which rounds to 9.
-`fnn_mean_quant` builds that multiplier the way TFLite does, truncating the
-division by n, and the sum is requantised like any layer's, so in
-`FNN_ROUND_GEMMLOWP` the result is TFLite's bit for bit. That is why the two
-are separate: Keras's global average pooling converts to TFLite's MEAN, and
-MEAN rounds differently from AVERAGE_POOL_2D even when the scales are equal.
+`fnn_mean_quant` builds that multiplier and truncates the division by n. The
+sum is then requantised like any layer's, and in `FNN_ROUND_GEMMLOWP` the
+result is TFLite's MEAN bit for bit. That is why the two are separate: Keras's
+global average pooling converts to TFLite's MEAN, and MEAN rounds differently
+from AVERAGE_POOL_2D even when the scales are equal.
 
 Cycles on an STM32F103 at 72 MHz (`-O2`), against CMSIS-NN 8.0.0 built the same
 way:
@@ -357,18 +357,18 @@ cat 10 20 5 5 -30 40 5 -128
 
 The real sums are 4, 5, 0 and -19.6, which at an output scale of 0.25 are 16,
 20, 0 and -78.4, rounded to -78. `fnn_add_init` turns the three scales into
-multipliers once, at setup. In `FNN_ROUND_GEMMLOWP` it derives them the way
-TFLite does, and the add is TFLite's bit for bit: each input is shifted up
-20 bits, scaled to half the larger input scale and rounded, and the sum is
-scaled to the output and rounded again. In the other modes both inputs are
-scaled to the output at once and the exact sum is rounded a single time. The
-output may be either input, so an add can run in place.
+multipliers once, at setup. In `FNN_ROUND_GEMMLOWP` the add is TFLite's ADD bit
+for bit: each input is shifted up 20 bits, scaled to half the larger input
+scale and rounded, and the sum is scaled to the output and rounded again. In
+the other modes both inputs are scaled to the output at once and the exact sum
+is rounded a single time. The output may be either input, which lets an add run
+in place.
 
-`fnn_concat_s8` sees each tensor as rows: for NHWC tensors joined along their
-channels, a row is one pixel, so here each of the two rows takes two channels
+`fnn_concat_s8` sees each tensor as rows. For NHWC tensors joined along their
+channels, a row is one pixel, and here each of the two rows takes two channels
 from each input. TFLite requires the inputs of an int8 concatenation to share
-the output's scale and zero point, so the values are copied unchanged.
-Reshaping and flattening need no call at all: the tensor is the same bytes.
+the output's scale and zero point. The values are copied unchanged. Reshaping
+and flattening need no call at all: the tensor is the same bytes.
 
 Cycles on an STM32F103 at 72 MHz (`-O2`), against CMSIS-NN 8.0.0 built the same
 way, with equal scales:
@@ -421,13 +421,13 @@ Which prints:
 -123 -59 0 59 123
 ```
 
-The inputs stand for -2, -0.5, 0, 0.5 and 2. Their tanh, -0.964 to 0.964,
-is -123.4 to 123.4 in steps of 1/128, and each rounds to the nearest integer.
+The inputs stand for -2, -0.5, 0, 0.5 and 2. Their tanh, -0.964 to 0.964, is
+-123.4 to 123.4 in steps of 1/128, and each rounds to the nearest integer.
 `fnn_lut_s8_build` takes any `double` function of one `double`: `tanh` from
-math.h, or one of your own for the logistic function, hard-swish or leaky
-ReLU. It works in double precision, which a Cortex-M3 runs in software: build
-tables at startup or ahead of time, not per inference. The output can
-overwrite the input, as it does here.
+math.h, or one of your own for the logistic function, hard-swish or leaky ReLU.
+It works in double precision, which a Cortex-M3 runs in software: build tables
+at startup or ahead of time, not per inference. The output can overwrite the
+input, and here it does.
 
 Every entry is the exact value rounded once, ties up, and clamped to int8.
 TFLite computes some of these functions in fixed point instead, and its
@@ -479,7 +479,7 @@ The scores stand for 1.25, 3.25, 2.25 and 0.25. Their softmax is 0.087, 0.644,
 0.237 and 0.032, and the outputs use TFLite's int8 softmax format: a scale of
 1/256 and a zero point of -128. The first output, -106, is 22/256, and 0.087 ×
 256 = 22.3 rounds to 22. `fnn_argmax_s8` returns 1, the index of 52. Of equal
-scores it picks the first, as TFLite does.
+scores it picks the first.
 
 `fnn_softmax_s8_build` fills a 1 KB table of exponentials for one input scale
 and beta, in floating point, at startup. Each output is then the table's
@@ -555,12 +555,11 @@ saturate and a NaN gives -128. Dequantising to float gives exactly the float
 product s (q - z), rounded to nearest, ties to even, and for ordinary scales
 without a soft-float multiply. Dequantising to q15 takes the multiplier for 2^15 s.
 
-TFLite's QUANTIZE from int16 rounds twice, as gemmlowp does: build with
-`FNN_ROUND_GEMMLOWP` or `FNN_ROUND_TFLITE` to match it bit for bit. From
-float, TFLite divides in float32 and then rounds the quotient, a second
-rounding: a value such as -13.4999995 becomes -13.5 and then -14, where flexnn
-gives -13. Otherwise `FNN_ROUND_AWAY`, `FNN_ROUND_GEMMLOWP` and
-`FNN_ROUND_TFLITE` match it.
+TFLite's QUANTIZE from int16 rounds twice. Build with `FNN_ROUND_GEMMLOWP` or
+`FNN_ROUND_TFLITE` to match it bit for bit. From float, TFLite divides in
+float32 and then rounds the quotient, a second rounding: a value such as
+-13.4999995 becomes -13.5 and then -14, where flexnn gives -13. Otherwise
+`FNN_ROUND_AWAY`, `FNN_ROUND_GEMMLOWP` and `FNN_ROUND_TFLITE` match it.
 
 Cycles on an STM32F103 at 72 MHz (`-O2`), against TFLite's formulas compiled
 for the Cortex-M3, where float arithmetic is software:
@@ -622,12 +621,12 @@ Which prints:
 1 xor 1 = 0
 ```
 
-With both inputs at 1, the hidden layer gives 2 and 1, and the output layer
-2 - 2 x 1 = 0. A fused ReLU is only the clamp: the hidden layer's `lo` is its
-zero point, so nothing below 0 survives. For a model you trained, each
-layer's weights, biases, scales and zero points come from its `.tflite` file,
-and its multiplier from `fnn_quant_from_scale` of the input scale times the
-weight scale over the output scale.
+With both inputs at 1, the hidden layer gives 2 and 1, and the output layer 2 -
+2 x 1 = 0. A fused ReLU is only the clamp: the hidden layer's `lo` is its zero
+point, and nothing below 0 survives. For a model you trained, each layer's
+weights, biases, scales and zero points come from its `.tflite` file, and its
+multiplier from `fnn_quant_from_scale` of the input scale times the weight
+scale over the output scale.
 
 Three such models, built in TFLite's format with random weights, run end to
 end in flexnn exactly as in the TFLite interpreter. On an STM32F103 at 72 MHz
@@ -726,25 +725,25 @@ class 2: 0.2773
 class 3: 0.3789
 ```
 
-The weights here are random, so the classes mean nothing; the four numbers are
+The weights here are random and the classes mean nothing. The four numbers are
 what the TFLite interpreter gives for the same input. TensorFlow writes
 `Flatten` as five operators: SHAPE, STRIDED_SLICE and PACK compute the shape,
-and RESHAPE applies it. Every shape is known before the model runs, so the
+and RESHAPE applies it. Every shape is known before the model runs, and the
 converter works the first three out itself and turns the RESHAPE into nothing:
 the first layer reads the input where it is. The arena holds only the tensors
 between layers, and two tensors share bytes when no layer needs both, which is
 why three hidden tensors fit in 48 bytes. The input and output stay in your
-buffers. The constants go to flash: the weights, the biases with the input
-zero point folded in, a multiplier per output channel, and the softmax's table
-of exponentials, written out so that the board never calls `exp`.
+buffers. The constants go to flash: the weights, the biases with the input zero
+point folded in, a multiplier per output channel, and the softmax's table of
+exponentials, written out so that the board never calls `exp`.
 
 `--check` builds the generated C with flexnn on your PC, runs it and the TFLite
 interpreter on 200 random inputs, or on the inputs in a `.npy` file given with
 `--inputs`, and counts the outputs that differ. It needs `ai-edge-litert` and a
 C compiler. It builds in `FNN_ROUND_TFLITE` by default, the interpreter's rule
-for each operator. `--rounding gemmlowp` builds as TFLite Micro rounds, and
-then some outputs differ from the interpreter's, as TFLite Micro's do. Build
-your firmware in the mode whose results you want.
+for each operator. `--rounding gemmlowp` gives TFLite Micro's numbers instead,
+and some of those differ from the interpreter's. Build your firmware in the
+mode whose results you want.
 
 The converter takes fully connected, convolution and depthwise layers, max and
 average pooling, MEAN over height and width, ADD of two tensors of one shape,
@@ -803,7 +802,7 @@ Which prints:
 ```
 
 `fnn_quant_from_scale` turns the real factor into a 31-bit multiplier and a
-shift the way TFLite does: a layer you build by hand gets TFLite's numbers.
+shift. A layer you build by hand gets the numbers a converted model holds.
 384 / 256 is 1.5 and rounds to 2, which the zero point moves to -8.
 -384 / 256 is -1.5, exactly between -2 and -1: flexnn's default rounds ties
 up, to -1, and the zero point makes it -11. -40000 / 256 is far below the
@@ -841,12 +840,12 @@ convolution, depthwise convolution, mean, add and QUANTIZE like
 model then gives the interpreter's integers. Build with it when the numbers you
 trust are the ones you checked on the PC. Two limits remain. The interpreter's
 fully connected layer rounds its result in double precision. The converter
-multiplies the scales in double as well, as TFLite and TFLite Micro do for
-every layer. A sum then has to fall within about 2^-32 of a tie to round
-differently, and none did in 171 million. QUANTIZE from float divides in float
-and rounds twice, and a few inputs next to a tie can differ by 1. The
-interpreter's optimised kernels, which it uses unless you ask for the reference
-ones, round differently again (half to even, through float).
+multiplies every layer's scales in double too. A sum then has to fall within
+about 2^-32 of a tie to round differently, and none did in 171 million.
+QUANTIZE from float divides in float and rounds twice, and a few inputs next to
+a tie can differ by 1. The interpreter's optimised kernels, which it uses
+unless you ask for the reference ones, round differently again (half to even,
+through float).
 
 Every input gives a defined result. Where TFLite's arithmetic would overflow
 int32 (scales of 1/2 and above with large sums), flexnn saturates.

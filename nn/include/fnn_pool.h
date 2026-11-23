@@ -4,10 +4,10 @@
  *
  * A pooling layer slides a window over each channel and keeps the largest
  * value under it, or their average. Taps that fall in the padding are left
- * out, as in TFLite, so a window on the border averages fewer values. The
- * output has the input's scale and zero point. A mean layer averages each
- * channel over the whole input and requantises the result, as TFLite's MEAN
- * over height and width does. Tensors are NHWC.
+ * out, and a window on the border averages fewer values. The output has the
+ * input's scale and zero point. A mean layer averages each channel over the
+ * whole input and requantises the result. It is TFLite's MEAN over height and
+ * width. Tensors are NHWC.
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0
@@ -46,8 +46,8 @@ FNN_Status fnn_pool_check(const FNN_Pool *p);
  * pt and pl are 0. */
 void fnn_maxpool_s8(const FNN_Pool *p, const int8_t *x, int8_t *y);
 
-/** Average the values under each window, rounding half away from zero as
- * TFLite does, then clamp. y may be x when pt and pl are 0. */
+/** Average the values under each window, rounding half away from zero,
+ * then clamp. y may be x when pt and pl are 0. */
 void fnn_avgpool_s8(const FNN_Pool *p, const int8_t *x, int8_t *y);
 
 /** A mean over height and width, with one output per channel. */
@@ -60,8 +60,8 @@ typedef struct {
 } FNN_Mean;
 
 /**
- * Find the multiplier that scales a sum of n values to their mean, the way
- * TFLite does: the multiplier for scale, divided by n and truncated.
+ * Find the multiplier that scales a sum of n values to their mean. It is the
+ * multiplier for scale, divided by n and truncated, which gives TFLite's MEAN.
  *
  * @param scale the input scale over the output scale; $>= 0$, finite
  * @param n     the values in each mean, `in.h in.w`
@@ -70,8 +70,7 @@ typedef struct {
  * @return `FNN_ERR_QUANT` for a negative or non-finite scale, `FNN_ERR_SHAPE`
  *         when n is 0
  */
-FNN_Status fnn_mean_quant(double scale, uint32_t n, int32_t *mult,
-                          int8_t *rsh);
+FNN_Status fnn_mean_quant(double scale, uint32_t n, int32_t *mult, int8_t *rsh);
 
 /**
  * Check a mean layer's shape and zero point.

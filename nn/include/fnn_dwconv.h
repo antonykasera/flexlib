@@ -5,7 +5,7 @@
  * A depthwise layer filters each input channel on its own. With a channel
  * multiplier m, output channel c reads input channel $c / m$:
  * $sum (x - z_x) w + b$ over the filter's rows and columns, requantised per
- * output channel. Taps that fall in the padding count as zero, as in TFLite.
+ * output channel. Taps that fall in the padding count as zero.
  * Tensors are NHWC and the filter is TFLite's `[kh][kw][c_out]`.
  *
  * Copyright (c) 2026 Antony Kasera

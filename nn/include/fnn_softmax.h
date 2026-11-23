@@ -43,7 +43,7 @@ void fnn_softmax_s8(const int8_t *x, int8_t *y, uint32_t n,
                     const uint32_t exp_tab[256]);
 
 /** The index of the largest of n values, n at least 1; the first of equal
- * ones, as in TFLite. */
+ * ones. */
 uint32_t fnn_argmax_s8(const int8_t *x, uint32_t n);
 
 #endif /* FNN_SOFTMAX_H */

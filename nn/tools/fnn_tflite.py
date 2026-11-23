@@ -220,7 +220,8 @@ def _quant(n, mult, rsh):
 
 
 def _channel_quant(op, x, w, y, n_out):
-    """Multiplies the scales in double, as TFLite and TFLite Micro do."""
+    """Multiplies the scales in double. A float32 product rounds some
+    multipliers differently."""
     if any(z != 0 for z in w.zp):
         raise _err(op, "weights must have zero points of 0")
     s_w = w.scale if len(w.scale) == n_out else w.scale[:1]

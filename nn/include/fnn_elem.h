@@ -30,8 +30,8 @@ typedef struct {
 } FNN_Add;
 
 /**
- * Set up an add layer from its scales, the way TFLite does in
- * `FNN_ROUND_GEMMLOWP`. Call it at setup: it uses floating point.
+ * Set up an add layer from its scales. In `FNN_ROUND_GEMMLOWP` it gives the
+ * multipliers a TFLite ADD uses. Call it at setup: it uses floating point.
  *
  * @param a  the layer
  * @param s1 first input's scale; $> 0$, finite

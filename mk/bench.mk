@@ -82,7 +82,7 @@ BENCH_SRCS    += $(if $(filter math,$(BENCH_SET)),bench/cases/cases_cmsis.c)
 BENCH_DEFS    += -DBENCH_HAVE_CMSIS_DSP
 CMSIS_DSP_INC  = -isystem $(CMSIS_DSP_DIR)/Include -isystem $(CMSIS_DSP_DIR)/PrivateInclude
 CMSIS_DSP_SRCS = $(addprefix $(CMSIS_DSP_DIR)/Source/,$(CMSIS_SRCS_$(BENCH_SET)))
-# the dsp image's baselines unroll their loops, as CMSIS-DSP's own build does
+# CMSIS-DSP's own build unrolls its loops, and the dsp images' baselines keep that
 CMSIS_DSP_DEFS = $(if $(filter dsp dsp2 dsp3 dsp4 dsp5 dsp6,$(BENCH_SET)),-DARM_MATH_LOOPUNROLL)
 endif
 endif

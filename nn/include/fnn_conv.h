@@ -5,7 +5,7 @@
  * Each output pixel is a fully connected layer over the patch of input under
  * the filter: $sum (x - z_x) w + b$ over the filter's rows, columns and input
  * channels, requantised per output channel. Taps that fall in the padding
- * count as zero, as in TFLite. Tensors are NHWC and the filter is TFLite's
+ * count as zero. Tensors are NHWC and the filter is TFLite's
  * `[c_out][kh][kw][c_in]`, which is a dense layer's rows of $kh kw c_in$
  * inputs: fnn_fold_bias_s8() and fnn_dense_pack_s8() take it as it is.
  *

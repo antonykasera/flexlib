@@ -61,7 +61,7 @@ FNN_Status fnn_quant_from_scale(double scale, int32_t *mult, int8_t *rsh) {
     q *= 2.0;
     e--;
   }
-  /* Rounds half away from zero, as TFLite's round() does. */
+  /* TFLite's round() takes halves away from zero. */
   int64_t m = (int64_t)(q * 2147483648.0 + 0.5);
   if (m == 1LL << 31) {
     m >>= 1;

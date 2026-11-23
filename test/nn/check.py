@@ -80,7 +80,7 @@ def load(libdir):
 
 
 def tfl_round(v):
-    """Rounds half away from zero as TfLiteRound does."""
+    """Rounds half away from zero."""
     return int(np.sign(v) * np.floor(abs(v) + 0.5))
 
 

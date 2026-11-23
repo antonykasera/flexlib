@@ -320,7 +320,7 @@ static unsigned long pool_cases(int avg, unsigned long *outputs) {
   return bad;
 }
 
-/* Compares adds, with the multipliers fnn_add_init() derives as TFLite does. */
+/* Compares adds, with the multipliers from fnn_add_init(). */
 static unsigned long add_cases(unsigned long *outputs) {
   unsigned long bad = 0U;
   for (unsigned rep = 0U; rep < 1000U; rep++) {

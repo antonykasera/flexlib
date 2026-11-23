@@ -97,10 +97,11 @@ void fnn_requant_s8(const int32_t *acc, int8_t *y, uint32_t n,
                     const FNN_Quant *q, const FNN_Out *o);
 
 /**
- * Find the multiplier for a real scale the way TFLite's `QuantizeMultiplier`
- * does. A layer you build by hand then gets TFLite's numbers. Scales below
- * $2^{-32}$ give a zero multiplier and scales of $2^{30}$ or more the largest
- * one. Call it at setup rather than per sample: it uses floating point.
+ * Find the multiplier for a real scale. The result equals TFLite's
+ * `QuantizeMultiplier`, and a layer you build by hand matches a converted
+ * model. Scales below $2^{-32}$ give a zero multiplier and scales of $2^{30}$
+ * or more the largest one. Call it at setup rather than per sample: it uses
+ * floating point.
  *
  * @param scale $>= 0$, finite
  * @param mult  the multiplier
