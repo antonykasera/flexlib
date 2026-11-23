@@ -955,8 +955,8 @@ weights in flash:
 | model | multiply-accumulates | arena | flexnn | CMSIS-NN |
 | --- | --: | --: | --: | --: |
 | R2, IMU gesture, three 1-D convolutions, pools, a mean, dense 8 | 261,440 | 2928 B | 1,446,289 | 1,769,539 |
-| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 2872 B | 2,329,423 | 2,856,783 |
-| R3, keyword spotting, a 10 x 4 convolution, four depthwise and pointwise pairs, mean, dense 12, softmax | 2,656,768 | 9280 B | 17,820,503 | |
+| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 2872 B | 2,337,885 | 2,852,491 |
+| R3, keyword spotting, a 10 x 4 convolution, four depthwise and pointwise pairs, mean, dense 12, softmax | 2,656,768 | 9280 B | 17,820,043 | |
 
 R2 and R5 run about 1.2 times as fast as CMSIS-NN: R2 in 20 ms and R5 in
 32 ms. R5 runs each convolution with its max pool fused, in 2872 bytes where
@@ -965,6 +965,120 @@ average pool in its place. R3 takes 248 ms with its four depthwise and pointwise
 Through CMSIS-NN's layers it would need 16,000 bytes for one pair's depthwise
 output and result alone, more than the F103 can spare next to the bench, and it
 has no CMSIS-NN time here.
+
+## Running a 1-D model as its input arrives (`fnn_stream.h`)
+
+A gesture model reads a window of the last 128 IMU samples. To classify on
+every new sample, the batch run computes all 128 columns again each time,
+though only the newest is new. A causal 1-D layer has outputs that depend only
+on the columns before them. Each such layer can keep the last few columns of
+its input and compute only the output column the new one completes:
+
+```c
+#include <stdio.h>
+
+#include "fnn_quant.h"
+#include "fnn_stream.h"
+
+int main(void) {
+  /* a sum over the last 3 values of one channel */
+  int8_t w[3] = {1, 1, 1}, hist[6], y;
+  int32_t mult;
+  int8_t rsh;
+  fnn_quant_from_scale(1.0, &mult, &rsh);
+  const FNN_Conv l = {w, NULL, {1, 8, 1}, {1, 6, 1}, 1, 3, 1, 1, 0, 0, 0, 0,
+                      {&mult, &rsh, 1}, {0, -128, 127}};
+  FNN_Stream s;
+  if (fnn_stream_init(&s, hist, 6, 3, 1, 1) != FNN_OK ||
+      fnn_stream_conv1d_check(&l, &s) != FNN_OK) {
+    return 1;
+  }
+  for (int t = 1; t <= 8; t++) {
+    int8_t x = (int8_t)(t * t);
+    if (fnn_stream_conv1d_s8(&l, &s, &x, &y)) {
+      printf("after %d: %d\n", t, y);
+    }
+  }
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+after 3: 14
+after 4: 29
+after 5: 50
+after 6: 77
+after 7: 110
+after 8: 127
+```
+
+The input is the squares 1, 4, 9 and on, one value a column. The layer is the
+same `FNN_Conv` the batch run would use over all eight columns, and each line
+is one of its six outputs: 1 + 4 + 9 = 14 once three columns have arrived,
+then one output for each column after. The last sum, 149, clamps to 127. The
+history keeps the columns the next window still needs. `fnn_stream_init` gives
+it room for six columns, twice the filter's three, and when it fills, the last
+two move to the front. A buffer as long as the window works too, but it moves
+on every column. `fnn_stream_push` gives pools, means and your own layers the
+same windows.
+
+The converter writes this for a whole model. With `--stream`, the layers from
+the input up to the first that narrows it to one column run as the columns
+arrive, and the layers after it run once per output on that column. For the
+gesture model R2, three 1-D convolutions with max pools between them, a mean
+and a dense layer:
+
+```text
+r2: 7 operators, 0 of them only shapes and 0 paddings. Arena 2928 B, with 2928 B live at the busiest layer. Constants 6920 B. 0 of 2 layer pairs fused. Streams 6 layers: an output every 4 columns, 2302 B of history, step arena 32 B.
+...
+check (tflite): 0 of 1600 outputs differ from the TFLite interpreter
+check (tflite): 0 of 800 streamed outputs differ from the batch run
+```
+
+Next to `r2_run`, the header now declares the streamed form:
+
+```c
+#define R2_STEP_IN_LEN 3u
+#define R2_STEP_HOP 4u
+#define R2_STEP_ARENA_SIZE 32u
+
+typedef struct {
+  FNN_Stream s[6];
+  int8_t h[2302];
+} R2_Stream;
+
+void r2_stream_init(R2_Stream *st);
+uint32_t r2_step(R2_Stream *st, const int8_t *in, int8_t *out,
+                 uint8_t *arena);
+```
+
+You call `r2_stream_init` once, then `r2_step` with each new sample of three
+values. It returns 1 when `out` holds a result. The two pools halve the rate
+twice, which gives a result every 4 samples, each for the window of 128
+samples ending at the sample just passed, once the first 128 have arrived.
+`--check` with `--stream` feeds the step function a long random signal and
+compares every result with `r2_run` on its window.
+
+A model streams when every layer before that column reads a single row,
+uses VALID padding and has windows that end exactly at the input's last
+column. Convolutions, depthwise layers, both pools and MEAN qualify. The
+converter names the layer that stops it otherwise. SAME padding looks ahead to
+columns that have not arrived, and a stride that leaves the last columns
+unread would end each window early.
+
+On an STM32F103 at 72 MHz (`-O2`), for the same 128-sample windows:
+
+| R2 | multiply-accumulates | memory | cycles |
+| --- | --: | --: | --: |
+| `r2_run` on the whole window | 261,440 | 2928 B | 1,446,308 |
+| `r2_step` on 4 new samples | 9,408 | 2302 + 32 B | 59,044 |
+
+Both give the same results. Streamed, R2 classifies every 4 samples in 0.8 ms,
+a twenty-fourth of the whole window's time.
+Three quarters of the history is the mean's 27 columns of 32 channels, held
+twice over.
 
 ## Requantisation (`fnn_quant.h`)
 
@@ -1092,6 +1206,18 @@ the other: 3000 random pairs with filters up to 4 x 4, strides 1 and 2, any
 padding, pool windows up to 3 x 3 with any stride and padding, among them 510
 whose windows overlap and 1140 padded above, both weight layouts, in every
 rounding mode, with guard bytes after the output and the scratch.
+
+Streamed convolutions against the batch layer: 3000 random 1-D layers with
+filters up to 7 wide, strides 1 to 3, 1 to 9 input and 1 to 17 output channels
+and both weight layouts, in every rounding mode, each through a history of the
+window's length, one column more, twice or three times it, with guard bytes
+after the history and the output. Streamed models against the batch run on
+every window they end: R2, and a Conv1D and MaxPool1D model as Keras exports
+them, reshaped around each layer, in every rounding mode. Twelve random 1-D
+models of convolutions, depthwise layers and both pools, with hops from 1 to
+18, end in a padded convolution, two joined heads or no head at all. Six
+models the converter must refuse to stream, each with the message that says
+why.
 
 Convolutions against a reference written in TFLite's terms, which subtracts
 the zero point per tap and skips the taps outside the input: 3000 random layers
