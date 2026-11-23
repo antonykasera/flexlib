@@ -50,6 +50,7 @@ static void window4(const int8_t *x, const int8_t *w, uint32_t nky,
   uint32_t a0 = sum[0], a1 = sum[1], a2 = sum[2], a3 = sum[3];
   for (uint32_t ky = 0U; ky < nky; ky++, x += row, w += wrow) {
     const int8_t *xp = x, *wp = w;
+#pragma GCC unroll 3
     for (uint32_t kx = 0U; kx < nkx; kx++, xp += c, wp += c) {
       a0 += (uint32_t)(xp[0] * wp[0]);
       a1 += (uint32_t)(xp[1] * wp[1]);
@@ -61,6 +62,20 @@ static void window4(const int8_t *x, const int8_t *w, uint32_t nky,
   sum[1] = a1;
   sum[2] = a2;
   sum[3] = a3;
+}
+
+/* Adds four channels' weights over taps ky0 to ky1 - 1, kx0 to kx1 - 1. */
+static void wsum4(const int8_t *w, int32_t ky0, int32_t ky1, int32_t kx0,
+                  int32_t kx1, uint32_t c, int32_t kw, int32_t *s) {
+  for (int32_t ky = ky0; ky < ky1; ky++) {
+    const int8_t *p = w + (uint32_t)(ky * kw + kx0) * c;
+    for (int32_t kx = kx0; kx < kx1; kx++, p += c) {
+      s[0] += p[0];
+      s[1] += p[1];
+      s[2] += p[2];
+      s[3] += p[3];
+    }
+  }
 }
 
 /* Computes one output channel, the zero point standing in for the padding. */
@@ -117,15 +132,15 @@ void fnn_dwconv_s8(const FNN_DwConv *l, const int8_t *x, int8_t *y) {
           }
           window4(xw + j, ww + j, (uint32_t)(ky1 - ky0), (uint32_t)(kx1 - kx0),
                   c, row, wrow, sum);
-          /* Taps in the padding read zx, which the folded bias expects. */
-          for (int32_t ky = 0; edge && ky < kh; ky++) {
-            for (int32_t kx = 0; kx < kw; kx++) {
-              if (ky < ky0 || ky >= ky1 || kx < kx0 || kx >= kx1) {
-                const int8_t *wt = w + (uint32_t)(ky * kw + kx) * c + j;
-                for (uint32_t k = 0U; k < 4U; k++) {
-                  sum[k] += (uint32_t)(zx * wt[k]);
-                }
-              }
+          if (edge) {
+            /* Taps in the padding read zx, which the folded bias expects. */
+            int32_t s[4] = {0, 0, 0, 0};
+            wsum4(w + j, 0, ky0, 0, kw, c, kw, s);
+            wsum4(w + j, ky1, kh, 0, kw, c, kw, s);
+            wsum4(w + j, ky0, ky1, 0, kx0, c, kw, s);
+            wsum4(w + j, ky0, ky1, kx1, kw, c, kw, s);
+            for (uint32_t k = 0U; k < 4U; k++) {
+              sum[k] += (uint32_t)zx * (uint32_t)s[k];
             }
           }
           for (uint32_t k = 0U; k < 4U; k++) {
