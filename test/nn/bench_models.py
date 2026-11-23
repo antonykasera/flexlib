@@ -1,4 +1,4 @@
-"""Writes R2 and R5, converted, to bench/models/ for the bench.
+"""Writes R2, R3 and R5, converted, to bench/models/ for the bench.
 
     build/nn-venv/bin/python test/nn/bench_models.py bench/models
 
@@ -15,7 +15,7 @@ import numpy as np
 import check
 import fnn_tflite
 
-MODELS = (("r2", check.net_r2, 2), ("r5", check.net_r5, 5))
+MODELS = (("r2", check.net_r2, 2), ("r3", check.net_r3, 3), ("r5", check.net_r5, 5))
 
 
 def write(out_dir):

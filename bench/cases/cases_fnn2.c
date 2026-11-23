@@ -12,6 +12,7 @@
 #include "fnn_quant.h"
 #include "fx_arch.h"
 #include "r2.h"
+#include "r3.h"
 #include "r5.h"
 #ifdef BENCH_HAVE_CMSIS_NN
 #include "arm_nnfunctions.h"
@@ -22,10 +23,12 @@
 #define yout ((int8_t *)(void *)(bench_scratch + 1024U))
 #define work ((int8_t *)(void *)(bench_scratch + 1056U))
 _Static_assert(R5_IN_LEN + XOFF <= 1024U && R2_IN_LEN + XOFF <= 1024U &&
-                   R5_OUT_LEN <= 32U && R2_OUT_LEN <= 32U,
+                   R3_IN_LEN + XOFF <= 1024U && R5_OUT_LEN <= 32U &&
+                   R2_OUT_LEN <= 32U && R3_OUT_LEN <= 32U,
                "inputs and outputs");
 _Static_assert(1056U + R5_ARENA_SIZE <= BENCH_SCRATCH_SIZE &&
                    1056U + R2_ARENA_SIZE <= BENCH_SCRATCH_SIZE &&
+                   1056U + R3_ARENA_SIZE <= BENCH_SCRATCH_SIZE &&
                    1056U + 6272U + 1568U <= BENCH_SCRATCH_SIZE,
                "the arenas and the CMSIS-NN tensors");
 
@@ -76,8 +79,13 @@ static uint32_t r5(uint32_t off) {
   r5_run(xin + off, yout, (uint8_t *)work);
   return 0U;
 }
+static uint32_t r3(uint32_t off) {
+  r3_run(xin + off, yout, (uint8_t *)work);
+  return 0U;
+}
 MODEL(b_r2, r2(x), R2_OUT_LEN)
 MODEL(b_r5, r5(x), R5_OUT_LEN)
+MODEL(b_r3, r3(x), R3_OUT_LEN)
 
 #define W61                                                                    \
   2, 40, 2, -63, -50, 13, 45, 7, -82, 15, -32, 91, 42, -51, -14, -53, 12, -32, \
@@ -226,6 +234,7 @@ MODEL(c_model_r5, c_r5(x), 10U)
 static const BenchCase cases[] = {
     {"model R2, IMU gesture, converted", "flexlib", b_r2, true},
     {"model R5, 28 x 28 CNN, converted", "flexlib", b_r5, true},
+    {"model R3, keyword spotting DS-CNN, converted", "flexlib", b_r3, true},
     {"fnn_dwpw_s8, 3 x 3 then 1 x 1, 12 x 5 x 64, in place", "flexlib", b_dwpw,
      true},
     {"fnn_dwconv_s8 then fnn_conv_s8, 12 x 5 x 64", "flexlib", b_dw_pw, true},

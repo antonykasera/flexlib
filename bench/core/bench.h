@@ -48,7 +48,7 @@ extern uint8_t bench_arg_b[BENCH_N * 8U];
 #elif defined(BENCH_SET_dsp3) || defined(BENCH_SET_nn)
 #define BENCH_SCRATCH_SIZE 8192U
 #else /* the converted models next to CMSIS-NN's tensors */
-#define BENCH_SCRATCH_SIZE 9216U
+#define BENCH_SCRATCH_SIZE 10336U
 #endif
 extern uint8_t bench_scratch[BENCH_SCRATCH_SIZE];
 bool bench_scratch_claim(const void *id);
