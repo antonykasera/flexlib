@@ -6,7 +6,8 @@
 
 flexdsp is signal processing for Cortex-M parts without an FPU: arithmetic
 on blocks of samples, FIR and biquad filters, windows, tone detection, noise,
-FFTs, correlation, adaptive filters and sample-rate conversion. It works in
+FFTs, correlation, adaptive filters, sample-rate conversion and the features
+speech models read. It works in
 Q15 and Q31 on flexmath's fixed-point core, and the FIR, biquad, FFT,
 convolution, correlation and sums also come in float, computed on the same
 integer kernels, and need no FPU either. Plain C11, no allocation.
@@ -281,7 +282,7 @@ nothing saturates or wraps for any input. An all-zero block gives zeros and
 | `fd_cfft_q15`, 256 | 32433 | 32665 | 72.4 dB | 60.1 dB |
 | `fd_cfft_q15`, 1024 | 157075 | 159716 | 68.3 dB | 54.0 dB |
 | `fd_cfft_q31`, 256 | 59677 | 36223 | 167.8 dB | 152.6 dB |
-| `fd_rfft_q15`, 512 | 40107 | 109341 | 69.8 dB | 57.1 dB |
+| `fd_rfft_q15`, 512 | 40107 | 109567 | 69.8 dB | 57.1 dB |
 | `fd_rfft_q31`, 512 | 81801 | | 166.7 dB | 150.8 dB |
 | `fd_icfft_q15`, 256 / `fd_irfft_q15`, 512 | 33849 / 39724 | | | |
 | `fd_fft_db_q15`, 128 bins | 15160 | | 0.5003 LSB | |
@@ -458,3 +459,23 @@ loop per order and width.
   `fd_fir_interp` by 2 on the same 31 taps (6386 and 10384).
 - 160 / 147 is 124 cycles per output with 8 taps per branch: 8% of the F103
   for 48 kHz out.
+
+## Speech features (`fd_mfcc.h`)
+
+`fd_mel_q15` sums the power spectrum from `fd_rfft_q15` into mel bands,
+`fd_log_q16` takes their natural log in Q16.16, and `fd_dct2_q31` keeps the
+first coefficients of their DCT-II. Everything is integer, the filter design
+included, and gives the same bits on a PC and on the board.
+
+For 512 samples at 16 kHz, 40 bands from 20 Hz to 4 kHz and 10 coefficients:
+
+| function | cycles | CMSIS-DSP |
+|---|--:|--:|
+| `fd_mel_q15` | 4774 | |
+| `fd_log_q16` | 4651 | |
+| `fd_dct2_q31`, 40 to 10 | 6235 | |
+| a frame: Hann window, `fd_rfft_q15`, mel, log, DCT | 60247 | 199630 |
+
+- CMSIS-DSP's row is `arm_mfcc_q15` on the same filters, window and DCT.
+- Against the same frame in `double`, every log-mel band is within 0.031 and
+  every coefficient within 0.012.

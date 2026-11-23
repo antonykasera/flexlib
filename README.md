@@ -14,8 +14,8 @@ FPU, signal processing, and small neural networks:
   float functions for chips without an FPU, vectors, matrices, quaternions,
   PID.
 - **[flexdsp](dsp/README.md)** (`fd_`): filters, FFTs, windows, tone
-  detection, correlation, adaptive filters and sample-rate conversion, in
-  fixed point and float.
+  detection, correlation, adaptive filters, sample-rate conversion and speech
+  features, in fixed point and float.
 - **[flexnn](nn/README.md)** (`fnn_`): int8 inference with the arithmetic of
   TFLite's models: fully connected, convolution and depthwise layers, pooling,
   activations, softmax, and a converter from `.tflite` to C.
