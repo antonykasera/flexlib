@@ -1,5 +1,9 @@
 # flexdsp changelog
 
+## Unreleased
+
+- `fd_mfcc.h`: mel filter banks (`fd_mel_init`, `fd_mel_q15`), natural logs in Q16.16 (`fd_log_q16`) and the orthonormal DCT-II (`fd_dct2_init`, `fd_dct2_q31`), all integer. A 512-sample MFCC frame takes 60,247 cycles on the Cortex-M3 against 199,630 for `arm_mfcc_q15`.
+
 ## 0.5.0 (2026-11-21)
 
 - `fd_conv_f32`, `fd_conv_part_f32`, `fd_corr_f32`: float convolution and correlation on the q31 kernels (block floating point, one rounding per output). 7.7-8.2x faster than `arm_conv_f32` / `arm_correlate_f32` in soft float on the Cortex-M3. More accurate than soft float on white noise, less on inputs that span more than about 40 dB.
