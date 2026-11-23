@@ -64,7 +64,9 @@ reorder them once with `fnn_dense_pack_s8` and set the layer's `packed` to 1:
 the kernel then reads eight rows' weights with one load and runs 14 to 27%
 faster. The packed order is flexnn's own and may change between versions:
 keep the rows and pack them again, at startup into RAM or ahead of time into a
-`const` array. Pass the rows, not the packed weights, to `fnn_fold_bias_s8`.
+`const` array. If you store packed weights, check `FNN_LAYOUT_VERSION`, which
+goes up whenever the order changes. Pass the rows, not the packed weights, to
+`fnn_fold_bias_s8`.
 
 Cycles on an STM32F103 at 72 MHz (`-O2`), against CMSIS-NN 8.0.0's
 `arm_fully_connected_s8` built the same way. The board's flash cache holds 16
@@ -736,7 +738,11 @@ between layers, and two tensors share bytes when no layer needs both, which is
 why three hidden tensors fit in 48 bytes. The input and output stay in your
 buffers. The constants go to flash: the weights, the biases with the input zero
 point folded in, a multiplier per output channel, and the softmax's table of
-exponentials, written out so that the board never calls `exp`.
+exponentials, written out so that the board never calls `exp`. Fully connected
+and convolution weights are written in the packed order the faster kernels
+read. That order belongs to the flexnn release, and the generated C checks
+`FNN_LAYOUT_VERSION` when it compiles. If the check fails after you update
+flexnn, convert the model again.
 
 Each row of the report shows where a layer reads and writes, as arena offsets
 or your `in` and `out`, and where its scratch goes. Pools with no padding above
@@ -937,13 +943,13 @@ residual add and GlobalAveragePooling2D. Every output bit for bit in
 interpreter's double-precision rounding and a multiplier from the float32
 product part, every sum from -16384 to 16383, bit for bit in `FNN_ROUND_AWAY`
 and `FNN_ROUND_TFLITE`. The converter's multipliers, softmax and activation
-tables, clamps, mean and add setup against flexnn's own functions on 64,583
-values, and eight models it must refuse, each with the message that says why.
-Every memory plan is replayed byte by byte at conversion, each byte tagged by
-the value it holds, and the converter stops if a layer would read an
-overwritten value. nn-check also pins the arena of each model above and
-converts 300 random graphs of convolutions, pools, tables, adds and joined
-rows, ten of them against the interpreter as well.
+tables, clamps, mean and add setup, and packed weights against flexnn's own
+functions on 66,583 values, and eight models it must refuse, each with the
+message that says why. Every memory plan is replayed byte by byte at
+conversion, each byte tagged by the value it holds, and the converter stops if
+a layer would read an overwritten value. nn-check also pins the arena of each
+model above and converts 300 random graphs of convolutions, pools, tables, adds
+and joined rows, ten of them against the interpreter as well.
 
 Adds against a reference in TFLite's terms for `FNN_ROUND_GEMMLOWP` and an
 exact 64-bit sum for the other modes: all 65,536 pairs of int8 inputs at nine
