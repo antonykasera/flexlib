@@ -4,6 +4,14 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md),
 [nn/CHANGELOG.md](nn/CHANGELOG.md).
 
+## v0.9.0 (2026-11-23)
+
+flexnn 0.2.0.
+
+- flexnn: `fnn_tflite.py` converts a full-integer int8 `.tflite` model to C, with a memory plan that writes layers in place where it can, packed weights, and `--check` against the TFLite interpreter. `FNN_ROUND_TFLITE` gives the interpreter's integers for a whole model. Pools can write over their input ([nn/CHANGELOG.md](nn/CHANGELOG.md)).
+- Tests: nn-check converts reference models, TensorFlow's own exports and random graphs, and runs them against the interpreter.
+- Bench: an eleventh image, `nn2`, with two converted models against CMSIS-NN.
+
 ## v0.8.0 (2026-11-22)
 
 flexnn 0.1.0.

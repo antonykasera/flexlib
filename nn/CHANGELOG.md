@@ -1,6 +1,6 @@
 # flexnn changelog
 
-## Unreleased
+## 0.2.0 (2026-11-23)
 
 - `FNN_ROUND_TFLITE`, a fourth rounding mode: fully connected layers round as `FNN_ROUND_AWAY` and every other layer as `FNN_ROUND_GEMMLOWP`, the rules of the TFLite interpreter's reference kernels. A whole model then gives the interpreter's integers. The other modes compile to the same code as before.
 - `nn/tools/fnn_tflite.py`: a full-integer int8 `.tflite` model to C, with the weights as constants, a memory plan for the tensors between layers and the convolutions' scratch, and `--check` against the TFLite interpreter. It converts fully connected, convolution, depthwise, pooling, mean, add, concatenation, softmax and activation layers, folds a PAD into the convolution after it, and works out the shape arithmetic TensorFlow's exporter writes. `--tflite-tables` reads activation tables from the interpreter. The memory plan writes pools, tables and adds over inputs no later layer reads, joins single rows without a copy, and is replayed byte by byte before any C is written. Fully connected and convolution weights are written packed, and the generated C checks `FNN_LAYOUT_VERSION`.
