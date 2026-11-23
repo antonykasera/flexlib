@@ -8,12 +8,13 @@
  */
 
 #include "bench.h"
+#include "fnn_fused.h"
+#include "fnn_quant.h"
 #include "fx_arch.h"
 #include "r2.h"
 #include "r5.h"
 #ifdef BENCH_HAVE_CMSIS_NN
 #include "arm_nnfunctions.h"
-#include "fnn_quant.h"
 #endif
 
 #define XOFF 64U /* each sample starts one byte further in */
@@ -27,6 +28,9 @@ _Static_assert(1056U + R5_ARENA_SIZE <= BENCH_SCRATCH_SIZE &&
                    1056U + R2_ARENA_SIZE <= BENCH_SCRATCH_SIZE &&
                    1056U + 6272U + 1568U <= BENCH_SCRATCH_SIZE,
                "the arenas and the CMSIS-NN tensors");
+
+static int32_t bm;
+static int8_t br;
 
 static uint32_t rnd(uint32_t *s) {
   *s ^= *s << 13;
@@ -49,6 +53,7 @@ static void setup(void) {
   for (unsigned i = 0U; i < 1024U; i++) {
     xin[i] = (int8_t)(rnd(&s) >> 24);
   }
+  (void)fnn_quant_from_scale(1.0 / 2048.0, &bm, &br);
 #ifdef BENCH_HAVE_CMSIS_NN
   c_setup();
 #endif
@@ -74,7 +79,6 @@ static uint32_t r5(uint32_t off) {
 MODEL(b_r2, r2(x), R2_OUT_LEN)
 MODEL(b_r5, r5(x), R5_OUT_LEN)
 
-#ifdef BENCH_HAVE_CMSIS_NN
 #define W61                                                                    \
   2, 40, 2, -63, -50, 13, 45, 7, -82, 15, -32, 91, 42, -51, -14, -53, 12, -32, \
       120, 79, -21, -86, -102, 108, -112, -127, -112, -80, -62, -124, 40, 67,  \
@@ -86,6 +90,46 @@ static const int8_t cw[61U * 132U] BENCH_TABLE FX_ALIGN(16) = {
     W976, W976, W976, W976, W976, W976, W976, W976, W244};
 _Static_assert(sizeof cw >= 7840U, "the largest layer's weights");
 
+#define BH 12U
+#define BX (BH * 5U * 64U)
+static FNN_DwConv bdw = {
+    cw, NULL, {BH, 5U, 64U},  {BH, 5U, 64U},    3U, 3U, 1U, 1U, 1U,
+    1U, -3,   {&bm, &br, 1U}, {-128, -128, 127}};
+static FNN_Conv bpw = {
+    cw + 640U, NULL, {BH, 5U, 64U},  {BH, 5U, 64U}, 1U, 1U, 1U, 1U, 0U, 0U,
+    1U,        -128, {&bm, &br, 1U}, {5, -128, 127}};
+_Static_assert(1056U + BX + FNN_DWPW_SCRATCH(3U, 5U, 64U, 64U) <=
+                       BENCH_SCRATCH_SIZE &&
+                   1056U + 2U * BX <= BENCH_SCRATCH_SIZE,
+               "the block, fused and not");
+
+/* Each sample starts from a fresh copy, since the block overwrites its input. */
+static void block_in(uint32_t off) {
+  const uint32_t *s = (const uint32_t *)(const void *)cw + (off & 60U);
+  uint32_t *d = (uint32_t *)(void *)work;
+  for (uint32_t i = 0U; i < BX / 4U; i++) {
+    d[i] = s[i];
+  }
+}
+
+static uint32_t fused(uint32_t off) {
+  block_in(off);
+  fnn_dwpw_s8(&bdw, &bpw, work, work, work + BX);
+  return 0U;
+}
+static uint32_t apart(uint32_t off) {
+  block_in(off);
+  fnn_dwconv_s8(&bdw, work, work + BX);
+  fnn_conv_s8(&bpw, work + BX, work, NULL);
+  return 0U;
+}
+#define BLOCK(name, call)                                                      \
+  BENCH_UNARY_DEF(name, uint32_t, in_off, uint32_t, (uint32_t)(call),          \
+                  h = bench_hash(h, work, BX), (void)0)
+BLOCK(b_dwpw, fused(x))
+BLOCK(b_dw_pw, apart(x))
+
+#ifdef BENCH_HAVE_CMSIS_NN
 #define CH 32U
 static int32_t bias[CH], mult[CH], shift[CH];
 static int8_t cbuf[512];
@@ -182,6 +226,9 @@ MODEL(c_model_r5, c_r5(x), 10U)
 static const BenchCase cases[] = {
     {"model R2, IMU gesture, converted", "flexlib", b_r2, true},
     {"model R5, 28 x 28 CNN, converted", "flexlib", b_r5, true},
+    {"fnn_dwpw_s8, 3 x 3 then 1 x 1, 12 x 5 x 64, in place", "flexlib", b_dwpw,
+     true},
+    {"fnn_dwconv_s8 then fnn_conv_s8, 12 x 5 x 64", "flexlib", b_dw_pw, true},
 #ifdef BENCH_HAVE_CMSIS_NN
     {"CMSIS-NN layers, model R2, a global average pool for its MEAN",
      "CMSIS-NN", c_model_r2, false},
