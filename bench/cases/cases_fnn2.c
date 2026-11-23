@@ -137,6 +137,31 @@ static uint32_t apart(uint32_t off) {
 BLOCK(b_dwpw, fused(x))
 BLOCK(b_dw_pw, apart(x))
 
+#define PX (7U * 7U * 16U)
+#define CX (14U * 14U * 16U)
+static FNN_Conv bcv = {
+    cw + 2048U, NULL, {14U, 14U, 8U},  {14U, 14U, 16U}, 3U, 3U, 1U, 1U, 1U,
+    1U,         1U,   -5,              {&bm, &br, 1U},  {-128, -128, 127}};
+static const FNN_Pool bmp = {{14U, 14U, 16U}, {7U, 7U, 16U}, 2U, 2U, 2U, 2U,
+                             0U, 0U, -128, 127};
+_Static_assert(1056U + PX + CX + 72U <= BENCH_SCRATCH_SIZE,
+               "the convolution and pool, fused and not");
+
+static uint32_t convpool(uint32_t off) {
+  fnn_convpool_s8(&bcv, &bmp, cw + (off & 60U), work, work + PX);
+  return 0U;
+}
+static uint32_t conv_pool(uint32_t off) {
+  fnn_conv_s8(&bcv, cw + (off & 60U), work + PX, work + PX + CX);
+  fnn_maxpool_s8(&bmp, work + PX, work);
+  return 0U;
+}
+#define POOLED(name, call)                                                     \
+  BENCH_UNARY_DEF(name, uint32_t, in_off, uint32_t, (uint32_t)(call),          \
+                  h = bench_hash(h, work, PX), (void)0)
+POOLED(b_convpool, convpool(x))
+POOLED(b_conv_pool, conv_pool(x))
+
 #ifdef BENCH_HAVE_CMSIS_NN
 #define CH 32U
 static int32_t bias[CH], mult[CH], shift[CH];
@@ -238,6 +263,10 @@ static const BenchCase cases[] = {
     {"fnn_dwpw_s8, 3 x 3 then 1 x 1, 12 x 5 x 64, in place", "flexlib", b_dwpw,
      true},
     {"fnn_dwconv_s8 then fnn_conv_s8, 12 x 5 x 64", "flexlib", b_dw_pw, true},
+    {"fnn_convpool_s8, 3 x 3 then 2 x 2 max, 14 x 14 x 8 to 7 x 7 x 16",
+     "flexlib", b_convpool, true},
+    {"fnn_conv_s8 then fnn_maxpool_s8, 14 x 14 x 8 to 7 x 7 x 16", "flexlib",
+     b_conv_pool, true},
 #ifdef BENCH_HAVE_CMSIS_NN
     {"CMSIS-NN layers, model R2, a global average pool for its MEAN",
      "CMSIS-NN", c_model_r2, false},

@@ -524,6 +524,8 @@ const BenchGolden bench_golden[] = {
     {"model R3, keyword spotting DS-CNN, converted", 0x4BA155EAU},
     {"fnn_dwpw_s8, 3 x 3 then 1 x 1, 12 x 5 x 64, in place", 0x475D9FC7U},
     {"fnn_dwconv_s8 then fnn_conv_s8, 12 x 5 x 64", 0x475D9FC7U},
+    {"fnn_convpool_s8, 3 x 3 then 2 x 2 max, 14 x 14 x 8 to 7 x 7 x 16", 0x4ADC87A3U},
+    {"fnn_conv_s8 then fnn_maxpool_s8, 14 x 14 x 8 to 7 x 7 x 16", 0x4ADC87A3U},
     {"fnn_dense_s8, 256 -> 64", 0x2FE40199U},
     {"fnn_dense_s8, 256 -> 64, packed", 0x1909843FU},
 };
