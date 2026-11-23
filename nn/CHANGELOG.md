@@ -6,6 +6,7 @@
 - `fnn_tflite.py` runs a depthwise layer and the 1 x 1 convolution reading its output as one `fnn_dwpw_s8` call when that makes the arena smaller. The keyword-spotting model R3 needs 9,280 bytes instead of 16,064.
 - `fnn_convpool_s8`, `fnn_convpool_check`: a convolution and the max pool after it in one pass, a pooled row at a time, the convolution's output never whole. Bit-exact with the two layers; for R5's second pair, 2,872 bytes instead of 5,560, for 0.2% more cycles.
 - `fnn_tflite.py` also fuses a convolution and the max pool reading its output when that makes the arena smaller, and its report counts the pairs it fused. R5 needs 2,872 bytes instead of 6,284.
+- `fnn_stream_conv1d_s8`, `fnn_stream_conv1d_check` and `FNN_Stream` (`fnn_stream.h`): a causal 1-D convolution run one input column at a time, from a history of its last columns, bit-exact with the batch layer. `fnn_stream_push` gives any other layer the same windows.
 - `fnn_dwconv_s8` adds the padding's share as one product per channel, the zero point times the sum of the padded taps' weights, and unrolls rows of three taps: 14% fewer cycles on a padded 3 x 3 layer and 6% on an unpadded one, with the same outputs.
 
 ## 0.2.0 (2026-11-23)

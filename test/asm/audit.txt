@@ -417,3 +417,4 @@ fnn_concat_s8         no-calls ldr str
 fnn_conv_s8           !call=memset !call=memcpy
 fnn_dwpw_s8           !call=memmove
 fnn_convpool_s8       !call=memmove !udiv
+fnn_stream_push       !call=memcpy !call=memmove !udiv

@@ -20,6 +20,7 @@
 #include "fnn_quant.h"
 #include "fnn_shape.h"
 #include "fnn_softmax.h"
+#include "fnn_stream.h"
 #include "fnn_types.h"
 #include "fx_arch.h"
 
