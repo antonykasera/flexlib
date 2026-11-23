@@ -790,6 +790,21 @@ LEAKY_RELU that differs from the interpreter's own kernel by 1 on a few
 inputs; `--tflite-tables` reads the interpreter's table instead, which needs
 `ai-edge-litert` at conversion.
 
+Here is how two converted models run on an STM32F103 at 72 MHz (`-O2`),
+against the same layers through CMSIS-NN 8.0.0, with its convolution wrapper
+picking each layer's kernel. The times are cycles for one inference, with the
+weights in flash:
+
+| model | multiply-accumulates | arena | flexnn | CMSIS-NN |
+| --- | --: | --: | --: | --: |
+| R2, IMU gesture, three 1-D convolutions, pools, a mean, dense 8 | 261,440 | 2928 B | 1,446,289 | 1,769,539 |
+| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 6284 B | 2,329,044 | 2,855,160 |
+
+Both run about 1.2 times as fast as CMSIS-NN: R2 in 20 ms and R5 in 32 ms.
+CMSIS-NN has no MEAN, and its R2 uses a global average pool in its place. R3,
+the keyword-spotting model, needs a 16 KB arena, more than the F103's 20 KB can
+spare next to the bench.
+
 ## Requantisation (`fnn_quant.h`)
 
 A layer multiplies int8 inputs by int8 weights and adds the products in
