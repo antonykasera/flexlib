@@ -411,7 +411,8 @@ def _lower_pool(op, T, ctx, fn):
              f"{lo}, {hi}}};\n")
     return Layer(op, "pool", [x.idx], [y.idx], decls,
                  f"{fn}(&l{n}, {{x0}}, {{y}});", 0, 0,
-                 in_place=(0,) if pt == 0 and pl == 0 else ())
+                 in_place=(0,) if pt == 0 and pl == 0 else (),
+                 geom=(h, w, c, oh, ow, oc, kh, kw, sh, sw, pt, pl))
 
 
 def lower_max_pool(op, T, ctx):
@@ -757,43 +758,54 @@ def lower(tensors, ops, ctx):
 
 
 def fusible(layers, outputs):
-    """Each depthwise layer that fnn_dwpw_s8() can run with the 1 x 1
-    convolution reading its output, mapped to that convolution."""
+    """Each layer that can run as one call with the layer reading its output,
+    mapped to that layer: a depthwise layer and a 1 x 1 convolution
+    (fnn_dwpw_s8), or a convolution and a max pool (fnn_convpool_s8). A layer
+    joins one pair at most, the first it can."""
     find = _alias_root(layers)
     ends = {find(t) for t in outputs}
     pairs = {}
     for i, L in enumerate(layers):
-        if L.kind != "depthwise":
+        if L.kind not in ("depthwise", "conv") or i in pairs.values():
             continue
         r = find(L.writes[0])
         readers = [j for j, M in enumerate(layers)
                    if M.kind != "alias" and any(find(t) == r for t in M.reads)]
-        if r in ends or len(readers) != 1:
+        if r in ends or len(readers) != 1 or layers[readers[0]].reads != L.writes:
             continue
         P = layers[readers[0]]
         h, w, _, oh, ow, _, _, _, sh, sw, _, _ = L.geom
-        if (P.kind == "conv" and P.reads == L.writes and sh == sw == 1 and
-                (oh, ow) == (h, w) and P.geom[6:10] == (1, 1, 1, 1)):
+        if L.kind == "depthwise":
+            if (P.kind == "conv" and sh == sw == 1 and (oh, ow) == (h, w) and
+                    P.geom[6:10] == (1, 1, 1, 1)):
+                pairs[i] = readers[0]
+        elif P.call.startswith("fnn_maxpool_s8("):
             pairs[i] = readers[0]
     return pairs
 
 
 def fuse(layers, pairs):
-    """The layers with each pair in pairs run as one fnn_dwpw_s8() call."""
-    by_pw = {j: i for i, j in pairs.items()}
+    """The layers with each pair in pairs run as one call."""
+    by_second = {j: i for i, j in pairs.items()}
     out = []
     for j, P in enumerate(layers):
         if j in pairs:
             continue
-        if j not in by_pw:
+        if j not in by_second:
             out.append(P)
             continue
-        D = layers[by_pw[j]]
-        _, w, c, _, _, c_dw, kh = D.geom[:7]
-        F = Layer(D.op, "dwpw", D.reads, P.writes, D.decls + P.decls,
-                  f"fnn_dwpw_s8(&l{D.op.idx}, &l{P.op.idx}, {{x0}}, {{y}}, {{s}});",
-                  D.flash + P.flash, D.macs + P.macs, scratch=kh * w * c + w * c_dw,
-                  in_place=(0,) if P.geom[5] <= c else (), packed=P.packed)
+        D = layers[by_second[j]]
+        _, w, c, _, ow, c_out, kh = D.geom[:7]
+        if D.kind == "depthwise":
+            F = Layer(D.op, "dwpw", D.reads, P.writes, D.decls + P.decls,
+                      f"fnn_dwpw_s8(&l{D.op.idx}, &l{P.op.idx}, {{x0}}, {{y}}, {{s}});",
+                      D.flash + P.flash, D.macs + P.macs, scratch=kh * w * c + w * c_out,
+                      in_place=(0,) if P.geom[5] <= c else (), packed=P.packed)
+        else:
+            F = Layer(D.op, "convpool", D.reads, P.writes, D.decls + P.decls,
+                      f"fnn_convpool_s8(&l{D.op.idx}, &l{P.op.idx}, {{x0}}, {{y}}, "
+                      "{s});", D.flash, D.macs,
+                      scratch=P.geom[6] * ow * c_out + D.scratch, packed=D.packed)
         F.ops = (D.op, P.op)
         out.append(F)
     return out
@@ -1125,7 +1137,7 @@ def convert(path, out_dir, name=None, tflite_tables=False):
             f"{len(pads)} padding{'' if len(pads) == 1 else 's'}. Arena {p.arena} B, "
             f"with {p.bound} B live at the "
             f"busiest layer. Constants {sum(L.flash for L in layers)} B." +
-            (f" {len(pairs)} of {len(can)} depthwise and pointwise pairs fused." if can
+            (f" {len(pairs)} of {len(can)} layer pairs fused." if can
              else ""),
             f"  {'op':>{wide}}  {'operator':18} {'kernel':9} {'MACs':>9} {'flash':>7}  "
             f"{'reads':12} {'writes':16} scratch"]

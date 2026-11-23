@@ -7,7 +7,7 @@
 #define R5_IN_LEN 784u
 #define R5_OUT_LEN 10u
 /* Bytes of working memory the model needs, 4-byte aligned. */
-#define R5_ARENA_SIZE 6284u
+#define R5_ARENA_SIZE 2872u
 #define R5_IN_SCALE 0.05f
 #define R5_IN_ZERO_POINT (43)
 #define R5_OUT_SCALE 0.00390625f

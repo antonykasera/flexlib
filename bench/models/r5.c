@@ -19,7 +19,6 @@ static const int32_t m0[8] = {
 static const int8_t r0[8] = {
     5, 5, 6, 6, 5, 5, 6, 6};
 static const FNN_Conv l0 = {w0, b0, {28u, 28u, 1u}, {28u, 28u, 8u}, 3u, 3u, 1u, 1u, 1u, 1u, 1u, 43, {m0, r0, 8u}, {-128, -128, 127}};
-
 static const FNN_Pool l1 = {{28u, 28u, 8u}, {14u, 14u, 8u}, 2u, 2u, 2u, 2u, 0u, 0u, -128, 127};
 
 static _Alignas(4) const int8_t w2[1152] = {
@@ -104,7 +103,6 @@ static const int32_t m2[16] = {
 static const int8_t r2[16] = {
     7, 8, 7, 7, 7, 6, 7, 8, 7, 8, 7, 7, 7, 7, 7, 7};
 static const FNN_Conv l2 = {w2, b2, {14u, 14u, 8u}, {14u, 14u, 16u}, 3u, 3u, 1u, 1u, 1u, 1u, 1u, -128, {m2, r2, 16u}, {-128, -128, 127}};
-
 static const FNN_Pool l3 = {{14u, 14u, 16u}, {7u, 7u, 16u}, 2u, 2u, 2u, 2u, 0u, 0u, -128, 127};
 
 static _Alignas(4) const int8_t w5[7840] = {
@@ -653,10 +651,8 @@ static const uint32_t e6[256] = {
     0u, 0u, 0u, 0u};
 
 void r5_run(const int8_t *in, int8_t *out, uint8_t *arena) {
-  fnn_conv_s8(&l0, in, (int8_t *)(arena + 0), (int8_t *)(arena + 6272));
-  fnn_maxpool_s8(&l1, (const int8_t *)(arena + 0), (int8_t *)(arena + 0));
-  fnn_conv_s8(&l2, (const int8_t *)(arena + 0), (int8_t *)(arena + 1568), (int8_t *)(arena + 4704));
-  fnn_maxpool_s8(&l3, (const int8_t *)(arena + 1568), (int8_t *)(arena + 1568));
+  fnn_convpool_s8(&l0, &l1, in, (int8_t *)(arena + 0), (int8_t *)(arena + 1568));
+  fnn_convpool_s8(&l2, &l3, (const int8_t *)(arena + 0), (int8_t *)(arena + 1568), (int8_t *)(arena + 2352));
   fnn_dense_s8(&l5, (const int8_t *)(arena + 1568), (int8_t *)(arena + 0));
   fnn_softmax_s8((const int8_t *)(arena + 0), out, 10u, e6);
 }

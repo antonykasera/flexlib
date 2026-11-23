@@ -890,7 +890,7 @@ def case_plans(out_dir, count=300, checked=10, seed=500):
             bad += 1
             continue
         shared += "in place" in report or "no copy" in report
-        fused += "dwpw" in report
+        fused += " dwpw " in report or " convpool " in report
         if k < checked:
             bad += fnn_tflite.check(path, out_dir, cname, "tflite", runs=20, seed=k)[1]
     return count, shared, fused, bad
@@ -938,22 +938,63 @@ BLOCKS = (("1 x 1 to 8 channels", block(), True, True, True),
            False))
 
 
+def conv_pool(op="MAX_POOL_2D", k=2, s=2, same=False, again=False, last=False, tail=0,
+              dw=False, reshape=False):
+    """A 3 x 3 convolution to 16 channels and a pool after it, on a 12 x 12 x 4 map."""
+    def make(rng):
+        n = Net([1, 12, 12, 4], rng)
+        if dw:
+            n.conv(0, 3, 3, dw=1)
+            y = n.conv(16, 1, 1)
+        else:
+            y = n.conv(16, 3, 3)
+        if reshape:
+            n.reshape([1, 6, 24, 16])
+        n.pool(op, k, k, (s, s), same=same)
+        if again:
+            n.cur = y
+        if last:
+            n.cur = y
+            return n.build()
+        if tail:
+            n.conv(tail, 3, 3)
+        n.mean(1.0, False)
+        return n.build()
+    return make
+
+
+POOLS = (("a 2 x 2 max pool", conv_pool(), True, True, False),
+         ("a 3 x 3 max pool of stride 1, SAME", conv_pool(k=3, s=1, same=True), True, True,
+          False),
+         ("an average pool", conv_pool("AVERAGE_POOL_2D"), False, False, False),
+         ("the convolution's output read again", conv_pool(again=True), False, False,
+          False),
+         ("the convolution's output is the model's output", conv_pool(last=True), False,
+          False, False),
+         ("a larger layer after it, which sets the arena", conv_pool(tail=128), True,
+          False, False),
+         ("a RESHAPE between them", conv_pool(reshape=True), False, False, False),
+         ("a depthwise layer and 1 x 1 before the pool", conv_pool(dw=True), True, True,
+          False))
+
+
 def case_fused(name, make, can, fused, in_place, out_dir, seed):
     """A block converted, its fusion as wanted, and run against the interpreter."""
     path = Path(out_dir) / f"block{seed}.tflite"
     path.write_bytes(make(np.random.default_rng(seed)))
     cname, report = fnn_tflite.convert(path, out_dir)
-    row = [r for r in report.splitlines() if " dwpw " in r]
-    wrong = (bool(re.search(r"of 1 depthwise", report)) != can or bool(row) != fused or
+    row = [r for r in report.splitlines() if " dwpw " in r or " convpool " in r]
+    wrong = (bool(re.search(r"of 1 layer pairs", report)) != can or bool(row) != fused or
              bool(row and ", in place" in row[0]) != in_place)
     bad = [fnn_tflite.check(path, out_dir, cname, mode, runs=50, seed=seed)[1]
            for mode in ("up", "away", "gemmlowp", "tflite")]
     tensors, _, _, outputs = fnn_tflite.load(path)
-    return f"block, {name}", 50 * tensors[outputs[0]].size(), bad, wrong
+    kind = "block" if seed < 160 else "conv and pool"
+    return f"{kind}, {name}", 50 * tensors[outputs[0]].size(), bad, wrong
 
 
-ARENAS = {"r2": 2928, "r5": 6284, "r3": 9280, "rows": 400, "mixed": 2048,
-          "cnn_keras": 2076, "mlp_keras": 48}
+ARENAS = {"r2": 2928, "r5": 2872, "r3": 9280, "rows": 400, "mixed": 2048,
+          "cnn_keras": 1280, "mlp_keras": 48}
 
 
 def case_arenas(out_dir):
@@ -1318,10 +1359,15 @@ def main():
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad) +
               ("  fused wrongly" if wrong else ""))
         failed |= wrong or bad[GEMMLOWP] != 0 or bad[TFLITE] != 0
+    for i, (name, make, can, fused, in_place) in enumerate(POOLS):
+        name, n, bad, wrong = case_fused(name, make, can, fused, in_place, models, 160 + i)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad) +
+              ("  fused wrongly" if wrong else ""))
+        failed |= wrong or bad[GEMMLOWP] != 0 or bad[TFLITE] != 0
     print()
     n, shared, fused, bad = case_plans(models)
     print(f"{'random graphs, plans replayed byte by byte':58} {n:8}  {bad:8} wrong"
-          f"  ({shared} share memory, {fused} fuse a block)")
+          f"  ({shared} share memory, {fused} fuse a pair)")
     failed |= bad != 0
     import bench_models
     stale = bench_models.stale(Path(__file__).resolve().parents[2] / "bench" / "models")
