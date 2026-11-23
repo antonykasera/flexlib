@@ -3,6 +3,7 @@ flexnn, and checks that they agree in the rounding mode TFLite uses for each."""
 
 import ctypes
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -795,9 +796,124 @@ def net_mixed(rng):
     return n.build(), c
 
 
+def net_rows(rng):
+    """Joins along a single row where the model is busiest, and layers the
+    planner must not run in place."""
+    n = Net([1, 4, 4, 2], rng)
+    n.conv(4, 3, 3)
+    n.pool("MAX_POOL_2D", 3, 3, (1, 1), same=True)
+    x = n.conv(16, 1, 1)
+    g1 = n.pool("MAX_POOL_2D", 4, 4, (1, 1))
+    n.cur = x
+    g2 = n.pool("AVERAGE_POOL_2D", 4, 4, (1, 1))
+    n.concat([g2, g1], 3)
+    m = n.reshape([1, 32])
+    heads = []
+    for k in (96, 80, 64):
+        n.cur = m
+        n.fc(k)
+        heads.append(n.table("TANH", 1.0 / 128.0, 0))
+    ab = n.concat(heads[:2], 1)
+    t = n.table("LOGISTIC", 1.0 / 256.0, -128, src=heads[0])
+    n.concat([ab, heads[2]], 1)
+    n.fc(64)
+    u = n.table("TANH", 1.0 / 128.0, 0)
+    n.cur = t
+    v = n.fc(64)
+    n.add(n.add(u, v), heads[2])
+    n.fc(3)
+    return n.build()
+
+
+def net_random(rng):
+    """A random graph of layers that can share memory."""
+    n = Net([1, int(rng.integers(3, 9)), int(rng.integers(3, 9)),
+             int(rng.choice([1, 3, 4, 8]))], rng)
+    maps = [n.x]
+    for _ in range(int(rng.integers(2, 7))):
+        src = maps[int(rng.integers(len(maps)))]
+        (_, h, w, c), _, _ = n.info(src)
+        r = int(rng.integers(5))
+        n.cur = src
+        if r == 0:
+            s = int(rng.integers(1, 3))
+            y = n.conv(int(rng.choice([4, 8])), 3, 3, s=(s, s), act=int(rng.choice([0, RELU])))
+        elif r == 1:
+            y = n.conv(0, 3, 3, dw=1)
+        elif r == 2 and min(h, w) >= 3:
+            k, s = int(rng.integers(2, 4)), int(rng.integers(1, 3))
+            y = n.pool(str(rng.choice(["MAX_POOL_2D", "AVERAGE_POOL_2D"])), k, k, (s, s),
+                       same=bool(rng.integers(2)))
+        elif r == 3:
+            op = str(rng.choice(["TANH", "LOGISTIC", "HARD_SWISH"]))
+            scale, zp = {"TANH": (1.0 / 128.0, 0),
+                         "LOGISTIC": (1.0 / 256.0, -128)}.get(op, (0.04, -10))
+            y = n.table(op, scale, zp)
+        else:
+            same = [t for t in maps if n.info(t)[0] == n.info(src)[0]]
+            y = n.add(src, same[int(rng.integers(len(same)))])
+        maps.append(y)
+    n.cur = maps[int(rng.integers(1, len(maps)))]
+    m = n.mean(1.0, False)
+    heads = []
+    for _ in range(int(rng.integers(1, 4))):
+        n.cur = m
+        n.fc(int(rng.integers(2, 9)))
+        heads.append(n.table("TANH", 1.0 / 128.0, 0))
+    if len(heads) > 1:
+        n.concat(heads, 1)
+    n.fc(int(rng.integers(2, 6)))
+    return n.build()
+
+
+def case_plans(out_dir, count=300, checked=10, seed=500):
+    """Random graphs converted, each plan replayed byte by byte inside the
+    converter, and the first few run against the interpreter."""
+    bad, shared = 0, 0
+    for k in range(count):
+        path = Path(out_dir) / f"plan{k}.tflite"
+        path.write_bytes(net_random(np.random.default_rng(seed + k)))
+        try:
+            cname, report = fnn_tflite.convert(path, out_dir)
+        except fnn_tflite.ConvertError as e:
+            print(f"  plan{k}: {e}")
+            bad += 1
+            continue
+        shared += "in place" in report or "no copy" in report
+        if k < checked:
+            bad += fnn_tflite.check(path, out_dir, cname, "tflite", runs=20, seed=k)[1]
+    return count, shared, bad
+
+
+# The arena each model should get.
+ARENAS = {"r2": 2928, "r5": 6284, "r3": 16064, "rows": 400, "mixed": 2048,
+          "cnn_keras": 2076, "mlp_keras": 48}
+
+
+def case_arenas(out_dir):
+    """Converts the named models and returns their arenas, live bounds and
+    the arenas they should get."""
+    rows = []
+    made = [("r2", net_r2), ("r5", net_r5), ("r3", net_r3), ("rows", net_rows),
+            ("mixed", net_mixed)]
+    paths = []
+    for name, make in made:
+        blob = make(np.random.default_rng(7))
+        path = Path(out_dir) / f"{name}.tflite"
+        path.write_bytes(blob[0] if isinstance(blob, tuple) else blob)
+        paths.append((name, path))
+    paths += [(p.stem, p) for p in sorted((Path(__file__).parent / "models").glob("*.tflite"))]
+    for name, path in paths:
+        report = fnn_tflite.convert(path, out_dir)[1]
+        arena, bound = map(int, re.search(r"Arena (\d+) B, with (\d+) B", report).groups())
+        rows.append((name, arena, bound, ARENAS[name]))
+    return rows
+
+
 NETS = (("R2, IMU gesture: conv1d x 3, pools, mean, dense", net_r2, 300),
         ("R5, 28 x 28 CNN: conv, pool x 2, dense, softmax", net_r5, 200),
-        ("R3, keyword spotting DS-CNN, 4 depthwise blocks", net_r3, 50))
+        ("R3, keyword spotting DS-CNN, 4 depthwise blocks", net_r3, 50),
+        ("joins along a row, and layers that must not run in place", net_rows, 300))
 
 
 def case_net(name, make, runs, out_dir, seed, tflite_tables=False):
@@ -1128,6 +1244,15 @@ def main():
                             models, 130, tflite_tables=True)
     print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
     failed |= bad[TFLITE] != 0
+    print(f"\n{'arena for each model, in bytes':58} {'arena':>8}  {'live':>8}  {'wanted':>8}")
+    for name, arena, bound, want in case_arenas(models):
+        print(f"{name:58} {arena:8}  {bound:8}  {want:8}")
+        failed |= arena != want
+    print()
+    n, shared, bad = case_plans(models)
+    print(f"{'random graphs, plans replayed byte by byte':58} {n:8}  {bad:8} wrong"
+          f"  ({shared} share memory)")
+    failed |= bad != 0
     n, bad = case_converter_arith(libs[AWAY], libs[GEMMLOWP])
     print(f"{'the converter\'s arithmetic against flexnn\'s':58} {n:8}  {bad:8} differ")
     failed |= bad != 0
