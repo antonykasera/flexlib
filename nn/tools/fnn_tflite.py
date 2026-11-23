@@ -759,10 +759,7 @@ def lower(tensors, ops, ctx):
 
 
 def fusible(layers, outputs):
-    """Each layer that can run as one call with the layer reading its output,
-    mapped to that layer: a depthwise layer and a 1 x 1 convolution
-    (fnn_dwpw_s8), or a convolution and a max pool (fnn_convpool_s8). A layer
-    joins one pair at most, the first it can."""
+    """Each layer that can run as one call with its only reader, mapped to it."""
     find = _alias_root(layers)
     ends = {find(t) for t in outputs}
     pairs = {}
@@ -826,9 +823,7 @@ def _alias_root(layers):
 
 
 def stream_split(tensors, layers, inputs, outputs):
-    """The layers a step function runs as the input arrives, from the input to
-    the first layer one column wide, and the rest, which run once on that
-    column. Raises ConvertError naming the layer that cannot stream."""
+    """The layers streamed, up to the first one column wide, and the rest."""
     find = _alias_root(layers)
     ends = {find(t) for t in outputs}
     cur, head = find(inputs[0]), []
@@ -1142,17 +1137,13 @@ def emit_step(name, tensors, layers, head, tail, tp, outputs, written):
             bufs["s"] = f"(int8_t *)(arena + {base + tp.scratch[i]})"
         body.append("  " + L.call.format(**bufs) + "\n")
     first = layers[head[0]].geom
-    hdr = (f"/* Runs the model as its input arrives, one column of {up}_STEP_IN_LEN\n"
-           f" * values at a time. An output comes every {up}_STEP_HOP columns once the\n"
-           f" * first {first[1]} have arrived. */\n"
+    hdr = (f"/* Runs the model one column of {up}_STEP_IN_LEN values at a time. */\n"
            f"#define {up}_STEP_IN_LEN {first[2]}u\n"
            f"#define {up}_STEP_HOP {hop}u\n"
            f"#define {up}_STEP_ARENA_SIZE {arena}u\n\n"
            f"typedef struct {{\n  FNN_Stream s[{len(head)}];\n  int8_t h[{at}];\n}} {up}_Stream;\n\n"
            f"void {name}_stream_init({up}_Stream *st);\n"
-           f"/* Appends the column at in and returns 1 when it completes a window, with\n"
-           f" * that window's output at out, using the {up}_STEP_ARENA_SIZE bytes at\n"
-           f" * arena. */\n"
+           f"/* Returns 1 when in completes a window and out holds its output. */\n"
            f"uint32_t {name}_step({up}_Stream *st, const int8_t *in, int8_t *out,\n"
            f"{' ' * (len(name) + 15)}uint8_t *arena);\n\n")
     c = ("".join(d + "\n" for d in decls) +
@@ -1338,9 +1329,7 @@ def check(path, c_dir, name, rounding="tflite", runs=200, seed=0, feeds=None):
 
 
 def check_stream(c_dir, name, rounding="tflite", windows=100, seed=0):
-    """Feeds <name>_step a random signal and compares each output with
-    <name>_run on the window it ends; returns (outputs compared, outputs that
-    differ)."""
+    """Compares every <name>_step output with <name>_run on its window."""
     import ctypes
     up = name.upper()
     head = (Path(c_dir) / f"{name}.h").read_text()

@@ -1038,9 +1038,7 @@ def case_net(name, make, runs, out_dir, seed, tflite_tables=False):
 
 # Scales where a multiplier from the float32 product rounds some sums apart.
 def net_stream(rng):
-    """A random causal 1-D model: convolutions, depthwise layers and pools whose
-    windows cover their inputs, narrowed to one column, then nothing, a
-    padded convolution, two heads joined, or a dense head."""
+    """A random causal 1-D model narrowed to one column, then a random head."""
     n = Net([1, 1, int(rng.integers(16, 97)), int(rng.choice([1, 2, 3, 6]))], rng)
     for _ in range(int(rng.integers(1, 5))):
         w = n.info(n.cur)[0][2]
@@ -1083,8 +1081,7 @@ def net_stream(rng):
 
 
 def net_stream_keras(rng):
-    """Conv1D and MaxPool1D as Keras exports them, reshaped to one row and back
-    around each layer."""
+    """Conv1D and MaxPool1D as Keras exports them."""
     n = Net([1, 64, 3], rng)
     n.reshape([1, 1, 64, 3])
     n.conv(8, 1, 5, same=False)
@@ -1101,8 +1098,7 @@ def net_stream_keras(rng):
 
 def case_stream(name, make, out_dir, seed, modes=("up", "away", "gemmlowp", "tflite"),
                 interpreter=True):
-    """A model converted with its step function, every streamed output checked
-    against the batch run, and the batch run against the interpreter."""
+    """A streamed model against its batch run and the interpreter."""
     path = Path(out_dir) / f"stream{seed}.tflite"
     path.write_bytes(make(np.random.default_rng(seed)))
     cname, report = fnn_tflite.convert(path, out_dir, stream=True)
@@ -1121,8 +1117,7 @@ STREAMS = (("R2, IMU gesture", net_r2), ("Conv1D and MaxPool1D as Keras writes t
 
 
 def case_stream_errors(out_dir):
-    """Models the converter must refuse to stream, and the words its message
-    must hold."""
+    """Models the converter must refuse to stream, and the words of each refusal."""
     rng = np.random.default_rng(6)
     cases = []
     n = Net([1, 1, 32, 3], rng)

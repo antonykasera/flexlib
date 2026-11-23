@@ -235,11 +235,8 @@ of its multiplies.
 
 ## Depthwise and pointwise in one pass (`fnn_fused.h`)
 
-A depthwise-separable block, a depthwise layer and then a 1 x 1 convolution,
-normally holds three tensors at once: its input, the depthwise output and the
-result. On a 20 KB part that is often what decides whether a model fits.
-`fnn_dwpw_s8` runs the two layers a row at a time. It keeps only the input
-rows the next rows still need, and the result can go over the input:
+`fnn_dwpw_s8` runs a depthwise layer and the 1 x 1 convolution after it a row
+at a time, and the result can go over the input:
 
 ```c
 #include <stdio.h>
@@ -288,39 +285,22 @@ Which prints:
  4/24 6/39 4/28
 ```
 
-Every depthwise tap adds its value, and the pointwise layer swaps the two
-channels. Each pixel then shows how many taps of its 3 x 3 window fall inside
-the image, and the sum of the counting channel under them: the corner sees 1,
-2, 4 and 5, the centre all nine values. The output went over `x`, and the only
-other memory was 24 bytes of scratch, three input rows and one depthwise row.
-Run as two layers, the same block would have needed the 18-byte depthwise
-output and an 18-byte result next to the input.
+Besides `x`, the block used 24 bytes of scratch.
 
-`fnn_dwpw_check` accepts a depthwise layer of stride 1 whose output has its
-input's size, any filter and padding, and a 1 x 1 convolution of stride 1
-over its output, in either weight layout. The result may go over the input
-when a row of it is no longer than a row of the input. The outputs are the two
-layers' bit for bit.
-
-For a 12 x 5 x 64 block, a 3 x 3 depthwise layer then 64 -> 64 pointwise with
-packed weights, on an STM32F103 at 72 MHz (`-O2`):
+For a 12 x 5 x 64 block, 3 x 3 then 64 to 64 channels, on an STM32F103 at
+72 MHz (`-O2`):
 
 | block | memory | cycles |
 | --- | --: | --: |
 | `fnn_dwconv_s8` then `fnn_conv_s8` | 7680 B | 1877647 |
 | `fnn_dwpw_s8`, in place | 5120 B | 1912658 |
 
-The fused block takes 1.9% more cycles, for the rows it copies, and a third
-less memory. The keyword-spotting model's 25 x 5 x 64 blocks go from 16,000
-bytes to 9,280. `fnn_tflite.py` fuses such a pair whenever that makes a
-model's arena smaller.
+`fnn_tflite.py` fuses such a pair when that makes the arena smaller.
 
 ## A convolution and its max pool in one pass (`fnn_fused.h`)
 
-A convolution followed by a max pool holds the convolution's whole output, often
-the largest tensor in a small CNN, only for the pool to keep a quarter of it.
-`fnn_convpool_s8` runs the convolution on just the rows one pooled row needs
-and pools them straight into the result:
+`fnn_convpool_s8` runs a convolution and the max pool after it a pooled row at
+a time, without the convolution's whole output:
 
 ```c
 #include <stdio.h>
@@ -360,16 +340,7 @@ Which prints:
 90 99
 ```
 
-Each convolution output adds its 3 x 3 neighbourhood, with the padding at zero,
-and the pool keeps the largest sum in each quarter of the image: 54 around 6,
-63 around 7, 90 around 10 and 99 around 11. The 16 convolution outputs never
-existed at once. The scratch held two of their rows and the convolution's
-9-value patch, 17 bytes.
-
-`fnn_convpool_check` accepts any convolution and any max pool over its output,
-with any window, stride and padding. Pool windows that overlap compute the rows
-they share again, which costs time but not exactness. The outputs are the two
-layers' bit for bit, and the result may not go over the input.
+The scratch held two convolution rows and one patch, 17 bytes.
 
 For R5's second pair, a 3 x 3 convolution from 8 to 16 channels on 14 x 14 and
 a 2 x 2 max pool, on an STM32F103 at 72 MHz (`-O2`):
@@ -379,9 +350,7 @@ a 2 x 2 max pool, on an STM32F103 at 72 MHz (`-O2`):
 | `fnn_conv_s8` then `fnn_maxpool_s8` | 5560 B | 1250333 |
 | `fnn_convpool_s8` | 2872 B | 1252292 |
 
-The fused pair takes 0.2% more cycles and half the memory. `fnn_tflite.py`
-fuses a convolution and the max pool reading its output whenever that makes a
-model's arena smaller, and R5 then needs 2,872 bytes instead of 6,284.
+`fnn_tflite.py` fuses such a pair when that makes the arena smaller.
 
 ## Pooling and mean (`fnn_pool.h`)
 
@@ -912,18 +881,9 @@ cnn_keras: 10 operators, 0 of them only shapes and 1 padding. Arena 1280 B, with
     4  ADD                add               0     0 B  0, 512       0, in place
 ```
 
-The first convolution and its max pool run as one `fnn_convpool_s8` call, and
-the row names both operators. The convolution's 2048-byte output never exists.
-The pool's 512 bytes are written a row at a time from scratch at offset 512.
-The depthwise layer and the 1 x 1 convolution after it run the same way through
-`fnn_dwpw_s8`, and the residual add writes over its first input. Run apart,
-the same layers need 2076 bytes. A fused call takes up to 2% longer, and the
-converter fuses a pair only when that makes the arena smaller. A concatenation
-of single rows, such as heads joined after a global pool, needs no copy either.
-Each head is written straight into its place in the result, and the row says
-"no copy". The first line counts the pairs fused and gives the most bytes live
-at any one layer. When the arena matches that, no other placement of these
-tensors is smaller.
+Each fused pair shows both operators in one row. Run apart, these layers need
+2076 bytes. A concatenation of single rows needs no copy, and its row says "no
+copy". The first line gives the most bytes live at any one layer.
 
 `--check` builds the generated C with flexnn on your PC, runs it and the TFLite
 interpreter on 200 random inputs, or on the inputs in a `.npy` file given with
@@ -968,11 +928,8 @@ has no CMSIS-NN time here.
 
 ## Running a 1-D model as its input arrives (`fnn_stream.h`)
 
-A gesture model reads a window of the last 128 IMU samples. To classify on
-every new sample, the batch run computes all 128 columns again each time,
-though only the newest is new. A causal 1-D layer has outputs that depend only
-on the columns before them. Each such layer can keep the last few columns of
-its input and compute only the output column the new one completes:
+A causal 1-D layer can compute only the output column each new input column
+completes, from a history of its last columns:
 
 ```c
 #include <stdio.h>
@@ -1014,21 +971,11 @@ after 7: 110
 after 8: 127
 ```
 
-The input is the squares 1, 4, 9 and on, one value a column. The layer is the
-same `FNN_Conv` the batch run would use over all eight columns, and each line
-is one of its six outputs: 1 + 4 + 9 = 14 once three columns have arrived,
-then one output for each column after. The last sum, 149, clamps to 127. The
-history keeps the columns the next window still needs. `fnn_stream_init` gives
-it room for six columns, twice the filter's three, and when it fills, the last
-two move to the front. A buffer as long as the window works too, but it moves
-on every column. `fnn_stream_push` gives pools, means and your own layers the
-same windows.
+Each line sums the last three squares, the last one clamped. `fnn_stream_push`
+gives pools, means and your own layers the same windows.
 
-The converter writes this for a whole model. With `--stream`, the layers from
-the input up to the first that narrows it to one column run as the columns
-arrive, and the layers after it run once per output on that column. For the
-gesture model R2, three 1-D convolutions with max pools between them, a mean
-and a dense layer:
+With `--stream`, `fnn_tflite.py` also writes a step function that runs a 1-D
+model as its input arrives. For the gesture model R2:
 
 ```text
 r2: 7 operators, 0 of them only shapes and 0 paddings. Arena 2928 B, with 2928 B live at the busiest layer. Constants 6920 B. 0 of 2 layer pairs fused. Streams 6 layers: an output every 4 columns, 2302 B of history, step arena 32 B.
@@ -1037,7 +984,7 @@ check (tflite): 0 of 1600 outputs differ from the TFLite interpreter
 check (tflite): 0 of 800 streamed outputs differ from the batch run
 ```
 
-Next to `r2_run`, the header now declares the streamed form:
+The header gains:
 
 ```c
 #define R2_STEP_IN_LEN 3u
@@ -1054,19 +1001,10 @@ uint32_t r2_step(R2_Stream *st, const int8_t *in, int8_t *out,
                  uint8_t *arena);
 ```
 
-You call `r2_stream_init` once, then `r2_step` with each new sample of three
-values. It returns 1 when `out` holds a result. The two pools halve the rate
-twice, which gives a result every 4 samples, each for the window of 128
-samples ending at the sample just passed, once the first 128 have arrived.
-`--check` with `--stream` feeds the step function a long random signal and
-compares every result with `r2_run` on its window.
-
-A model streams when every layer before that column reads a single row,
-uses VALID padding and has windows that end exactly at the input's last
-column. Convolutions, depthwise layers, both pools and MEAN qualify. The
-converter names the layer that stops it otherwise. SAME padding looks ahead to
-columns that have not arrived, and a stride that leaves the last columns
-unread would end each window early.
+Call `r2_stream_init` once, then `r2_step` with each new sample. Every 4
+samples it returns 1, with the output for the 128 samples just ended. The
+converter refuses SAME padding, more than one row and windows that leave
+trailing columns, and names the layer.
 
 On an STM32F103 at 72 MHz (`-O2`), for the same 128-sample windows:
 
@@ -1075,10 +1013,7 @@ On an STM32F103 at 72 MHz (`-O2`), for the same 128-sample windows:
 | `r2_run` on the whole window | 261,440 | 2928 B | 1,446,308 |
 | `r2_step` on 4 new samples | 9,408 | 2302 + 32 B | 59,044 |
 
-Both give the same results. Streamed, R2 classifies every 4 samples in 0.8 ms,
-a twenty-fourth of the whole window's time.
-Three quarters of the history is the mean's 27 columns of 32 channels, held
-twice over.
+Both give the same results.
 
 ## Requantisation (`fnn_quant.h`)
 
@@ -1196,28 +1131,12 @@ SAME padding and 1 to 64 channels, in every rounding mode, a quarter of them
 at a scale that makes exact ties. Against the TFLite interpreter, four layers
 bit for bit in `FNN_ROUND_GEMMLOWP`.
 
-Depthwise and pointwise blocks against the two layers run one after the
-other: 3000 random blocks with filters up to 5 x 5 and any padding, channel
-multipliers 1 and 2, 1 to 24 output channels and both weight layouts, in
-every rounding mode, each also run in place where a row of the result fits in
-a row of the input, with guard bytes after the output and the scratch.
-Convolutions and the max pools after them against the two layers run one after
-the other: 3000 random pairs with filters up to 4 x 4, strides 1 and 2, any
-padding, pool windows up to 3 x 3 with any stride and padding, among them 510
-whose windows overlap and 1140 padded above, both weight layouts, in every
-rounding mode, with guard bytes after the output and the scratch.
-
-Streamed convolutions against the batch layer: 3000 random 1-D layers with
-filters up to 7 wide, strides 1 to 3, 1 to 9 input and 1 to 17 output channels
-and both weight layouts, in every rounding mode, each through a history of the
-window's length, one column more, twice or three times it, with guard bytes
-after the history and the output. Streamed models against the batch run on
-every window they end: R2, and a Conv1D and MaxPool1D model as Keras exports
-them, reshaped around each layer, in every rounding mode. Twelve random 1-D
-models of convolutions, depthwise layers and both pools, with hops from 1 to
-18, end in a padded convolution, two joined heads or no head at all. Six
-models the converter must refuse to stream, each with the message that says
-why.
+Depthwise and pointwise blocks, and convolutions with their max pools, against
+the two layers run apart: 3000 random pairs of each in every rounding mode and
+both weight layouts, in place where allowed. Streamed convolutions against the
+batch layer on 3000 random 1-D layers, and streamed models against their batch
+run on every window they end: R2, a Conv1D model as Keras exports it and twelve
+random 1-D models.
 
 Convolutions against a reference written in TFLite's terms, which subtracts
 the zero point per tap and skips the taps outside the input: 3000 random layers
@@ -1263,18 +1182,9 @@ conversion, each byte tagged by the value it holds, and the converter stops if
 a layer would read an overwritten value. nn-check also pins the arena of each
 model above and converts 300 random graphs of convolutions, depthwise and
 pointwise pairs, pools, tables, adds and joined rows, ten of them against the
-interpreter as well. Twelve small blocks check which pairs the converter fuses.
-It fuses one that shrinks the arena, also behind a PAD or with two outputs per
-channel, and runs it in place when a row of the result fits. It leaves apart a
-depthwise layer of stride 2, even on a single row, one that shrinks the map, a
-3 x 3 convolution after one, a depthwise output read twice or given as the
-model's output, and pairs that would not shrink the arena. Eight more check the
-convolution and max pool pairs. It fuses a 2 x 2 pool and an overlapping SAME
-pool, and leaves apart an average pool, a RESHAPE between the two, a
-convolution output read twice or given as the model's output, and a pair that
-would not shrink the arena. A depthwise layer, a 1 x 1 convolution and a max
-pool in a row make two pairs that share the convolution, and only the first
-fuses. Each block also runs against the interpreter.
+interpreter as well. Twenty small blocks check which layer pairs the converter fuses, each also
+against the interpreter, and six models check that it refuses to stream what it
+cannot.
 
 Adds against a reference in TFLite's terms for `FNN_ROUND_GEMMLOWP` and an
 exact 64-bit sum for the other modes: all 65,536 pairs of int8 inputs at nine

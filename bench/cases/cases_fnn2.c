@@ -87,8 +87,7 @@ MODEL(b_r2, r2(x), R2_OUT_LEN)
 MODEL(b_r5, r5(x), R5_OUT_LEN)
 MODEL(b_r3, r3(x), R3_OUT_LEN)
 
-/* R2 over a signal of 380 columns whose last 124 repeat its first. Sample i
- * pushes columns 124 + 4i to 127 + 4i, which end the window from column 4i. */
+/* Sample i ends the window from column 4i of a signal with period 256. */
 #define PERIOD 256U
 #define r2_sig ((int8_t *)(void *)(bench_scratch + 1056U))
 #define r2_st ((R2_Stream *)(void *)(bench_scratch + 2208U))

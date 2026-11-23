@@ -50,8 +50,7 @@ void fnn_convpool_s8(const FNN_Conv *c, const FNN_Pool *p, const int8_t *x,
   one.out.h = 1U;
   one.pt = 0U;
   for (uint32_t r = 0U; r < p->out.h; r++) {
-    /* The window's conv rows, r0 to r1 - 1, and the input rows they start at.
-     */
+    /* Conv rows r0 to r1 - 1 feed pooled row r. */
     uint32_t top = r * p->sh, r0 = top > p->pt ? top - p->pt : 0U;
     uint32_t r1 =
         top + p->kh - p->pt < c->out.h ? top + p->kh - p->pt : c->out.h;
@@ -82,7 +81,7 @@ void fnn_dwpw_s8(const FNN_DwConv *dw, const FNN_Conv *pw, const int8_t *x,
     uint32_t want_hi = r + kh - pt < h ? r + kh - pt : h;
     if (want_lo > lo) {
       uint32_t drop = (want_lo - lo) * row, keep = (hi - want_lo) * row;
-      /* Copying forward is safe on this overlap, since the rows move down. */
+      /* The rows move down, which a forward copy allows. */
       fnn_copy(scratch, scratch + drop, keep);
       lo = want_lo;
     }

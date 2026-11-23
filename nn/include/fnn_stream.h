@@ -2,16 +2,9 @@
  * @file fnn_stream.h
  * @brief Causal 1-D layers run one input column at a time
  *
- * A model over a sliding window of a signal, say the last 128 IMU samples, can
- * run on each new sample without redoing the whole window. Each layer keeps
- * the last few columns of its input in an FNN_Stream and computes only the
- * output column the new one completes, one window per layer instead of all of
- * them. The outputs are the batch run's bit for bit.
- *
- * A column is one position along the width, the `c` values of all its
- * channels. fnn_stream_push() appends one to a layer's history and returns the
- * window of the last `n` once `n` have arrived, and then every `stride`. A
- * history longer than the window moves its columns less often.
+ * A column is the `c` values at one position along the width. Each layer
+ * computes only the output column a new input column completes, bit for bit
+ * the batch layer's.
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0

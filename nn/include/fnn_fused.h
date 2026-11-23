@@ -2,12 +2,8 @@
  * @file fnn_fused.h
  * @brief Layer pairs run together to save memory
  *
- * fnn_dwpw_s8() runs a depthwise layer and the pointwise layer after it a row
- * at a time. The depthwise output never exists whole, and the result can go
- * over the input: a block that held three tensors holds one, plus a few rows
- * of scratch. fnn_convpool_s8() runs a convolution and the max pool after it
- * a pooled row at a time, and the convolution's output never exists whole
- * either. The outputs are the two layers' bit for bit.
+ * Each pair runs a row at a time and never holds its first layer's output
+ * whole. The outputs are the two layers' bit for bit.
  *
  * Copyright (c) 2026 Antony Kasera
  * SPDX-License-Identifier: Apache-2.0

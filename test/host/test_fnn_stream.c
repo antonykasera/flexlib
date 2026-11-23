@@ -32,8 +32,6 @@ static uint32_t pick(uint64_t *r, uint32_t lo, uint32_t hi) {
   return lo + test_rng_u32(r) % (hi - lo + 1U);
 }
 
-/* Streams x a column at a time and compares each output column with the
- * batch run's. */
 static unsigned stream(const FNN_Conv *l, uint32_t len, uint32_t t) {
   FNN_Stream s;
   unsigned bad = fnn_stream_init(&s, hist, len, l->kw, l->in.c, l->sw) != FNN_OK;

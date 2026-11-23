@@ -18,9 +18,7 @@
  * values to out, using the R2_ARENA_SIZE bytes at arena. */
 void r2_run(const int8_t *in, int8_t *out, uint8_t *arena);
 
-/* Runs the model as its input arrives, one column of R2_STEP_IN_LEN
- * values at a time. An output comes every R2_STEP_HOP columns once the
- * first 128 have arrived. */
+/* Runs the model one column of R2_STEP_IN_LEN values at a time. */
 #define R2_STEP_IN_LEN 3u
 #define R2_STEP_HOP 4u
 #define R2_STEP_ARENA_SIZE 32u
@@ -31,9 +29,7 @@ typedef struct {
 } R2_Stream;
 
 void r2_stream_init(R2_Stream *st);
-/* Appends the column at in and returns 1 when it completes a window, with
- * that window's output at out, using the R2_STEP_ARENA_SIZE bytes at
- * arena. */
+/* Returns 1 when in completes a window and out holds its output. */
 uint32_t r2_step(R2_Stream *st, const int8_t *in, int8_t *out,
                  uint8_t *arena);
 

@@ -33,8 +33,7 @@ void fnn_stream_reset(FNN_Stream *s) {
 const int8_t *fnn_stream_push(FNN_Stream *s, const int8_t *x) {
   uint32_t c = s->c;
   if (s->end == s->len) {
-    /* The source sits at least a column past the destination, which a
-     * forward copy allows. */
+    /* The source lies past the destination, which a forward copy allows. */
     fnn_copy(s->buf, s->buf + (s->len - s->n + 1U) * c, (s->n - 1U) * c);
     s->end = s->n - 1U;
   }
