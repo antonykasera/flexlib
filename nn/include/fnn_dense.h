@@ -46,6 +46,10 @@ void fnn_dense_s8(const FNN_Dense *l, const int8_t *x, int8_t *y);
 void fnn_dense_pack_s8(const int8_t *w, uint32_t n_in, uint32_t n_out,
                        int8_t *packed);
 
+/** The order fnn_dense_pack_s8() writes. It goes up whenever that order
+ * changes, and code that stores packed weights can check it. */
+#define FNN_LAYOUT_VERSION 1
+
 /**
  * Fold the input zero point into the biases: `b_out[o] = b[o] - zx sum w[o]`.
  * Wrapping arithmetic keeps every sum the kernel forms exact whenever the
