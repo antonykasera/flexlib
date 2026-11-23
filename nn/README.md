@@ -659,11 +659,12 @@ For a small Keras classifier, a `Flatten` of 4 x 16 features, two hidden
 `Dense` layers with ReLU and a softmax over 4 classes, it prints:
 
 ```text
-mlp: 8 operators, 3 of them only shapes and 0 paddings; arena 48 B (live tensors peak at 48 B), constants 4116 B
-    4  FULLY_CONNECTED    dense          2048 MACs     2336 B   -> 0
-    5  FULLY_CONNECTED    dense           512 MACs      656 B   -> 32
-    6  FULLY_CONNECTED    dense            64 MACs      100 B   -> 0
-    7  SOFTMAX            softmax           0 MACs     1024 B   -> out
+mlp: 8 operators, 3 of them only shapes and 0 paddings. Arena 48 B, with 48 B live at the busiest layer. Constants 4116 B.
+   op  operator           kernel         MACs   flash  reads        writes           scratch
+    4  FULLY_CONNECTED    dense          2048  2336 B  in           0
+    5  FULLY_CONNECTED    dense           512   656 B  0            32
+    6  FULLY_CONNECTED    dense            64   100 B  32           0
+    7  SOFTMAX            softmax           0  1024 B  0            out
 check (tflite): 0 of 800 outputs differ from the TFLite interpreter
 ```
 
@@ -736,6 +737,30 @@ why three hidden tensors fit in 48 bytes. The input and output stay in your
 buffers. The constants go to flash: the weights, the biases with the input zero
 point folded in, a multiplier per output channel, and the softmax's table of
 exponentials, written out so that the board never calls `exp`.
+
+Each row of the report shows where a layer reads and writes, as arena offsets
+or your `in` and `out`, and where its scratch goes. Pools with no padding above
+or to the left, tables and adds can write their output over an input that no
+later layer reads, and their rows say so. Here is the start of the report for
+the small CNN in `test/nn/models/cnn_keras.tflite`:
+
+```text
+cnn_keras: 10 operators, 0 of them only shapes and 1 padding. Arena 2076 B, with 2075 B live at the busiest layer. Constants 3013 B.
+   op  operator           kernel         MACs   flash  reads        writes           scratch
+    0  CONV_2D            conv          55296   288 B  in           0                2048
+    1  MAX_POOL_2D        pool              0     0 B  0            0, in place
+    2  DEPTHWISE_CONV_2D  depthwise      4608   144 B  0            512
+    3  CONV_2D            conv           4096   136 B  512          1024             1536
+    4  ADD                add               0     0 B  0, 1024      0, in place
+```
+
+The max pool writes its 512 bytes over the start of the convolution's 2048, and
+the residual add writes over its first input. Without those two the arena would
+be 2560 bytes. A concatenation of single rows, such as heads joined after a
+global pool, needs no copy either: each head is written straight into its
+place in the result, and the row says "no copy". The first line also gives the
+most bytes live at any one layer. When the arena matches it, no other
+placement of these tensors is smaller.
 
 `--check` builds the generated C with flexnn on your PC, runs it and the TFLite
 interpreter on 200 random inputs, or on the inputs in a `.npy` file given with
@@ -904,15 +929,21 @@ The converter against the TFLite interpreter: R0, R1 and R4 written as models
 and converted; R2 (three 1-D convolutions, pools, a mean and a dense layer), R5
 (a 28 x 28 CNN) and R3 (keyword spotting, 2.66 million MACs); a model with
 every operator, a PAD, a residual ADD, a concatenation and four kinds of table
-among them; a model with a RESHAPE before and after its layer; and two models
-exported by TensorFlow 2.21's own converter, a Keras MLP and a CNN with a
-ZeroPadding2D, a residual add and GlobalAveragePooling2D. Every output bit for
-bit in `FNN_ROUND_TFLITE`. Three fully connected layers at scales where the
+among them; a model that joins heads along a row, one join inside another; a
+model with a RESHAPE before and after its layer; and two models exported by
+TensorFlow 2.21's own converter, a Keras MLP and a CNN with a ZeroPadding2D, a
+residual add and GlobalAveragePooling2D. Every output bit for bit in
+`FNN_ROUND_TFLITE`. Three fully connected layers at scales where the
 interpreter's double-precision rounding and a multiplier from the float32
 product part, every sum from -16384 to 16383, bit for bit in `FNN_ROUND_AWAY`
 and `FNN_ROUND_TFLITE`. The converter's multipliers, softmax and activation
 tables, clamps, mean and add setup against flexnn's own functions on 64,583
 values, and eight models it must refuse, each with the message that says why.
+Every memory plan is replayed byte by byte at conversion, each byte tagged by
+the value it holds, and the converter stops if a layer would read an
+overwritten value. nn-check also pins the arena of each model above and
+converts 300 random graphs of convolutions, pools, tables, adds and joined
+rows, ten of them against the interpreter as well.
 
 Adds against a reference in TFLite's terms for `FNN_ROUND_GEMMLOWP` and an
 exact 64-bit sum for the other modes: all 65,536 pairs of int8 inputs at nine
