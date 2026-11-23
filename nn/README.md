@@ -838,14 +838,13 @@ convolution, depthwise convolution, mean, add and QUANTIZE like
 `FNN_ROUND_GEMMLOWP`. `FNN_ROUND_TFLITE` follows it layer by layer, and a whole
 model then gives the interpreter's integers. Build with it when the numbers you
 trust are the ones you checked on the PC. Two limits remain. The interpreter's
-fully connected layer scales in double precision, by the input scale times the
-weight scale over the output scale: the converter writes its multiplier from
-that double product for this mode, and a sum would then have to fall within
-about 2^-32 of a tie to round differently (none did in 171 million). And
-QUANTIZE from float divides in float and rounds twice: a few inputs next to a
-tie can differ by 1. The interpreter's optimised kernels, which it uses unless
-you ask for the reference ones, round differently again (half to even, through
-float).
+fully connected layer rounds its result in double precision. The converter
+multiplies the scales in double as well, as TFLite and TFLite Micro do for
+every layer. A sum then has to fall within about 2^-32 of a tie to round
+differently, and none did in 171 million. QUANTIZE from float divides in float
+and rounds twice, and a few inputs next to a tie can differ by 1. The
+interpreter's optimised kernels, which it uses unless you ask for the reference
+ones, round differently again (half to even, through float).
 
 Every input gives a defined result. Where TFLite's arithmetic would overflow
 int32 (scales of 1/2 and above with large sums), flexnn saturates.
