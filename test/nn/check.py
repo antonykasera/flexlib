@@ -839,7 +839,7 @@ def net_random(rng):
     for _ in range(int(rng.integers(2, 7))):
         src = maps[int(rng.integers(len(maps)))]
         (_, h, w, c), _, _ = n.info(src)
-        r = int(rng.integers(5))
+        r = int(rng.integers(6))
         n.cur = src
         if r == 0:
             s = int(rng.integers(1, 3))
@@ -850,6 +850,11 @@ def net_random(rng):
             k, s = int(rng.integers(2, 4)), int(rng.integers(1, 3))
             y = n.pool(str(rng.choice(["MAX_POOL_2D", "AVERAGE_POOL_2D"])), k, k, (s, s),
                        same=bool(rng.integers(2)))
+        elif r == 5:
+            d = n.conv(0, 3, 3, dw=int(rng.integers(1, 3)))
+            if rng.integers(2):
+                maps.append(d)
+            y = n.conv(int(rng.choice([c, 2 * c, max(c // 2, 1)])), 1, 1)
         elif r == 3:
             op = str(rng.choice(["TANH", "LOGISTIC", "HARD_SWISH"]))
             scale, zp = {"TANH": (1.0 / 128.0, 0),
@@ -874,20 +879,77 @@ def net_random(rng):
 
 def case_plans(out_dir, count=300, checked=10, seed=500):
     """Random graphs converted, the first few run against the interpreter."""
-    bad, shared = 0, 0
+    bad, shared, fused = 0, 0, 0
     for k in range(count):
         path = Path(out_dir) / f"plan{k}.tflite"
         path.write_bytes(net_random(np.random.default_rng(seed + k)))
         try:
-            cname, report = fnn_tflite.convert(path, out_dir)
+            cname, report = fnn_tflite.convert(path, out_dir, tflite_tables=True)
         except fnn_tflite.ConvertError as e:
             print(f"  plan{k}: {e}")
             bad += 1
             continue
         shared += "in place" in report or "no copy" in report
+        fused += "dwpw" in report
         if k < checked:
             bad += fnn_tflite.check(path, out_dir, cname, "tflite", runs=20, seed=k)[1]
-    return count, shared, bad
+    return count, shared, fused, bad
+
+
+def block(mult=1, s=(1, 1), k=1, oc=8, pad=False, same=True, branch=False, tail=0,
+          h=6, last=False):
+    """A depthwise 3 x 3 layer and the convolution after it, on an h x 5 x 8 map."""
+    def make(rng):
+        n = Net([1, h, 5, 8], rng)
+        n.conv(8, 1, 1)
+        if pad:
+            n.pad(1, 1, 1, 1)
+        d = n.conv(0, min(h, 3), 3, s=s, same=same and not pad, dw=mult)
+        y = n.conv(oc, k, k)
+        if last:
+            n.cur = d
+            return n.build()
+        if branch:
+            n.add(y, d)
+        if tail:
+            n.conv(tail, 3, 3)
+        n.mean(1.0, False)
+        return n.build()
+    return make
+
+
+# Whether each block can fuse, whether it does, and whether it then runs in place.
+BLOCKS = (("1 x 1 to 8 channels", block(), True, True, True),
+          ("1 x 1 to 16, which only grows the arena", block(oc=16), True, False, False),
+          ("2 outputs per channel, 1 x 1 to 12, not in place", block(mult=2, oc=12),
+           True, True, False),
+          ("2 outputs per channel, 1 x 1 to 8", block(mult=2), True, True, True),
+          ("padding from a PAD before it", block(pad=True), True, True, True),
+          ("depthwise of stride 2", block(s=(2, 2)), False, False, False),
+          ("one row, depthwise of stride 2 down it", block(s=(2, 1), h=1), False, False,
+           False),
+          ("depthwise without padding, which shrinks the map", block(same=False),
+           False, False, False),
+          ("the depthwise output is the model's output", block(last=True), False, False,
+           False),
+          ("3 x 3 after the depthwise", block(k=3), False, False, False),
+          ("the depthwise output read again", block(branch=True), False, False, False),
+          ("a larger layer after it, which sets the arena", block(tail=64), True, False,
+           False))
+
+
+def case_fused(name, make, can, fused, in_place, out_dir, seed):
+    """A block converted, its fusion as wanted, and run against the interpreter."""
+    path = Path(out_dir) / f"block{seed}.tflite"
+    path.write_bytes(make(np.random.default_rng(seed)))
+    cname, report = fnn_tflite.convert(path, out_dir)
+    row = [r for r in report.splitlines() if " dwpw " in r]
+    wrong = (bool(re.search(r"of 1 depthwise", report)) != can or bool(row) != fused or
+             bool(row and ", in place" in row[0]) != in_place)
+    bad = [fnn_tflite.check(path, out_dir, cname, mode, runs=50, seed=seed)[1]
+           for mode in ("up", "away", "gemmlowp", "tflite")]
+    tensors, _, _, outputs = fnn_tflite.load(path)
+    return f"block, {name}", 50 * tensors[outputs[0]].size(), bad, wrong
 
 
 ARENAS = {"r2": 2928, "r5": 6284, "r3": 9280, "rows": 400, "mixed": 2048,
@@ -1251,9 +1313,15 @@ def main():
         print(f"{name:58} {arena:8}  {bound:8}  {want:8}")
         failed |= arena != want
     print()
-    n, shared, bad = case_plans(models)
+    for i, (name, make, can, fused, in_place) in enumerate(BLOCKS):
+        name, n, bad, wrong = case_fused(name, make, can, fused, in_place, models, 140 + i)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad) +
+              ("  fused wrongly" if wrong else ""))
+        failed |= wrong or bad[GEMMLOWP] != 0 or bad[TFLITE] != 0
+    print()
+    n, shared, fused, bad = case_plans(models)
     print(f"{'random graphs, plans replayed byte by byte':58} {n:8}  {bad:8} wrong"
-          f"  ({shared} share memory)")
+          f"  ({shared} share memory, {fused} fuse a block)")
     failed |= bad != 0
     import bench_models
     stale = bench_models.stale(Path(__file__).resolve().parents[2] / "bench" / "models")
