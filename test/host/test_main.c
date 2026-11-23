@@ -65,6 +65,13 @@ void test_fd_window(void);
 void test_fd_window_param(void);
 void test_fd_window_gains(void);
 
+/* --- fd_mfcc (test_fd_mfcc.c) --- */
+void test_fd_mel_design(void);
+void test_fd_mel_init_range(void);
+void test_fd_mel_sums(void);
+void test_fd_log(void);
+void test_fd_dct2(void);
+
 /* --- fd_tone, fd_noise (test_fd_tone.c) --- */
 void test_fd_goertzel(void);
 void test_fd_nco(void);
@@ -367,6 +374,11 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fd_osc);
   TEST_RUN(test_fd_noise);
   TEST_RUN(test_fd_window_edges);
+  TEST_RUN(test_fd_mel_design);
+  TEST_RUN(test_fd_mel_init_range);
+  TEST_RUN(test_fd_mel_sums);
+  TEST_RUN(test_fd_log);
+  TEST_RUN(test_fd_dct2);
   TEST_RUN(test_fd_tone_edges);
   TEST_RUN(test_fd_fft_scan);
   TEST_RUN(test_fd_fft_twiddles);
