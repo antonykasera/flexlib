@@ -86,9 +86,10 @@ def read_report(read, timeout):
     while END not in buf:
         if time.monotonic() > deadline:
             sys.stdout.write(buf)
-            sys.exit(f"\nbench_run: no '{END}' within {timeout:.0f} s")
+            sys.exit(f"\nbench_run: nothing for {timeout:.0f} s and no '{END}'")
         chunk = read()
         if chunk:
+            deadline = time.monotonic() + timeout
             text = chunk.decode("utf-8", "replace")
             sys.stdout.write(text.replace("\r", ""))
             sys.stdout.flush()
@@ -136,7 +137,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--settle", type=float, default=1.5,
                     help="seconds to wait after flashing for re-enumeration")
-    ap.add_argument("--timeout", type=float, default=180.0)
+    ap.add_argument("--timeout", type=float, default=180.0,
+                    help="seconds without output before giving up")
     ap.add_argument("--append", action="store_true",
                     help="add this image's block to --out")
     ap.add_argument("--rtt", metavar="ELF",
