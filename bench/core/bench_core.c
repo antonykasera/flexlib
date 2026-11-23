@@ -91,6 +91,7 @@ extern const BenchGroup bench_group_fd_fir;
 extern const BenchGroup bench_group_fd_biquad;
 extern const BenchGroup bench_group_fd_tone;
 extern const BenchGroup bench_group_fd_fft;
+extern const BenchGroup bench_group_fd_mfcc;
 extern const BenchGroup bench_group_fd_corr;
 extern const BenchGroup bench_group_fd_f32;
 extern const BenchGroup bench_group_fd_resample;
@@ -136,6 +137,7 @@ const BenchGroup *const bench_groups[] = {
 #endif
 #ifdef BENCH_DSP3
     &bench_group_fd_fft,
+    &bench_group_fd_mfcc,
 #endif
 #ifdef BENCH_DSP4
     &bench_group_fd_corr,

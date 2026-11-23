@@ -17,7 +17,7 @@ BENCH_CASES_struct = $(addprefix bench/cases/,cases_linalg.c cases_quat.c \
 BENCH_CASES_dsp    = $(addprefix bench/cases/,cases_pairs.c cases_fd_vec.c \
                        cases_fd_fir.c)
 BENCH_CASES_dsp2   = $(addprefix bench/cases/,cases_fd_biquad.c cases_fd_tone.c)
-BENCH_CASES_dsp3   = bench/cases/cases_fd_fft.c
+BENCH_CASES_dsp3   = bench/cases/cases_fd_fft.c bench/cases/cases_fd_mfcc.c
 BENCH_CASES_dsp4   = bench/cases/cases_fd_corr.c
 BENCH_CASES_dsp5   = bench/cases/cases_fd_resample.c
 BENCH_CASES_dsp6   = bench/cases/cases_fd_f32.c
@@ -189,8 +189,14 @@ CMSIS_SRCS_dsp2   = $(addprefix FilteringFunctions/,arm_biquad_cascade_df1_q15.c
 CMSIS_SRCS_dsp3   = $(addprefix TransformFunctions/,arm_cfft_q15.c arm_cfft_q31.c \
                       arm_cfft_radix4_q15.c arm_cfft_radix4_q31.c \
                       arm_bitreversal2.c arm_cfft_init_q15.c arm_rfft_q15.c \
-                      arm_rfft_init_q15.c) \
-                    BasicMathFunctions/arm_shift_q15.c \
+                      arm_rfft_init_q15.c arm_mfcc_q15.c arm_mfcc_init_q15.c) \
+                    $(addprefix BasicMathFunctions/,arm_shift_q15.c arm_mult_q15.c \
+                      arm_scale_q15.c arm_scale_q31.c arm_offset_q31.c arm_shift_q31.c \
+                      arm_dot_prod_q15.c arm_abs_q15.c) \
+                    StatisticsFunctions/arm_absmax_q15.c \
+                    $(addprefix FastMathFunctions/,arm_divide_q15.c arm_vlog_q31.c arm_sqrt_q31.c) \
+                    ComplexMathFunctions/arm_cmplx_mag_q15.c \
+                    MatrixFunctions/arm_mat_vec_mult_q15.c \
                     CommonTables/arm_common_tables.c CommonTables/arm_const_structs.c
 CMSIS_SRCS_dsp4   = $(addprefix FilteringFunctions/,arm_conv_q15.c arm_conv_fast_q15.c \
                       arm_conv_q31.c arm_correlate_q15.c arm_correlate_q31.c \
