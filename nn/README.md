@@ -282,7 +282,9 @@ averages round half away from zero, as TFLite's do, in every rounding mode.
 Pools keep the input's scale and zero point, so they take no multiplier, only
 a clamp for a fused ReLU. Taps that fall in the padding are left out, so a
 window on the border averages fewer values. A window the size of the input
-pools globally.
+pools globally. A pool can also write its output over its input, as long as
+no padding sits above or to the left of the input. Each window then starts at
+or after the output it writes, and you save the output's buffer.
 
 The mean sums the 16 values to 68 and scales the sum by the input scale over
 the output scale, here 2, divided by 16: 8.5, which rounds to 9.
@@ -883,9 +885,10 @@ five layers including a stride-2 SAME layer and a filter larger than its
 input, bit for bit in `FNN_ROUND_GEMMLOWP`, the interpreter's rule for
 convolution.
 
-Pools and means against references in TFLite's terms: 3191 random pools of
-1 to 64 channels with windows up to 5 x 5, strides 1 to 3, VALID and SAME
-padding and random clamps, both kinds each time, and 2933 random means at
+Pools and means against references in TFLite's terms: 3191 random pools of 1 to
+64 channels with windows up to 5 x 5, strides 1 to 3, VALID and SAME padding
+and random clamps, both kinds each time. The 1677 with no padding above or to
+the left run again in place, over a copy of the input. 2933 random means at
 equal, power-of-two and other scales. Global pools and means up to 300 values
 wide, with inputs all -128 and all 127. Against the TFLite interpreter, eight
 pools bit for bit in every rounding mode, and five means bit for bit in
