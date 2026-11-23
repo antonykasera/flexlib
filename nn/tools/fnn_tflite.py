@@ -192,13 +192,14 @@ def lut_table(f, s_x, zx, s_y, zy):
 class Layer:
     """One flexnn call, with the tensors it reads and writes, its constants as
     C, and the call text in which {x0}, {x1}, {y} and {s} stand for its
-    buffers."""
+    buffers. in_place lists the inputs the kernel may write its output over."""
 
     def __init__(self, op, kind, reads, writes, decls="", call="", flash=0,
-                 macs=0, scratch=0):
+                 macs=0, scratch=0, in_place=(), outer=0):
         self.op, self.kind, self.reads, self.writes = op, kind, reads, writes
         self.decls, self.call, self.flash = decls, call, flash
         self.macs, self.scratch = macs, scratch
+        self.in_place, self.outer = in_place, outer
 
 
 def _int8(op, t, what):
@@ -393,7 +394,8 @@ def _lower_pool(op, T, ctx, fn):
              f"{{{oh}u, {ow}u, {c}u}}, {kh}u, {kw}u, {sh}u, {sw}u, {pt}u, {pl}u, "
              f"{lo}, {hi}}};\n")
     return Layer(op, "pool", [x.idx], [y.idx], decls,
-                 f"{fn}(&l{n}, {{x0}}, {{y}});", 0, 0)
+                 f"{fn}(&l{n}, {{x0}}, {{y}});", 0, 0,
+                 in_place=(0,) if pt == 0 and pl == 0 else ())
 
 
 def lower_max_pool(op, T, ctx):
@@ -445,7 +447,8 @@ def lower_add(op, T, ctx):
              "FNN_ROUNDING == FNN_ROUND_TFLITE\n" + init(gm, gs) + "#else\n" +
              init(um, us) + "#endif\n")
     return Layer(op, "add", [a.idx, b.idx], [y.idx], decls,
-                 f"fnn_add_s8(&l{n}, {{x0}}, {{x1}}, {{y}}, {y.size()}u);", 0, 0)
+                 f"fnn_add_s8(&l{n}, {{x0}}, {{x1}}, {{y}}, {y.size()}u);", 0, 0,
+                 in_place=(0, 1))
 
 
 def lower_concatenation(op, T, ctx):
@@ -465,7 +468,8 @@ def lower_concatenation(op, T, ctx):
     ptrs = ", ".join(f"{{x{i}}}" for i in range(len(xs)))
     call = ("{{\n    const int8_t *const v[" + str(len(xs)) + "] = {{" + ptrs + "}};\n"
             f"    fnn_concat_s8(v, c{n}, {len(xs)}u, {outer}u, {{y}});\n  }}}}")
-    return Layer(op, "concat", [t.idx for t in xs], [y.idx], decls, call, 0, 0)
+    return Layer(op, "concat", [t.idx for t in xs], [y.idx], decls, call, 0, 0,
+                 outer=outer)
 
 
 def logistic(v):
@@ -496,7 +500,8 @@ def lower_unary(op, T, ctx):
         tab = lut_table(f, x.scale[0], x.zp[0], y.scale[0], y.zp[0])
     n = op.idx
     return Layer(op, "table", [x.idx], [y.idx], _array("int8_t", f"t{n}", tab),
-                 f"fnn_lut_s8({{x0}}, {{y}}, {x.size()}u, t{n});", 256, 0)
+                 f"fnn_lut_s8({{x0}}, {{y}}, {x.size()}u, t{n});", 256, 0,
+                 in_place=(0,))
 
 
 def lower_softmax(op, T, ctx):
@@ -735,10 +740,7 @@ def lower(tensors, ops, ctx):
     return layers
 
 
-def plan(tensors, layers, inputs, outputs):
-    """Gives every tensor a buffer, the caller's input or output or an arena
-    offset, and every layer's scratch an offset. Buffers whose lifetimes
-    overlap never share bytes."""
+def _alias_root(layers):
     group = {}
 
     def find(t):
@@ -748,6 +750,24 @@ def plan(tensors, layers, inputs, outputs):
     for L in layers:
         if L.kind == "alias":
             group[find(L.writes[0])] = find(L.reads[0])
+    return find
+
+
+class Plan:
+    """Where each tensor lives, the arena offset of each layer's scratch, the
+    concatenations that need no copy and the layers that write over an
+    input."""
+
+    def __init__(self, where, scratch, arena, bound, sliced, over):
+        self.where, self.scratch, self.arena, self.bound = where, scratch, arena, bound
+        self.sliced, self.over = sliced, over
+
+
+def plan(tensors, layers, inputs, outputs, in_place=True, slices=True):
+    """Gives every tensor a buffer and every layer's scratch an offset. Live
+    buffers share bytes only where a layer writes over an input that dies
+    there, or where a concatenation's inputs are written straight into it."""
+    find = _alias_root(layers)
     ext = {}
     for t in inputs:
         ext[find(t)] = "in"
@@ -755,10 +775,10 @@ def plan(tensors, layers, inputs, outputs):
         if ext.get(find(t)) == "in":
             raise ConvertError("an output is the input itself")
         ext[find(t)] = "out"
+    run = [i for i, L in enumerate(layers) if L.kind != "alias"]
     life, size = {}, {}
-    for i, L in enumerate(layers):
-        if L.kind == "alias":
-            continue
+    for i in run:
+        L = layers[i]
         for t in L.reads + L.writes:
             r = find(t)
             if r not in ext:
@@ -768,23 +788,179 @@ def plan(tensors, layers, inputs, outputs):
         if L.scratch:
             life[("s", i)] = (i, i)
             size[("s", i)] = L.scratch
-    offset = {}
-    for r in sorted(life, key=lambda r: (-size[r], life[r][0])):
-        a, b = life[r]
-        busy = sorted((offset[o], offset[o] + size[o]) for o in offset
-                      if life[o][0] <= b and a <= life[o][1])
-        at = 0
-        for lo, hi in busy:
-            if at + size[r] <= lo:
+
+    # Buffers tied together sit at fixed offsets from each other.
+    rel = {b: (b, 0) for b in life}
+    members = {b: [b] for b in life}
+    parent, handoff, sliced, over = {}, {}, set(), {}
+
+    def join(a, b, off):
+        (ra, oa), (rb, ob) = rel[a], rel[b]
+        for m in members.pop(ra):
+            rel[m] = (rb, rel[m][1] + ob + off - oa)
+            members[rb].append(m)
+
+    def holds(a, b):
+        while b in parent:
+            b = parent[b]
+            if b == a:
+                return True
+        return False
+
+    def consistent(root):
+        ms = members[root]
+        for j, p in enumerate(ms):
+            for q in ms[j + 1:]:
+                (op, oq), (lp, lq) = (rel[p][1], rel[q][1]), (life[p], life[q])
+                if op >= oq + size[q] or oq >= op + size[p]:
+                    continue
+                if lp[1] < lq[0] or lq[1] < lp[0] or holds(p, q) or holds(q, p):
+                    continue
+                i = handoff.get((p, q), handoff.get((q, p)))
+                if i is None or op != oq or max(lp[0], lq[0]) != i or min(lp[1], lq[1]) != i:
+                    return False
+        return True
+
+    def attempt(tie):
+        saved = (dict(rel), {r: list(m) for r, m in members.items()}, dict(parent),
+                 dict(handoff))
+        root = tie()
+        if consistent(root):
+            return True
+        rel.clear(), members.clear(), parent.clear(), handoff.clear()
+        rel.update(saved[0]), members.update(saved[1]), parent.update(saved[2])
+        handoff.update(saved[3])
+        return False
+
+    for i in run if slices else ():
+        L = layers[i]
+        c, xs = find(L.writes[0]), [find(t) for t in L.reads]
+        if (L.kind != "concat" or L.outer != 1 or c in ext or c in xs or
+                len(set(xs)) != len(xs) or any(x in ext or x in parent for x in xs) or
+                any(rel[x][0] != x for x in xs)):
+            continue
+
+        def tie(c=c, xs=xs, L=L):
+            at = 0
+            for x, t in zip(xs, L.reads):
+                join(x, c, at)
+                parent[x] = c
+                at += tensors[t].size()
+            return rel[c][0]
+        if attempt(tie):
+            sliced.add(i)
+
+    for i in run if in_place else ():
+        L = layers[i]
+        y = find(L.writes[0])
+        for k in L.in_place:
+            x = find(L.reads[k])
+            if y in ext or x in ext or x == y or life[x][1] != i or rel[x][0] == rel[y][0]:
+                continue
+
+            def tie(x=x, y=y, i=i):
+                handoff[(x, y)] = i
+                join(x, y, 0)
+                return rel[y][0]
+            if attempt(tie):
+                over[i] = k
                 break
-            at = max(at, (hi + 3) & ~3)
-        offset[r] = at
-    arena = max((offset[r] + size[r] for r in offset), default=0)
-    peak = max((sum(size[r] for r in life if life[r][0] <= i <= life[r][1])
-                for i in range(len(layers))), default=0)
+
+    for r, ms in members.items():
+        low = min(rel[m][1] for m in ms)
+        for m in ms:
+            rel[m] = (r, rel[m][1] - low)
+
+    def extent(r):
+        return max(rel[m][1] + size[m] for m in members[r])
+    offset, placed = {}, []
+    for r in sorted(members, key=lambda r: (-extent(r),
+                                            min(life[m][0] for m in members[r]))):
+        ms = [(m, rel[m][1]) for m in members[r]]
+        bases = sorted({0} | {(e - o + 3) & ~3 for _, e, _, _ in placed for _, o in ms
+                              if e >= o})
+        for base in bases:
+            if all(s >= base + o + size[m] or base + o >= e or b < life[m][0] or
+                   life[m][1] < a for m, o in ms for s, e, a, b in placed):
+                break
+        for m, o in ms:
+            offset[m] = base + o
+            placed.append((base + o, base + o + size[m]) + life[m])
+    arena = max((e for _, e, _, _ in placed), default=0)
+    bound = 0
+    for i in run:
+        live = 0
+        for ms in members.values():
+            spans = sorted((rel[m][1], rel[m][1] + size[m]) for m in ms
+                           if life[m][0] <= i <= life[m][1])
+            end = 0
+            for s, e in spans:
+                live += max(e, end) - max(s, end)
+                end = max(end, e)
+        bound = max(bound, live)
     where = {t: ext.get(find(t), offset.get(find(t))) for t in range(len(tensors))}
-    scratch = {i: offset[("s", i)] for i in range(len(layers)) if ("s", i) in offset}
-    return where, scratch, (arena + 3) & ~3, peak
+    scratch = {i: offset[("s", i)] for i in run if ("s", i) in offset}
+    return Plan(where, scratch, (arena + 3) & ~3, bound, sliced, over)
+
+
+def verify(tensors, layers, inputs, outputs, p):
+    """Replays the plan with every byte tagged by the value it holds, and
+    fails where a layer would read an overwritten value or write over one it
+    may not."""
+    find = _alias_root(layers)
+    made = {find(layers[i].writes[0]): layers[i] for i in p.sliced}
+
+    def tags(t):
+        r = find(t)
+        if r in made:
+            L = made[r]
+            rows = max(L.outer, 1)
+            return np.hstack([tags(x).reshape(rows, -1) for x in L.reads]).reshape(-1)
+        return r * (1 << 24) + np.arange(tensors[r].size(), dtype=np.int64)
+    mem = {"arena": np.full(p.arena, -1, np.int64),
+           "out": np.full(tensors[outputs[0]].size(), -1, np.int64)}
+
+    def span(t):
+        w = p.where[t]
+        return ("arena", w) if isinstance(w, int) else (w, 0)
+
+    def fail(i, why):
+        raise ConvertError(f"the memory plan is wrong at op {layers[i].op.idx}: {why}")
+    for i, L in enumerate(layers):
+        if L.kind == "alias" or i in p.sliced:
+            continue
+        ys, yo = span(L.writes[0])
+        yn = tensors[L.writes[0]].size()
+        if ys == "in":
+            fail(i, "it writes the model's input")
+        for k, t in enumerate(L.reads):
+            s, o = span(t)
+            if s == "in":
+                if find(t) != find(inputs[0]):
+                    fail(i, f"it reads '{tensors[t].name}' from the input")
+                continue
+            n = tensors[t].size()
+            if o + n > len(mem[s]) or not np.array_equal(mem[s][o:o + n], tags(t)):
+                fail(i, f"'{tensors[t].name}' was overwritten before it was read")
+            if s == ys and o < yo + yn and yo < o + n and not (k in L.in_place and o == yo):
+                fail(i, f"the output overlaps '{tensors[t].name}'")
+        if any(isinstance(w, int) and w < 0 for w in
+               [p.where[t] for t in L.reads + L.writes] + [p.scratch.get(i, 0)]):
+            fail(i, "a buffer starts before the arena")
+        if L.scratch:
+            so = p.scratch[i]
+            busy = [span(t) + (tensors[t].size(),) for t in L.reads + L.writes]
+            if so + L.scratch > p.arena or any(s == "arena" and so < o + n and o < so + L.scratch
+                                               for s, o, n in busy):
+                fail(i, "the scratch overlaps a tensor")
+            mem["arena"][so:so + L.scratch] = -2
+        if yo + yn > len(mem[ys]):
+            fail(i, "the output runs past its buffer")
+        mem[ys][yo:yo + yn] = tags(L.writes[0])
+    t = outputs[0]
+    s, o = span(t)
+    if s != "out" or not np.array_equal(mem["out"], tags(t)):
+        raise ConvertError("the memory plan leaves the wrong values in the output")
 
 
 def _array(ctype, name, values, per_line=16):
@@ -808,7 +984,7 @@ def ident(s):
     return "m_" + s if s[:1].isdigit() else s
 
 
-def emit(name, src, tensors, layers, where, scratch, arena, inputs, outputs):
+def emit(name, src, tensors, layers, p, inputs, outputs):
     up = name.upper()
     tin, tout = tensors[inputs[0]], tensors[outputs[0]]
     banner = f"/* generated by fnn_tflite from {src}: do not edit */\n"
@@ -817,7 +993,7 @@ def emit(name, src, tensors, layers, where, scratch, arena, inputs, outputs):
          f"#define {up}_IN_LEN {tin.size()}u\n",
          f"#define {up}_OUT_LEN {tout.size()}u\n",
          f"/* Bytes of working memory the model needs, 4-byte aligned. */\n"
-         f"#define {up}_ARENA_SIZE {max(arena, 4)}u\n",
+         f"#define {up}_ARENA_SIZE {max(p.arena, 4)}u\n",
          f"#define {up}_IN_SCALE {_float(tin.scale[0])}\n",
          f"#define {up}_IN_ZERO_POINT ({tin.zp[0]})\n",
          f"#define {up}_OUT_SCALE {_float(tout.scale[0])}\n",
@@ -830,18 +1006,18 @@ def emit(name, src, tensors, layers, where, scratch, arena, inputs, outputs):
     run = []
 
     def buf(t, const):
-        w = where[t]
+        w = p.where[t]
         if w in ("in", "out"):
             return w
         return f"({'const ' if const else ''}int8_t *)(arena + {w})"
     for i, L in enumerate(layers):
-        if L.kind == "alias":
+        if L.kind == "alias" or i in p.sliced:
             continue
         c.append(L.decls + "\n")
         bufs = {f"x{k}": buf(t, True) for k, t in enumerate(L.reads)}
         bufs["y"] = buf(L.writes[0], False)
         if L.scratch:
-            bufs["s"] = f"(int8_t *)(arena + {scratch[i]})"
+            bufs["s"] = f"(int8_t *)(arena + {p.scratch[i]})"
         run.append("  " + L.call.format(**bufs) + "\n")
     c.append(f"void {name}_run(const int8_t *in, int8_t *out, uint8_t *arena) {{\n")
     if not any("arena" in r for r in run):
@@ -865,24 +1041,32 @@ def convert(path, out_dir, name=None, tflite_tables=False):
     rest, pads = fold_pads(tensors, rest, outputs, v)
     ctx = {"T": tensors, "v": v, "pad": pads, "tflite_tables": tflite_tables}
     layers = lower(tensors, rest, ctx)
-    where, scratch, arena, peak = plan(tensors, layers, inputs, outputs)
+    # The smallest arena wins, then the plan that leaves out the most copies.
+    p = min((plan(tensors, layers, inputs, outputs, a, b) for a in (True, False)
+             for b in (True, False)), key=lambda q: (q.arena, -len(q.sliced), -len(q.over)))
+    verify(tensors, layers, inputs, outputs, p)
     name = ident(name or Path(path).stem)
-    h, c = emit(name, Path(path).name, tensors, layers, where, scratch, arena,
-                inputs, outputs)
+    h, c = emit(name, Path(path).name, tensors, layers, p, inputs, outputs)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{name}.h").write_text(h)
     (out / f"{name}.c").write_text(c)
-    rows = []
-    for L in layers:
-        if L.kind != "alias":
-            rows.append(f"  {L.op.idx:3}  {L.op.name:18} {L.kind:9} {L.macs:9} MACs"
-                        f"  {L.flash:7} B   -> {where[L.writes[0]]}")
     folded = len(ops) - len(layers) - len(pads)
-    report = (f"{name}: {len(ops)} operators, {folded} of them only shapes and "
-              f"{len(pads)} paddings; arena {arena} B (live tensors peak at {peak} B), "
-              f"constants {sum(L.flash for L in layers)} B\n" + "\n".join(rows))
-    return name, report
+    rows = [f"{name}: {len(ops)} operators, {folded} of them only shapes and "
+            f"{len(pads)} padding{'' if len(pads) == 1 else 's'}. Arena {p.arena} B, "
+            f"with {p.bound} B live at the "
+            f"busiest layer. Constants {sum(L.flash for L in layers)} B.",
+            f"  {'op':>3}  {'operator':18} {'kernel':9} {'MACs':>9} {'flash':>7}  "
+            f"{'reads':12} {'writes':16} scratch"]
+    for i, L in enumerate(layers):
+        if L.kind == "alias":
+            continue
+        reads = ", ".join(str(p.where[t]) for t in L.reads)
+        writes = str(p.where[L.writes[0]]) + (", in place" if i in p.over else "")
+        kind = "no copy" if i in p.sliced else L.kind
+        rows.append(f"  {L.op.idx:3}  {L.op.name:18} {kind:9} {L.macs:9} {L.flash:5} B  "
+                    f"{reads:12} {writes:16} {p.scratch.get(i, '')}".rstrip())
+    return name, "\n".join(rows)
 
 
 ROUNDING = {"up": 0, "away": 1, "gemmlowp": 2, "tflite": 3}
