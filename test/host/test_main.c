@@ -293,6 +293,10 @@ void test_fnn_dwconv_random(void);
 void test_fnn_dwconv_shapes(void);
 void test_fnn_dwconv_check(void);
 
+/* --- fnn_fused (test_fnn_fused.c) --- */
+void test_fnn_dwpw_random(void);
+void test_fnn_dwpw_check(void);
+
 /* --- fnn_pool (test_fnn_pool.c) --- */
 void test_fnn_pool_random(void);
 void test_fnn_pool_shapes(void);
@@ -525,6 +529,8 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fnn_dwconv_random);
   TEST_RUN(test_fnn_dwconv_shapes);
   TEST_RUN(test_fnn_dwconv_check);
+  TEST_RUN(test_fnn_dwpw_random);
+  TEST_RUN(test_fnn_dwpw_check);
   TEST_RUN(test_fnn_pool_random);
   TEST_RUN(test_fnn_pool_shapes);
   TEST_RUN(test_fnn_pool_check);
