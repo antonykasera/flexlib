@@ -7,10 +7,11 @@
 flexnn runs small quantised neural networks on Cortex-M: int8 inference with
 the arithmetic of TFLite's int8 models. A network you train and quantise on a
 PC gives the same integers on the board. It has fully connected, convolution
-and depthwise layers, pooling and mean, add and concatenation, activation
-functions as tables, softmax and argmax, conversions in and out of int8, and
-the step every layer ends with, turning its int32 sums into int8 outputs.
-`fnn_tflite.py` turns a TFLite model into C that calls these layers, as
+and depthwise layers, a depthwise and pointwise pair in one pass, pooling and
+mean, add and concatenation, activation functions as tables, softmax and
+argmax, conversions in and out of int8, and the step every layer ends with,
+turning its int32 sums into int8 outputs. `fnn_tflite.py` turns a TFLite model
+into C that calls these layers, as
 [Converting a model](#converting-a-model-nntoolsfnn_tflitepy) shows, and
 [A whole model, by hand](#a-whole-model-by-hand) puts one together without it.
 
@@ -229,6 +230,87 @@ That is about a third fewer cycles than CMSIS-NN's faster depthwise kernel, but
 still 17 to 21 cycles per multiply-accumulate. The work the kernel does per
 group of four channels around its multiplies costs more than the multiplies,
 and that is where the next improvement lies.
+
+## Depthwise and pointwise in one pass (`fnn_fused.h`)
+
+A depthwise-separable block, a depthwise layer and then a 1 x 1 convolution,
+normally holds three tensors at once: its input, the depthwise output and the
+result. On a 20 KB part that is often what decides whether a model fits.
+`fnn_dwpw_s8` runs the two layers a row at a time. It keeps only the input
+rows the next rows still need, and the result can go over the input:
+
+```c
+#include <stdio.h>
+
+#include "fnn_fused.h"
+#include "fnn_quant.h"
+
+int main(void) {
+  /* 3 x 3 pixels of two channels: the first counts 1 to 9, the second is 1 */
+  int8_t x[18];
+  for (int i = 0; i < 9; i++) {
+    x[2 * i] = (int8_t)(i + 1);
+    x[2 * i + 1] = 1;
+  }
+  int8_t wd[18], wp[4] = {0, 1, 1, 0};
+  for (int i = 0; i < 18; i++) {
+    wd[i] = 1;
+  }
+  int32_t mult;
+  int8_t rsh;
+  fnn_quant_from_scale(1.0, &mult, &rsh);
+  const FNN_DwConv dw = {wd, NULL, {3, 3, 2}, {3, 3, 2}, 3, 3, 1, 1, 1, 1, 0,
+                         {&mult, &rsh, 1}, {0, -128, 127}};
+  const FNN_Conv pw = {wp, NULL, {3, 3, 2}, {3, 3, 2}, 1, 1, 1, 1, 0, 0, 0, 0,
+                       {&mult, &rsh, 1}, {0, -128, 127}};
+  int8_t scratch[FNN_DWPW_SCRATCH(3, 3, 2, 2)];
+  if (fnn_dwpw_check(&dw, &pw) != FNN_OK) {
+    return 1;
+  }
+  fnn_dwpw_s8(&dw, &pw, x, x, scratch);
+  for (int r = 0; r < 3; r++) {
+    for (int c = 0; c < 3; c++) {
+      printf(" %d/%d", x[(r * 3 + c) * 2], x[(r * 3 + c) * 2 + 1]);
+    }
+    printf("\n");
+  }
+  return 0;
+}
+```
+
+Which prints:
+
+```text
+ 4/12 6/21 4/16
+ 6/27 9/45 6/33
+ 4/24 6/39 4/28
+```
+
+Every depthwise tap adds its value, and the pointwise layer swaps the two
+channels. Each pixel then shows how many taps of its 3 x 3 window fall inside
+the image, and the sum of the counting channel under them: the corner sees 1,
+2, 4 and 5, the centre all nine values. The output went over `x`, and the only
+other memory was 24 bytes of scratch, three input rows and one depthwise row.
+Run as two layers, the same block would have needed the 18-byte depthwise
+output and an 18-byte result next to the input.
+
+`fnn_dwpw_check` accepts a depthwise layer of stride 1 whose output has its
+input's size, any filter and padding, and a 1 x 1 convolution of stride 1
+over its output, in either weight layout. The result may go over the input
+when a row of it is no longer than a row of the input. The outputs are the two
+layers' bit for bit.
+
+For a 12 x 5 x 64 block, a 3 x 3 depthwise layer then 64 -> 64 pointwise with
+packed weights, on an STM32F103 at 72 MHz (`-O2`):
+
+| block | memory | cycles |
+| --- | --: | --: |
+| `fnn_dwconv_s8` then `fnn_conv_s8` | 7680 B | 1962033 |
+| `fnn_dwpw_s8`, in place | 5120 B | 1997001 |
+
+The fused block takes 1.8% more cycles, for the rows it copies, and a third
+less memory. The keyword-spotting model's 25 x 5 x 64 blocks go from 16,000
+bytes to 9,280.
 
 ## Pooling and mean (`fnn_pool.h`)
 
@@ -799,7 +881,7 @@ weights in flash:
 | model | multiply-accumulates | arena | flexnn | CMSIS-NN |
 | --- | --: | --: | --: | --: |
 | R2, IMU gesture, three 1-D convolutions, pools, a mean, dense 8 | 261,440 | 2928 B | 1,446,289 | 1,769,539 |
-| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 6284 B | 2,329,044 | 2,855,160 |
+| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 6284 B | 2,334,770 | 2,858,168 |
 
 Both run about 1.2 times as fast as CMSIS-NN: R2 in 20 ms and R5 in 32 ms.
 CMSIS-NN has no MEAN, and its R2 uses a global average pool in its place. R3,
@@ -921,6 +1003,12 @@ filters up to 5 x 5, channel multipliers 1 to 3, strides 1 and 2, VALID and
 SAME padding and 1 to 64 channels, in every rounding mode, a quarter of them
 at a scale that makes exact ties. Against the TFLite interpreter, four layers
 bit for bit in `FNN_ROUND_GEMMLOWP`.
+
+Depthwise and pointwise blocks against the two layers run one after the
+other: 3000 random blocks with filters up to 5 x 5 and any padding, channel
+multipliers 1 and 2, 1 to 24 output channels and both weight layouts, in
+every rounding mode, each also run in place where a row of the result fits in
+a row of the input, with guard bytes after the output and the scratch.
 
 Convolutions against a reference written in TFLite's terms, which subtracts
 the zero point per tap and skips the taps outside the input: 3000 random layers
