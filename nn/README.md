@@ -223,13 +223,15 @@ way, with a multiplier per channel:
 
 | layer | flexnn | CMSIS-NN |
 | --- | --: | --: |
-| 3 x 3, 64 channels, 5 x 5, SAME | 299979 | 470046 |
-| 3 x 3, 64 channels, 7 x 7 to 5 x 5, VALID | 244547 | - |
+| 3 x 3, 64 channels, 5 x 5, SAME | 257137 | 470046 |
+| 3 x 3, 64 channels, 7 x 7 to 5 x 5, VALID | 230247 | - |
 
-That is about a third fewer cycles than CMSIS-NN's faster depthwise kernel, but
-still 17 to 21 cycles per multiply-accumulate. The work the kernel does per
-group of four channels around its multiplies costs more than the multiplies,
-and that is where the next improvement lies.
+That is 45% fewer cycles than CMSIS-NN's faster depthwise kernel, but still 16
+to 18 cycles per multiply-accumulate. Taps in the padding cost one product per
+channel, the zero point times the sum of their weights. The loop over the other
+taps is mostly 32-bit instructions, and flash at two wait states delivers under
+three bytes of code a cycle. The loop runs at about that rate, not at the rate
+of its multiplies.
 
 ## Depthwise and pointwise in one pass (`fnn_fused.h`)
 
@@ -305,10 +307,10 @@ packed weights, on an STM32F103 at 72 MHz (`-O2`):
 
 | block | memory | cycles |
 | --- | --: | --: |
-| `fnn_dwconv_s8` then `fnn_conv_s8` | 7680 B | 1962033 |
-| `fnn_dwpw_s8`, in place | 5120 B | 1997001 |
+| `fnn_dwconv_s8` then `fnn_conv_s8` | 7680 B | 1877647 |
+| `fnn_dwpw_s8`, in place | 5120 B | 1912658 |
 
-The fused block takes 1.8% more cycles, for the rows it copies, and a third
+The fused block takes 1.9% more cycles, for the rows it copies, and a third
 less memory. The keyword-spotting model's 25 x 5 x 64 blocks go from 16,000
 bytes to 9,280. `fnn_tflite.py` fuses such a pair whenever that makes a
 model's arena smaller.
@@ -888,11 +890,11 @@ weights in flash:
 | --- | --: | --: | --: | --: |
 | R2, IMU gesture, three 1-D convolutions, pools, a mean, dense 8 | 261,440 | 2928 B | 1,446,289 | 1,769,539 |
 | R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 6284 B | 2,329,052 | 2,857,898 |
-| R3, keyword spotting, a 10 x 4 convolution, four depthwise and pointwise pairs, mean, dense 12, softmax | 2,656,768 | 9280 B | 18,487,215 | |
+| R3, keyword spotting, a 10 x 4 convolution, four depthwise and pointwise pairs, mean, dense 12, softmax | 2,656,768 | 9280 B | 17,821,522 | |
 
 R2 and R5 run about 1.2 times as fast as CMSIS-NN: R2 in 20 ms and R5 in
 32 ms. CMSIS-NN has no MEAN, and its R2 uses a global average pool in its
-place. R3 takes 257 ms with its four depthwise and pointwise pairs fused.
+place. R3 takes 248 ms with its four depthwise and pointwise pairs fused.
 Through CMSIS-NN's layers it would need 16,000 bytes for one pair's depthwise
 output and result alone, more than the F103 can spare next to the bench, and it
 has no CMSIS-NN time here.
