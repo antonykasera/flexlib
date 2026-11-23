@@ -439,7 +439,8 @@ def lower_mean(op, T, ctx):
     decls = (f"static const FNN_Mean l{n} = {{{{{h}u, {w}u, {c}u}}, {x.zp[0]}, "
              f"{mult}, {rsh}, {{{y.zp[0]}, -128, 127}}}};\n")
     return Layer(op, "mean", [x.idx], [y.idx], decls,
-                 f"fnn_mean_s8(&l{n}, {{x0}}, {{y}});", 0, 0)
+                 f"fnn_mean_s8(&l{n}, {{x0}}, {{y}});", 0, 0,
+                 geom=(h, w, c, 1, 1, c, h, w, 1, 1, 0, 0))
 
 
 def lower_add(op, T, ctx):
@@ -824,6 +825,38 @@ def _alias_root(layers):
     return find
 
 
+def stream_split(tensors, layers, inputs, outputs):
+    """The layers a step function runs as the input arrives, from the input to
+    the first layer one column wide, and the rest, which run once on that
+    column. Raises ConvertError naming the layer that cannot stream."""
+    find = _alias_root(layers)
+    ends = {find(t) for t in outputs}
+    cur, head = find(inputs[0]), []
+    while True:
+        readers = [j for j, M in enumerate(layers)
+                   if M.kind != "alias" and any(find(t) == cur for t in M.reads)]
+        if cur in ends:
+            raise ConvertError("the stream must narrow to one column before the "
+                               "model's output")
+        if len(readers) != 1:
+            raise ConvertError(f"'{tensors[cur].name}' is read by {len(readers)} "
+                               "operators; a streamed tensor must have one reader")
+        L = layers[readers[0]]
+        where = f"op {L.op.idx} ({L.op.name}) cannot stream"
+        if L.kind not in ("conv", "depthwise", "pool", "mean") or len(L.reads) != 1:
+            raise ConvertError(f"{where}: only convolutions, pools and MEAN can")
+        h, w, _, _, ow, _, _, kw, _, sw, pt, pl = L.geom
+        if h != 1:
+            raise ConvertError(f"{where}: its input must be one row")
+        if pt or pl or (w - kw) % sw:
+            raise ConvertError(f"{where}: its windows must cover the input exactly, "
+                               "with VALID padding")
+        head.append(readers[0])
+        cur = find(L.writes[0])
+        if ow == 1:
+            return head, [L for j, L in enumerate(layers) if j not in head]
+
+
 class Plan:
     def __init__(self, where, scratch, arena, bound, sliced, over):
         self.where, self.scratch, self.arena, self.bound = where, scratch, arena, bound
@@ -1048,7 +1081,90 @@ def ident(s):
     return "m_" + s if s[:1].isdigit() else s
 
 
-def emit(name, src, tensors, layers, p, inputs, outputs):
+def _one_column(L):
+    """L's descriptor for one output column from a window of its input."""
+    h, w, c, oh, ow, oc, _, kw = L.geom[:8]
+    n = L.op.idx
+    line = next(d for d in L.decls.splitlines() if f" l{n} = {{" in d)
+    shapes = f"{{{h}u, {w}u, {c}u}}, {{{oh}u, {ow}u, {oc}u}}"
+    assert line.count(shapes) == 1
+    return line.replace(f" l{n} = ", f" t{n} = ").replace(
+        shapes, f"{{1u, {kw}u, {c}u}}, {{1u, 1u, {oc}u}}") + "\n"
+
+
+def emit_step(name, tensors, layers, head, tail, tp, outputs, written):
+    """The header and C of <name>_stream_init and <name>_step."""
+    up = name.upper()
+    find = _alias_root(layers)
+    out = find(outputs[0])
+    base = 0 if find(layers[head[-1]].writes[0]) == out else \
+        (layers[head[-1]].geom[5] + 3) & ~3
+    arena = max([base + (tp.arena if tp else 0)] + [layers[i].geom[5] for i in head])
+    arena = max((arena + 3) & ~3, 4)
+    decls, init, body, at, hop = [], [], [], 0, 1
+    x = "in"
+    for k, i in enumerate(head):
+        L = layers[i]
+        c, kw, sw, n = L.geom[2], L.geom[7], L.geom[9], L.op.idx
+        y = "out" if find(L.writes[0]) == out else "(int8_t *)(arena + 0)"
+        init.append(f"  (void)fnn_stream_init(&st->s[{k}], st->h + {at}, {2 * kw}u, {kw}u, "
+                    f"{c}u, {sw}u);\n")
+        at += 2 * kw * c
+        hop *= sw
+        if L.kind == "conv":
+            body.append(f"  if (fnn_stream_conv1d_s8(&l{n}, &st->s[{k}], {x}, {y}) == 0u) {{\n"
+                        "    return 0u;\n  }\n")
+        else:
+            d = f"l{n}"
+            if L.kind != "mean":
+                decls.append(_one_column(L))
+                d = f"t{n}"
+            call = L.call.replace(f"&l{n},", f"&{d},").format(x0="w", y=y)
+            body.append(f"  w = fnn_stream_push(&st->s[{k}], {x});\n"
+                        "  if (w == NULL) {\n    return 0u;\n  }\n"
+                        f"  {call}\n")
+        x = "(const int8_t *)(arena + 0)"
+    for i, L in enumerate(tail):
+        if L.kind != "alias" and i not in tp.sliced and L.decls not in written:
+            decls.append(L.decls)
+
+    def buf(t, const):
+        v = tp.where[t]
+        if v == "out":
+            return v
+        return f"({'const ' if const else ''}int8_t *)(arena + {0 if v == 'in' else base + v})"
+    for i, L in enumerate(tail):
+        if L.kind == "alias" or i in tp.sliced:
+            continue
+        bufs = {f"x{k}": buf(t, True) for k, t in enumerate(L.reads)}
+        bufs["y"] = buf(L.writes[0], False)
+        if L.scratch:
+            bufs["s"] = f"(int8_t *)(arena + {base + tp.scratch[i]})"
+        body.append("  " + L.call.format(**bufs) + "\n")
+    first = layers[head[0]].geom
+    hdr = (f"/* Runs the model as its input arrives, one column of {up}_STEP_IN_LEN\n"
+           f" * values at a time. An output comes every {up}_STEP_HOP columns once the\n"
+           f" * first {first[1]} have arrived. */\n"
+           f"#define {up}_STEP_IN_LEN {first[2]}u\n"
+           f"#define {up}_STEP_HOP {hop}u\n"
+           f"#define {up}_STEP_ARENA_SIZE {arena}u\n\n"
+           f"typedef struct {{\n  FNN_Stream s[{len(head)}];\n  int8_t h[{at}];\n}} {up}_Stream;\n\n"
+           f"void {name}_stream_init({up}_Stream *st);\n"
+           f"/* Appends the column at in and returns 1 when it completes a window, with\n"
+           f" * that window's output at out, using the {up}_STEP_ARENA_SIZE bytes at\n"
+           f" * arena. */\n"
+           f"uint32_t {name}_step({up}_Stream *st, const int8_t *in, int8_t *out,\n"
+           f"{' ' * (len(name) + 15)}uint8_t *arena);\n\n")
+    c = ("".join(d + "\n" for d in decls) +
+         f"void {name}_stream_init({up}_Stream *st) {{\n" + "".join(init) + "}\n\n" +
+         f"uint32_t {name}_step({up}_Stream *st, const int8_t *in, int8_t *out,\n"
+         f"{' ' * (len(name) + 15)}uint8_t *arena) {{\n"
+         + ("  const int8_t *w;\n" if any(" w = " in b for b in body) else "")
+         + "".join(body) + "  return 1u;\n}\n")
+    return hdr, c, (at, arena, hop)
+
+
+def emit(name, src, tensors, layers, p, inputs, outputs, step=None):
     up = name.upper()
     tin, tout = tensors[inputs[0]], tensors[outputs[0]]
     banner = f"/* generated by fnn_tflite from {src}: do not edit */\n"
@@ -1092,10 +1208,17 @@ def emit(name, src, tensors, layers, p, inputs, outputs):
         c.append("  (void)arena;\n")
     c.extend(run)
     c.append("}\n")
-    return "".join(h), "".join(c)
+    if step:
+        hs, cs, sizes = emit_step(name, tensors, *step, outputs, "".join(c))
+        h.insert(-1, hs)
+        h[1] = h[1].replace("#include <stdint.h>", '#include "fnn_stream.h"\n#include <stdint.h>')
+        c[1] = c[1].replace('"fnn.h"\n', '"fnn.h"\n#include <stddef.h>\n')
+        c.append("\n" + cs)
+        return "".join(h), "".join(c), sizes
+    return "".join(h), "".join(c), None
 
 
-def convert(path, out_dir, name=None, tflite_tables=False):
+def convert(path, out_dir, name=None, tflite_tables=False, stream=False):
     """Converts path into out_dir/<name>.h and .c; returns the name and a
     report."""
     tensors, ops, inputs, outputs = load(path)
@@ -1110,8 +1233,8 @@ def convert(path, out_dir, name=None, tflite_tables=False):
     ctx = {"T": tensors, "v": v, "pad": pads, "tflite_tables": tflite_tables}
     lowered = lower(tensors, rest, ctx)
 
-    def best(layers):
-        return min((plan(tensors, layers, inputs, outputs, a, b) for a in (True, False)
+    def best(layers, ins=inputs):
+        return min((plan(tensors, layers, ins, outputs, a, b) for a in (True, False)
                     for b in (True, False)),
                    key=lambda q: (q.arena, -len(q.sliced), -len(q.over)))
     # A fused pair runs slower and is kept only when it shrinks the arena.
@@ -1124,8 +1247,18 @@ def convert(path, out_dir, name=None, tflite_tables=False):
             pairs, p = fewer, q
     layers = fuse(lowered, pairs)
     verify(tensors, layers, inputs, outputs, p)
+    step = None
+    if stream:
+        head, tail = stream_split(tensors, lowered, inputs, outputs)
+        tp = None
+        if any(L.kind != "alias" for L in tail):
+            x = [lowered[head[-1]].writes[0]]
+            tp = best(tail, x)
+            verify(tensors, tail, x, outputs, tp)
+        step = (head, tail, tp)
     name = ident(name or Path(path).stem)
-    h, c = emit(name, Path(path).name, tensors, layers, p, inputs, outputs)
+    h, c, sizes = emit(name, Path(path).name, tensors, layers, p, inputs, outputs,
+                       step and (lowered,) + step)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{name}.h").write_text(h)
@@ -1138,7 +1271,9 @@ def convert(path, out_dir, name=None, tflite_tables=False):
             f"with {p.bound} B live at the "
             f"busiest layer. Constants {sum(L.flash for L in layers)} B." +
             (f" {len(pairs)} of {len(can)} layer pairs fused." if can
-             else ""),
+             else "") +
+            (f" Streams {len(step[0])} layers: an output every {sizes[2]} columns, "
+             f"{sizes[0]} B of history, step arena {sizes[1]} B." if step else ""),
             f"  {'op':>{wide}}  {'operator':18} {'kernel':9} {'MACs':>9} {'flash':>7}  "
             f"{'reads':12} {'writes':16} scratch"]
     for i, L in enumerate(layers):
@@ -1202,6 +1337,43 @@ def check(path, c_dir, name, rounding="tflite", runs=200, seed=0, feeds=None):
     return len(feeds) * n_out, bad
 
 
+def check_stream(c_dir, name, rounding="tflite", windows=100, seed=0):
+    """Feeds <name>_step a random signal and compares each output with
+    <name>_run on the window it ends; returns (outputs compared, outputs that
+    differ)."""
+    import ctypes
+    up = name.upper()
+    head = (Path(c_dir) / f"{name}.h").read_text()
+
+    def define(key):
+        return int(re.search(rf"#define {up}_{key} (\d+)u", head).group(1))
+    c, hop, n_in, n_out = (define(k) for k in ("STEP_IN_LEN", "STEP_HOP", "IN_LEN",
+                                               "OUT_LEN"))
+    w = n_in // c
+    rng = np.random.default_rng(seed)
+    x = rng.integers(-128, 128, (w + hop * (windows - 1), c), dtype=np.int8)
+    with tempfile.TemporaryDirectory() as tmp:
+        lib = ctypes.CDLL(str(build(c_dir, name, rounding, tmp)))
+        run, init, step = (getattr(lib, f"{name}_{f}") for f in ("run", "stream_init", "step"))
+        run.argtypes = [ctypes.c_void_p] * 3
+        init.argtypes = [ctypes.c_void_p]
+        step.argtypes = [ctypes.c_void_p] * 4
+        step.restype = ctypes.c_uint32
+        state, arena = np.zeros(1 << 16, np.uint64), np.zeros(1 << 18, np.uint32)
+        init(state.ctypes.data)
+        got, want = np.zeros(n_out, np.int8), np.zeros(n_out, np.int8)
+        bad, k = 0, 0
+        for t in range(len(x)):
+            if not step(state.ctypes.data, x[t].ctypes.data, got.ctypes.data, arena.ctypes.data):
+                continue
+            win = np.ascontiguousarray(x[t + 1 - w:t + 1])
+            run(win.ctypes.data, want.ctypes.data, arena.ctypes.data)
+            ok = t == w - 1 + k * hop
+            bad += n_out if not ok else int(np.count_nonzero(got != want))
+            k += 1
+    return windows * n_out, bad + n_out * abs(windows - k)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("model", help="a full-integer int8 .tflite model")
@@ -1213,12 +1385,16 @@ def main(argv=None):
                     help="FNN_ROUNDING for --check (tflite: the interpreter's "
                          "rule for each operator)")
     ap.add_argument("--inputs", help="a .npy file of inputs for --check")
+    ap.add_argument("--stream", action="store_true",
+                    help="also write <name>_step, which runs the model one input "
+                         "column at a time; with --check, compare it with the "
+                         "batch run")
     ap.add_argument("--tflite-tables", action="store_true",
                     help="read activation tables from the TFLite interpreter "
                          "instead of computing them exactly")
     a = ap.parse_args(argv)
     try:
-        name, report = convert(a.model, a.out, a.name, a.tflite_tables)
+        name, report = convert(a.model, a.out, a.name, a.tflite_tables, a.stream)
         print(report)
         if a.check:
             feeds = None
@@ -1228,6 +1404,11 @@ def main(argv=None):
             n, bad = check(a.model, a.out, name, a.rounding, feeds=feeds)
             print(f"check ({a.rounding}): {bad} of {n} outputs differ from the "
                   "TFLite interpreter")
+            if a.stream:
+                n, more = check_stream(a.out, name, a.rounding)
+                print(f"check ({a.rounding}): {more} of {n} streamed outputs differ "
+                      "from the batch run")
+                bad += more
             return 1 if bad else 0
     except (ConvertError, OSError) as e:
         print(f"fnn_tflite: {e}", file=sys.stderr)

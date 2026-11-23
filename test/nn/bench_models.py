@@ -1,4 +1,5 @@
-"""Writes R2, R3 and R5, converted, to bench/models/ for the bench.
+"""Writes R2, R3 and R5, converted, to bench/models/ for the bench, R2 with
+its step function.
 
     build/nn-venv/bin/python test/nn/bench_models.py bench/models
 
@@ -15,16 +16,17 @@ import numpy as np
 import check
 import fnn_tflite
 
-MODELS = (("r2", check.net_r2, 2), ("r3", check.net_r3, 3), ("r5", check.net_r5, 5))
+MODELS = (("r2", check.net_r2, 2, True), ("r3", check.net_r3, 3, False),
+          ("r5", check.net_r5, 5, False))
 
 
 def write(out_dir):
     out = Path(out_dir)
     with tempfile.TemporaryDirectory() as tmp:
-        for name, make, seed in MODELS:
+        for name, make, seed, stream in MODELS:
             path = Path(tmp) / f"{name}.tflite"
             path.write_bytes(make(np.random.default_rng(seed)))
-            fnn_tflite.convert(path, out, name)
+            fnn_tflite.convert(path, out, name, stream=stream)
 
 
 def stale(out_dir):

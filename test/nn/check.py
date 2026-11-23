@@ -1037,6 +1037,132 @@ def case_net(name, make, runs, out_dir, seed, tflite_tables=False):
 
 
 # Scales where a multiplier from the float32 product rounds some sums apart.
+def net_stream(rng):
+    """A random causal 1-D model: convolutions, depthwise layers and pools whose
+    windows cover their inputs, narrowed to one column, then nothing, a
+    padded convolution, two heads joined, or a dense head."""
+    n = Net([1, 1, int(rng.integers(16, 97)), int(rng.choice([1, 2, 3, 6]))], rng)
+    for _ in range(int(rng.integers(1, 5))):
+        w = n.info(n.cur)[0][2]
+        s = int(rng.integers(1, 4))
+        ks = [k for k in range(1, min(w, 7) + 1) if (w - k) % s == 0 and (w - k) // s >= 1]
+        if not ks:
+            break
+        k, r = int(rng.choice(ks)), int(rng.integers(4))
+        if r < 2:
+            n.conv(int(rng.choice([4, 8, 12])), 1, k, s=(1, s), same=False,
+                   act=int(rng.choice([0, RELU])))
+        elif r == 2:
+            n.conv(0, 1, k, s=(1, s), same=False, dw=int(rng.integers(1, 3)))
+        else:
+            n.pool(str(rng.choice(["MAX_POOL_2D", "AVERAGE_POOL_2D"])), 1, k, (1, s))
+    w = n.info(n.cur)[0][2]
+    end = int(rng.integers(3))
+    if end == 0:
+        n.mean(1.0, True)
+    elif end == 1:
+        n.conv(8, 1, w, same=False)
+    else:
+        n.pool("MAX_POOL_2D", 1, w, (1, 1))
+    tail = int(rng.integers(4))
+    if tail == 1:
+        n.conv(8, 1, 3)
+    n.reshape([1, n.info(n.cur)[0][3]])
+    if tail == 2:
+        m, heads = n.cur, []
+        for _ in range(2):
+            n.cur = m
+            n.fc(int(rng.integers(2, 9)))
+            heads.append(n.table("TANH", 1.0 / 128.0, 0))
+        n.concat(heads, 1)
+    if tail != 3:
+        n.fc(int(rng.integers(2, 9)))
+        if rng.integers(2):
+            n.softmax()
+    return n.build()
+
+
+def net_stream_keras(rng):
+    """Conv1D and MaxPool1D as Keras exports them, reshaped to one row and back
+    around each layer."""
+    n = Net([1, 64, 3], rng)
+    n.reshape([1, 1, 64, 3])
+    n.conv(8, 1, 5, same=False)
+    n.reshape([1, 60, 8])
+    n.reshape([1, 1, 60, 8])
+    n.pool("MAX_POOL_2D", 1, 2, (1, 2))
+    n.reshape([1, 30, 8])
+    n.reshape([1, 1, 30, 8])
+    n.conv(8, 1, 3, s=(1, 3), same=False)
+    n.mean(1.0, False)
+    n.fc(4)
+    return n.build()
+
+
+def case_stream(name, make, out_dir, seed, modes=("up", "away", "gemmlowp", "tflite"),
+                interpreter=True):
+    """A model converted with its step function, every streamed output checked
+    against the batch run, and the batch run against the interpreter."""
+    path = Path(out_dir) / f"stream{seed}.tflite"
+    path.write_bytes(make(np.random.default_rng(seed)))
+    cname, report = fnn_tflite.convert(path, out_dir, stream=True)
+    bad = 0
+    if interpreter:
+        bad = fnn_tflite.check(path, out_dir, cname, "tflite", runs=50, seed=seed)[1]
+    total = [0] * len(MODES)
+    for m in modes:
+        k, more = fnn_tflite.check_stream(out_dir, cname, m, windows=40, seed=seed)
+        total[MODES.index("FNN_ROUND_" + m.upper())] = more
+    return name, k, total, bad, report
+
+
+STREAMS = (("R2, IMU gesture", net_r2), ("Conv1D and MaxPool1D as Keras writes them",
+                                         net_stream_keras))
+
+
+def case_stream_errors(out_dir):
+    """Models the converter must refuse to stream, and the words its message
+    must hold."""
+    rng = np.random.default_rng(6)
+    cases = []
+    n = Net([1, 1, 32, 3], rng)
+    n.conv(8, 1, 5, same=True)
+    n.mean(1.0, False)
+    cases.append(("SAME padding", n.build(), "VALID"))
+    n = Net([1, 4, 32, 3], rng)
+    n.conv(8, 1, 5, same=False)
+    n.mean(1.0, False)
+    cases.append(("four rows", n.build(), "one row"))
+    n = Net([1, 1, 32, 3], rng)
+    n.conv(8, 1, 3, s=(1, 2), same=False)
+    n.mean(1.0, False)
+    cases.append(("a trailing column", n.build(), "cover the input exactly"))
+    n = Net([1, 1, 32, 4], rng)
+    a = n.conv(4, 1, 1, same=False)
+    n.add(a, n.x)
+    n.mean(1.0, False)
+    cases.append(("a residual add", n.build(), "is read by 2 operators"))
+    n = Net([1, 1, 32, 4], rng)
+    n.conv(4, 1, 1, same=False)
+    n.table("TANH", 1.0 / 128.0, 0)
+    n.mean(1.0, False)
+    cases.append(("a table", n.build(), "only convolutions, pools and MEAN"))
+    n = Net([1, 1, 32, 4], rng)
+    n.conv(4, 1, 3, same=False)
+    cases.append(("a wide output", n.build(), "before the model's output"))
+    wrong = []
+    for name, blob, words in cases:
+        path = Path(out_dir) / "refused.tflite"
+        path.write_bytes(blob)
+        try:
+            fnn_tflite.convert(path, out_dir, stream=True)
+            wrong.append(f"{name}: converted")
+        except fnn_tflite.ConvertError as e:
+            if words not in str(e):
+                wrong.append(f"{name}: {e}")
+    return len(cases), wrong
+
+
 FC_TIE_SCALES = ((0.0281082876, 0.00989397056, 0.0380361415),
                  (0.080838725, 0.00272454624, 0.0402170271),
                  (0.0974520966, 0.00797197688, 0.0396611318))
@@ -1364,6 +1490,28 @@ def main():
         print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad) +
               ("  fused wrongly" if wrong else ""))
         failed |= wrong or bad[GEMMLOWP] != 0 or bad[TFLITE] != 0
+    print()
+    for i, (name, make) in enumerate(STREAMS):
+        name, n, bad, batch, _ = case_stream(f"streamed: {name}", make, models, 180 + i)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{b:8}" for b in bad))
+        failed |= any(bad) or batch != 0
+    wrong, hops = 0, set()
+    for k in range(12):
+        _, n, bad, batch, report = case_stream("", net_stream, models, 200 + k,
+                                               modes=(("up", "away", "gemmlowp",
+                                                       "tflite")[k % 4],),
+                                               interpreter=False)
+        wrong += sum(bad) + batch
+        hops.add(int(re.search(r"an output every (\d+) columns", report).group(1)))
+    print(f"{'streamed: random 1-D models, one mode each':58} {12:8}  {wrong:8} wrong"
+          f"  (hops {', '.join(map(str, sorted(hops)))})")
+    failed |= wrong != 0
+    n, wrong_words = case_stream_errors(models)
+    print(f"{'models the converter must refuse to stream':58} {n:8}  "
+          f"{len(wrong_words):8} streamed or wrongly worded")
+    for w in wrong_words:
+        print("  " + w)
+    failed |= bool(wrong_words)
     print()
     n, shared, fused, bad = case_plans(models)
     print(f"{'random graphs, plans replayed byte by byte':58} {n:8}  {bad:8} wrong"
