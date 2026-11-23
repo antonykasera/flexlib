@@ -310,7 +310,8 @@ packed weights, on an STM32F103 at 72 MHz (`-O2`):
 
 The fused block takes 1.8% more cycles, for the rows it copies, and a third
 less memory. The keyword-spotting model's 25 x 5 x 64 blocks go from 16,000
-bytes to 9,280.
+bytes to 9,280. `fnn_tflite.py` fuses such a pair whenever that makes a
+model's arena smaller.
 
 ## Pooling and mean (`fnn_pool.h`)
 
@@ -834,7 +835,7 @@ later layer reads, and their rows say so. Here is the start of the report for
 the small CNN in `test/nn/models/cnn_keras.tflite`:
 
 ```text
-cnn_keras: 10 operators, 0 of them only shapes and 1 padding. Arena 2076 B, with 2075 B live at the busiest layer. Constants 3013 B.
+cnn_keras: 10 operators, 0 of them only shapes and 1 padding. Arena 2076 B, with 2075 B live at the busiest layer. Constants 3013 B. 0 of 1 depthwise and pointwise pairs fused.
    op  operator           kernel         MACs   flash  reads        writes           scratch
     0  CONV_2D            conv          55296   288 B  in           0                2048
     1  MAX_POOL_2D        pool              0     0 B  0            0, in place
@@ -847,9 +848,14 @@ The max pool writes its 512 bytes over the start of the convolution's 2048, and
 the residual add writes over its first input. Without those two the arena would
 be 2560 bytes. A concatenation of single rows, such as heads joined after a
 global pool, needs no copy either: each head is written straight into its
-place in the result, and the row says "no copy". The first line also gives the
-most bytes live at any one layer. When the arena matches it, no other
-placement of these tensors is smaller.
+place in the result, and the row says "no copy". A depthwise layer whose output
+only a 1 x 1 convolution reads can run with it as one `fnn_dwpw_s8` call. The
+fused call takes about 2% longer, and the converter fuses a pair only when that
+makes the arena smaller. Its row then names both operators, as in `1+2`. In
+this model the first convolution sets the arena, and operators 2 and 3 run
+apart. The first line counts the pairs fused and gives the most bytes live at
+any one layer. When the arena matches that, no other placement of these tensors
+is smaller.
 
 `--check` builds the generated C with flexnn on your PC, runs it and the TFLite
 interpreter on 200 random inputs, or on the inputs in a `.npy` file given with
@@ -873,7 +879,7 @@ LEAKY_RELU that differs from the interpreter's own kernel by 1 on a few
 inputs; `--tflite-tables` reads the interpreter's table instead, which needs
 `ai-edge-litert` at conversion.
 
-Here is how two converted models run on an STM32F103 at 72 MHz (`-O2`),
+Here is how three converted models run on an STM32F103 at 72 MHz (`-O2`),
 against the same layers through CMSIS-NN 8.0.0, with its convolution wrapper
 picking each layer's kernel. The times are cycles for one inference, with the
 weights in flash:
@@ -881,12 +887,15 @@ weights in flash:
 | model | multiply-accumulates | arena | flexnn | CMSIS-NN |
 | --- | --: | --: | --: | --: |
 | R2, IMU gesture, three 1-D convolutions, pools, a mean, dense 8 | 261,440 | 2928 B | 1,446,289 | 1,769,539 |
-| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 6284 B | 2,334,770 | 2,858,168 |
+| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 6284 B | 2,329,052 | 2,857,898 |
+| R3, keyword spotting, a 10 x 4 convolution, four depthwise and pointwise pairs, mean, dense 12, softmax | 2,656,768 | 9280 B | 18,487,215 | |
 
-Both run about 1.2 times as fast as CMSIS-NN: R2 in 20 ms and R5 in 32 ms.
-CMSIS-NN has no MEAN, and its R2 uses a global average pool in its place. R3,
-the keyword-spotting model, needs a 16 KB arena, more than the F103's 20 KB can
-spare next to the bench.
+R2 and R5 run about 1.2 times as fast as CMSIS-NN: R2 in 20 ms and R5 in
+32 ms. CMSIS-NN has no MEAN, and its R2 uses a global average pool in its
+place. R3 takes 257 ms with its four depthwise and pointwise pairs fused.
+Through CMSIS-NN's layers it would need 16,000 bytes for one pair's depthwise
+output and result alone, more than the F103 can spare next to the bench, and it
+has no CMSIS-NN time here.
 
 ## Requantisation (`fnn_quant.h`)
 
@@ -1052,8 +1061,15 @@ functions on 66,583 values, and eight models it must refuse, each with the
 message that says why. Every memory plan is replayed byte by byte at
 conversion, each byte tagged by the value it holds, and the converter stops if
 a layer would read an overwritten value. nn-check also pins the arena of each
-model above and converts 300 random graphs of convolutions, pools, tables, adds
-and joined rows, ten of them against the interpreter as well.
+model above and converts 300 random graphs of convolutions, depthwise and
+pointwise pairs, pools, tables, adds and joined rows, ten of them against the
+interpreter as well. Twelve small blocks check which pairs the converter fuses.
+It fuses one that shrinks the arena, also behind a PAD or with two outputs per
+channel, and runs it in place when a row of the result fits. It leaves apart a
+depthwise layer of stride 2, even on a single row, one that shrinks the map, a
+3 x 3 convolution after one, a depthwise output read twice or given as the
+model's output, and pairs that would not shrink the arena. Each block also runs
+against the interpreter.
 
 Adds against a reference in TFLite's terms for `FNN_ROUND_GEMMLOWP` and an
 exact 64-bit sum for the other modes: all 65,536 pairs of int8 inputs at nine
