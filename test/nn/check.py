@@ -53,6 +53,8 @@ def load(libdir):
         lib.fnn_softmax_s8.argtypes = [ctypes.c_void_p] * 2 + [
             ctypes.c_uint32, ctypes.c_void_p]
         lib.fnn_argmax_s8.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        lib.fnn_dense_pack_s8.argtypes = [ctypes.c_void_p, ctypes.c_uint32,
+                                          ctypes.c_uint32, ctypes.c_void_p]
         for f in (lib.fnn_quantize_f32_s8, lib.fnn_quantize_q15_s8):
             f.argtypes = [ctypes.c_void_p] * 2 + [ctypes.c_uint32] + [
                 ctypes.c_int32] * 3
@@ -538,8 +540,8 @@ def case_exported(path, out_dir, runs=500):
 
 def case_converter_arith(lib, lib_g, seed=99):
     """Compares the converter's multipliers, softmax and activation tables,
-    clamps, and mean and add setup with flexnn's own functions, and returns
-    how many it compared and how many differ."""
+    clamps, mean and add setup, and packed weights with flexnn's own functions,
+    and returns how many it compared and how many differ."""
     rng = np.random.default_rng(seed)
     scales = list(rng.uniform(0.0, 1.0, 50000) * 2.0 ** rng.integers(-40, 40, 50000))
     scales += [2.0 ** e for e in range(-40, 40)] + [0.0, 1.0 - 2.0 ** -53, 0.5]
@@ -580,6 +582,13 @@ def case_converter_arith(lib, lib_g, seed=99):
             lib_mode.fnn_add_init(ctypes.byref(add), s1, 0, s2, 0, sy, Out(0, -128, 127))
             n += 1
             bad += (list(add.m), list(add.sh)) != (list(m), list(sh))
+    for _ in range(2000):
+        n_out, n_in = int(rng.integers(1, 40)), int(rng.integers(1, 70))
+        w = rng.integers(-128, 128, (n_out, n_in), dtype=np.int8)
+        got = np.zeros(n_out * n_in, np.int8)
+        lib.fnn_dense_pack_s8(w.ctypes.data, n_in, n_out, got.ctypes.data)
+        n += 1
+        bad += fnn_tflite.pack_rows(w) != got.tolist()
     tab = np.zeros(256, np.int8)
     funcs = [math.tanh, fnn_tflite.logistic, fnn_tflite.UNARY["HARD_SWISH"]]
     for k in range(300):
