@@ -519,6 +519,8 @@ const BenchGolden bench_golden[] = {
     {"fnn_dequantize_s8_q15, 256", 0x6387D70AU},
     {"fnn_dequantize_s8_f32, 128", 0x0F0F8FFBU},
     {"dequantise 128 to float, the soft-float multiply", 0x0F0F8FFBU},
+    {"model R2, IMU gesture, converted", 0x1AA4F5A3U},
+    {"model R5, 28 x 28 CNN, converted", 0xEDF46B48U},
     {"fnn_dense_s8, 256 -> 64", 0x2FE40199U},
     {"fnn_dense_s8, 256 -> 64, packed", 0x1909843FU},
 };

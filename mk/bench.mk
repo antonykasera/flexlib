@@ -4,7 +4,7 @@ FLEX_DIR      ?= third_party/flex
 CMSIS_DSP_DIR ?= third_party/cmsis-dsp
 CMSIS_NN_DIR  ?= third_party/cmsis-nn
 
-BENCH_INC = -Ibench/core $(LIB_PRIV)
+BENCH_INC = -Ibench/core -Ibench/models $(LIB_PRIV)
 
 BENCH_CASES_utils  = $(addprefix bench/cases/,cases_arch.c cases_bits.c \
                        cases_fmt.c cases_crc.c cases_ring.c cases_parse.c \
@@ -22,11 +22,13 @@ BENCH_CASES_dsp4   = bench/cases/cases_fd_corr.c
 BENCH_CASES_dsp5   = bench/cases/cases_fd_resample.c
 BENCH_CASES_dsp6   = bench/cases/cases_fd_f32.c
 BENCH_CASES_nn     = bench/cases/cases_fnn.c
+BENCH_CASES_nn2    = bench/cases/cases_fnn2.c $(wildcard bench/models/*.c)
 # everything that also builds on the host (golden, lint)
 BENCH_PORTABLE = bench/core/bench_core.c $(BENCH_CASES_utils) \
                  $(BENCH_CASES_math) $(BENCH_CASES_struct) $(BENCH_CASES_dsp) \
                  $(BENCH_CASES_dsp2) $(BENCH_CASES_dsp3) $(BENCH_CASES_dsp4) \
-                 $(BENCH_CASES_dsp5) $(BENCH_CASES_dsp6) $(BENCH_CASES_nn)
+                 $(BENCH_CASES_dsp5) $(BENCH_CASES_dsp6) $(BENCH_CASES_nn) \
+                 $(BENCH_CASES_nn2)
 
 GOLDEN_BUILD        = $(BUILD)/golden
 GOLDEN_CFLAGS       = $(STD) $(WARN) $(WERROR) -O2 -DBENCH_HOST $(LIB_INC) $(BENCH_INC)
@@ -56,7 +58,7 @@ golden: $(foreach g,$(GOLDEN_BUILDS),$(GOLDEN_BUILD)/$(g)/golden_gen)
 
 -include $(wildcard $(GOLDEN_BUILD)/*/*/*/*.d)
 
-BENCH_SETS     = utils math struct dsp dsp2 dsp3 dsp4 dsp5 dsp6 nn
+BENCH_SETS     = utils math struct dsp dsp2 dsp3 dsp4 dsp5 dsp6 nn nn2
 BENCH_SET     ?=
 BENCH_OPT     ?= -O2
 # bench/port/<target>/port.mk: CPU, report, OpenOCD target
@@ -88,11 +90,11 @@ endif
 endif
 
 # CMSIS-NN as it ships, with no options and its gemmlowp rounding
-ifeq ($(BENCH_SET),nn)
+ifneq ($(filter nn nn2,$(BENCH_SET)),)
 ifneq ($(wildcard $(CMSIS_NN_DIR)/Include/arm_nnfunctions.h),)
 BENCH_DEFS    += -DBENCH_HAVE_CMSIS_NN
 CMSIS_NN_INC   = -isystem $(CMSIS_NN_DIR)/Include
-CMSIS_NN_SRCS  = $(addprefix $(CMSIS_NN_DIR)/Source/,$(CMSIS_NN_SRCS_nn))
+CMSIS_NN_SRCS  = $(addprefix $(CMSIS_NN_DIR)/Source/,$(CMSIS_NN_SRCS_$(BENCH_SET)))
 endif
 endif
 
@@ -118,6 +120,21 @@ CMSIS_NN_SRCS_nn  = $(addprefix FullyConnectedFunctions/,arm_fully_connected_s8.
                       arm_nn_depthwise_conv_nt_t_padded_s8.c \
                       arm_q7_to_q15_with_offset.c arm_s8_to_s16_unordered_with_offset.c \
                       arm_nntables.c)
+
+CMSIS_NN_SRCS_nn2 = FullyConnectedFunctions/arm_fully_connected_s8.c \
+                    $(addprefix ConvolutionFunctions/,arm_convolve_wrapper_s8.c \
+                      arm_convolve_s8.c arm_convolve_1_x_n_s8.c arm_convolve_1x1_s8.c \
+                      arm_convolve_1x1_s8_fast.c arm_convolve_get_buffer_sizes_s8.c \
+                      arm_nn_mat_mult_kernel_s8_s16.c \
+                      arm_nn_mat_mult_kernel_row_offset_s8_s16.c) \
+                    $(addprefix PoolingFunctions/,arm_max_pool_s8.c arm_avgpool_s8.c \
+                      arm_avgpool_get_buffer_sizes_s8.c) \
+                    $(addprefix SoftmaxFunctions/,arm_softmax_s8.c \
+                      arm_nn_softmax_common_s8.c) \
+                    $(addprefix NNSupportFunctions/,arm_nn_mat_mul_core_1x_s8.c \
+                      arm_nn_mat_mul_core_4x_s8.c arm_nn_mat_mult_nt_t_s8.c \
+                      arm_nn_vec_mat_mult_t_s8.c arm_q7_to_q15_with_offset.c \
+                      arm_s8_to_s16_unordered_with_offset.c arm_nntables.c)
 
 CMSIS_SRCS_math   = FastMathFunctions/arm_sin_q15.c \
                     FastMathFunctions/arm_sin_q31.c \
