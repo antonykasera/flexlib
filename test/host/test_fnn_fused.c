@@ -133,3 +133,99 @@ void test_fnn_dwpw_check(void) {
   b.out.w = 4U;
   ASSERT_EQ(fnn_dwpw_check(&dw, &b), FNN_ERR_SHAPE);
 }
+
+#define CVMAX (13U * 13U * CMAX)
+#define PATCH (4U * 4U * 6U)
+static int8_t cx[10U * 10U * 6U], cvo[CVMAX], cy[CVMAX + 1U], cwant[CVMAX];
+static int8_t cs2[3U * 13U * CMAX + PATCH + 1U], cpatch[PATCH];
+static int8_t cw[CMAX * PATCH], cwpk[CMAX * PATCH] FX_ALIGN(4);
+static int32_t cb[CMAX], cm[CMAX];
+static int8_t cr[CMAX];
+static unsigned overlap, padded;
+
+static uint32_t outs(uint64_t *r, uint32_t in, uint32_t st, uint32_t p) {
+  return pick(r, 1U, (in + p - 1U) / st + 1U);
+}
+
+static unsigned run_convpool(uint64_t *r) {
+  uint32_t h = pick(r, 1U, 10U), w = pick(r, 1U, 10U), c = pick(r, 1U, 6U);
+  uint32_t kh = pick(r, 1U, 4U), kw = pick(r, 1U, 4U), oc = pick(r, 1U, CMAX);
+  uint32_t sh = pick(r, 1U, 2U), sw = pick(r, 1U, 2U);
+  uint32_t pt = pick(r, 0U, kh - 1U), pl = pick(r, 0U, kw - 1U);
+  uint32_t oh = outs(r, h, sh, pt), ow = outs(r, w, sw, pl);
+  uint32_t pkh = pick(r, 1U, 3U), pkw = pick(r, 1U, 3U);
+  uint32_t psh = pick(r, 1U, 3U), psw = pick(r, 1U, 3U);
+  uint32_t ppt = pick(r, 0U, pkh - 1U), ppl = pick(r, 0U, pkw - 1U);
+  uint32_t ph = outs(r, oh, psh, ppt), pw2 = outs(r, ow, psw, ppl);
+  uint32_t n = kh * kw * c, ny = ph * pw2 * oc;
+  for (uint32_t i = 0U; i < h * w * c; i++) {
+    cx[i] = (int8_t)test_rng_u32(r);
+  }
+  for (uint32_t i = 0U; i < oc * n; i++) {
+    cw[i] = (int8_t)(-127 + (int32_t)(test_rng_u32(r) % 255U));
+  }
+  fnn_dense_pack_s8(cw, n, oc, cwpk);
+  for (uint32_t i = 0U; i < oc; i++) {
+    cb[i] = (int32_t)(test_rng_u32(r) % 40001U) - 20000;
+  }
+  uint32_t q = test_rng_u32(r) & 1U ? oc : 1U, packed = test_rng_u32(r) & 1U;
+  quant(r, q, n, cm, cr);
+  int32_t zy = (int32_t)pick(r, 0U, 255U) - 128;
+  int32_t lo = (int32_t)pick(r, 0U, 100U) - 128, hi = 127 - (int32_t)pick(r, 0U, 100U);
+  const FNN_Conv cv = {packed ? cwpk : cw, cb, {h, w, c}, {oh, ow, oc}, kh, kw, sh,
+                       sw, pt, pl, packed, (int32_t)pick(r, 0U, 255U) - 128,
+                       {cm, cr, q}, {zy, test_rng_u32(r) % 3U == 0U ? zy : -128, 127}};
+  const FNN_Pool po = {{oh, ow, oc}, {ph, pw2, oc}, pkh, pkw, psh, psw, ppt, ppl, lo, hi};
+  unsigned bad = fnn_convpool_check(&cv, &po) != FNN_OK;
+  fnn_conv_s8(&cv, cx, cvo, cpatch);
+  fnn_maxpool_s8(&po, cvo, cwant);
+  uint32_t need = FNN_CONVPOOL_SCRATCH(pkh, ow, oc, kh, kw, c);
+  cs2[need] = 55;
+  cy[ny] = 55;
+  fnn_convpool_s8(&cv, &po, cx, cy, cs2);
+  bad += cs2[need] != 55 || cy[ny] != 55;
+  for (uint32_t i = 0U; i < ny; i++) {
+    bad += cy[i] != cwant[i];
+  }
+  overlap += psh < pkh && ph > 1U;
+  padded += ppt > 0U;
+  return bad;
+}
+
+void test_fnn_convpool_random(void) {
+  uint64_t r = 0xC0F1U;
+  unsigned bad = 0U;
+  overlap = padded = 0U;
+  for (unsigned k = 0U; k < 3000U; k++) {
+    bad += run_convpool(&r);
+  }
+  ASSERT_EQ(bad, 0U);
+  ASSERT_TRUE(overlap > 400U && padded > 1000U);
+}
+
+void test_fnn_convpool_check(void) {
+  int32_t m1 = 1 << 30;
+  int8_t r1 = 10;
+  const FNN_Conv cv = {cw, cb, {8, 8, 2}, {8, 8, 4}, 3, 3, 1, 1, 1, 1, 0, 0,
+                       {&m1, &r1, 1U}, {0, -128, 127}};
+  const FNN_Pool po = {{8, 8, 4}, {4, 4, 4}, 2, 2, 2, 2, 0, 0, -128, 127};
+  ASSERT_EQ(fnn_convpool_check(&cv, &po), FNN_OK);
+  FNN_Conv a = cv;
+  a.zx = 200;
+  ASSERT_EQ(fnn_convpool_check(&a, &po), FNN_ERR_RANGE);
+  FNN_Pool b = po;
+  b.lo = 10;
+  b.hi = 5;
+  ASSERT_EQ(fnn_convpool_check(&cv, &b), FNN_ERR_RANGE);
+  b = po;
+  b.in.h = b.in.w = 7U;
+  b.out.h = b.out.w = 3U;
+  ASSERT_EQ(fnn_convpool_check(&cv, &b), FNN_ERR_SHAPE);
+  b = po;
+  b.in.h = 7U;
+  b.out.h = 3U;
+  ASSERT_EQ(fnn_convpool_check(&cv, &b), FNN_ERR_SHAPE);
+  b = po;
+  b.in.c = b.out.c = 2U;
+  ASSERT_EQ(fnn_convpool_check(&cv, &b), FNN_ERR_SHAPE);
+}
