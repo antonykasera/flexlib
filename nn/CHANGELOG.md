@@ -1,5 +1,9 @@
 # flexnn changelog
 
+## Unreleased
+
+- Packed weights are read through a `may_alias` word type. With link-time optimisation, GCC could reorder those reads and give wrong outputs from packed fully connected and convolution layers.
+
 ## 0.3.0 (2026-11-23)
 
 - `fnn_dwpw_s8`, `fnn_dwpw_check`: a depthwise layer and the 1 x 1 convolution after it in one pass, in place. A 25 x 5 x 64 block needs 9,280 bytes instead of 16,000.

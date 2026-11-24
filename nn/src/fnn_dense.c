@@ -14,12 +14,14 @@
 
 #define NOINLINE __attribute__((noinline))
 
+typedef uint32_t __attribute__((may_alias)) Word;
+
 typedef void Rows(const int8_t *x, const int8_t *w, uint32_t n, uint32_t *sum);
 
 /* Eight packed rows: one double word of weights per input. */
 static NOINLINE void dense_r8(const int8_t *x, const int8_t *w, uint32_t n,
                               uint32_t *sum) {
-  const uint32_t *q = (const uint32_t *)(const void *)w;
+  const Word *q = (const Word *)(const void *)w;
   uint32_t a[8];
   for (uint32_t j = 0U; j < 8U; j++) {
     a[j] = sum[j];
@@ -45,7 +47,7 @@ static NOINLINE void dense_r8(const int8_t *x, const int8_t *w, uint32_t n,
 /* Four packed rows: one word of weights per input. */
 static NOINLINE void dense_r4p(const int8_t *x, const int8_t *w, uint32_t n,
                                uint32_t *sum) {
-  const uint32_t *q = (const uint32_t *)(const void *)w;
+  const Word *q = (const Word *)(const void *)w;
   uint32_t a0 = sum[0], a1 = sum[1], a2 = sum[2], a3 = sum[3];
   for (uint32_t i = 0U; i < n; i++) {
     int32_t xi = x[i];
@@ -88,8 +90,7 @@ static void dense_r1(const int8_t *x, const int8_t *w, uint32_t n,
   *sum = a;
 }
 
-FX_INLINE void dense(const FNN_Dense *l, const int8_t *x, int8_t *y,
-                     int mode) {
+FX_INLINE void dense(const FNN_Dense *l, const int8_t *x, int8_t *y, int mode) {
   const int8_t *w = l->w;
   const int32_t *b = l->b;
   const int32_t *mult = l->q.mult;
