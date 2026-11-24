@@ -1,6 +1,6 @@
 # flexnn changelog
 
-## Unreleased
+## 0.3.1 (2026-11-24)
 
 - Packed weights are read through a `may_alias` word type. With link-time optimisation, GCC could reorder those reads and give wrong outputs from packed fully connected and convolution layers.
 

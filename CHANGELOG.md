@@ -4,6 +4,12 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md),
 [nn/CHANGELOG.md](nn/CHANGELOG.md).
 
+## v0.10.1 (2026-11-24)
+
+flexnn 0.3.1.
+
+- flexnn: packed fully connected and convolution layers gave wrong outputs in builds with link-time optimisation. Builds without it compile to the same code as before ([nn/CHANGELOG.md](nn/CHANGELOG.md)).
+
 ## v0.10.0 (2026-11-23)
 
 flexnn 0.3.0, flexdsp 0.6.0.
