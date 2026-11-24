@@ -22,8 +22,8 @@ BENCH_CASES_dsp4   = bench/cases/cases_fd_corr.c
 BENCH_CASES_dsp5   = bench/cases/cases_fd_resample.c
 BENCH_CASES_dsp6   = bench/cases/cases_fd_f32.c
 BENCH_CASES_nn     = bench/cases/cases_fnn.c
-BENCH_CASES_nn2    = bench/cases/cases_fnn2.c $(wildcard bench/models/*.c)
-# everything that also builds on the host (golden, lint)
+BENCH_CASES_nn2    = bench/cases/cases_fnn2.c bench/cases/cases_fnn_sub.c $(wildcard bench/models/*.c)
+
 BENCH_PORTABLE = bench/core/bench_core.c $(BENCH_CASES_utils) \
                  $(BENCH_CASES_math) $(BENCH_CASES_struct) $(BENCH_CASES_dsp) \
                  $(BENCH_CASES_dsp2) $(BENCH_CASES_dsp3) $(BENCH_CASES_dsp4) \

@@ -532,6 +532,12 @@ const BenchGolden bench_golden[] = {
     {"fnn_dwconv_s8 then fnn_conv_s8, 12 x 5 x 64", 0x475D9FC7U},
     {"fnn_convpool_s8, 3 x 3 then 2 x 2 max, 14 x 14 x 8 to 7 x 7 x 16", 0x4ADC87A3U},
     {"fnn_conv_s8 then fnn_maxpool_s8, 14 x 14 x 8 to 7 x 7 x 16", 0x4ADC87A3U},
+    {"fnn_conv_s8, 1 x 1, 64 -> 64, 5 x 5, int4", 0x53AD4B72U},
+    {"fnn_conv_s8, 1 x 1, 64 -> 64, 5 x 5, ternary", 0x2FE2E05CU},
+    {"fnn_conv_s8, 3 x 3, 8 -> 16, 12 x 12, int4", 0x360D330CU},
+    {"fnn_conv_s8, 3 x 3, 8 -> 16, 12 x 12, ternary", 0x0048187CU},
+    {"fnn_conv_s8, 5 taps, 16 -> 32, 64, int4", 0x2AAF162AU},
+    {"fnn_conv_s8, 5 taps, 16 -> 32, 64, ternary", 0xB77CD15AU},
     {"fnn_dense_s8, 256 -> 64", 0x2FE40199U},
     {"fnn_dense_s8, 256 -> 64, packed", 0x1909843FU},
 };

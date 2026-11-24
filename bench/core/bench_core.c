@@ -97,6 +97,7 @@ extern const BenchGroup bench_group_fd_f32;
 extern const BenchGroup bench_group_fd_resample;
 extern const BenchGroup bench_group_fnn;
 extern const BenchGroup bench_group_fnn2;
+extern const BenchGroup bench_group_fnn_sub;
 extern const BenchGroup bench_group_cmsis;
 
 const BenchGroup *const bench_groups[] = {
@@ -153,6 +154,7 @@ const BenchGroup *const bench_groups[] = {
 #endif
 #ifdef BENCH_NN2
     &bench_group_fnn2,
+    &bench_group_fnn_sub,
 #endif
 #if defined(BENCH_HAVE_CMSIS_DSP) && defined(BENCH_MATH)
     &bench_group_cmsis,

@@ -295,6 +295,11 @@ void test_fnn_conv_random(void);
 void test_fnn_conv_shapes(void);
 void test_fnn_conv_check(void);
 
+/* --- sub-byte fnn_conv (test_fnn_conv_sub.c) --- */
+void test_fnn_conv_s4_random(void);
+void test_fnn_conv_s2_random(void);
+void test_fnn_conv_pack_sub(void);
+
 /* --- fnn_dwconv (test_fnn_dwconv.c) --- */
 void test_fnn_dwconv_random(void);
 void test_fnn_dwconv_shapes(void);
@@ -545,6 +550,9 @@ int main(int argc, char **argv) {
   TEST_RUN(test_fnn_conv_random);
   TEST_RUN(test_fnn_conv_shapes);
   TEST_RUN(test_fnn_conv_check);
+  TEST_RUN(test_fnn_conv_s4_random);
+  TEST_RUN(test_fnn_conv_s2_random);
+  TEST_RUN(test_fnn_conv_pack_sub);
   TEST_RUN(test_fnn_dwconv_random);
   TEST_RUN(test_fnn_dwconv_shapes);
   TEST_RUN(test_fnn_dwconv_check);

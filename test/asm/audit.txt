@@ -419,7 +419,10 @@ fnn_mean_s8           smlal !sdiv !udiv
 # memcpy or memset call
 fnn_add_s8            smlal !udiv !sdiv
 fnn_concat_s8         no-calls ldr str
-fnn_conv_s8           !call=memset !call=memcpy
+conv_s8               !call=memset !call=memcpy
+conv_sub              !call=memset !call=memcpy
+sum_s4                no-calls mla !udiv
+sum_s2                no-calls mla !udiv
 fnn_dwpw_s8           !call=memmove
 fnn_convpool_s8       !call=memmove !udiv
 fnn_stream_push       !call=memcpy !call=memmove !udiv

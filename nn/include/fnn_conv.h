@@ -31,7 +31,8 @@ typedef struct {
   uint32_t sw;      /**< horizontal stride */
   uint32_t pt;      /**< padding rows above the input */
   uint32_t pl;      /**< padding columns left of it */
-  uint32_t packed;  /**< 1 when w comes from fnn_dense_pack_s8() */
+  uint32_t packed;  /**< 0 for rows, 1 from fnn_dense_pack_s8(),
+                        `FNN_PACK_S4` or `FNN_PACK_S2` */
   int32_t zx;       /**< input zero point */
   FNN_Quant q;      /**< one multiplier, or one per output channel */
   FNN_Out o;        /**< output zero point and clamp */
@@ -39,6 +40,48 @@ typedef struct {
 
 /** Scratch bytes fnn_conv_s8() needs: one patch. */
 #define FNN_CONV_SCRATCH(kh, kw, c_in) ((kh) * (kw) * (c_in))
+
+/** @name Sub-byte weights
+ * Weights in [-7, 7] packed two per byte, or in {-1, 0, 1} four per byte, with
+ * the outputs the same weights give as int8.
+ * @{ */
+/** `packed` for int4 weights from fnn_conv_pack_s4(). */
+#define FNN_PACK_S4 2U
+/** `packed` for ternary weights from fnn_conv_pack_s2(). */
+#define FNN_PACK_S2 3U
+/** Bytes of `rows` packed int4 rows of n weights. */
+#define FNN_S4_BYTES(n, rows) ((((rows) + 7U) / 8U) * (n) * 4U)
+/** Bytes of `rows` packed ternary rows of n weights. */
+#define FNN_S2_BYTES(n, rows) ((((rows) + 7U) / 8U) * (((n) + 1U) / 2U) * 4U)
+/** Scratch bytes fnn_conv_s8() needs with sub-byte weights, 4-byte aligned. */
+#define FNN_CONV_SUB_SCRATCH(kh, kw, c_in)                                     \
+  (((2U * (kh) * (kw) * (c_in) + 3U) & ~3U) +                                  \
+   4U * ((kh) * (kw) * (c_in) + 1U))
+
+/**
+ * Pack `rows` rows of n int4 weights for `FNN_PACK_S4`.
+ *
+ * @param w      `rows` rows of n weights, each in [-7, 7]
+ * @param n      weights in a row
+ * @param rows   rows
+ * @param packed FNN_S4_BYTES(n, rows) bytes, 4-byte aligned
+ * @return `FNN_ERR_RANGE` when a weight is out of range
+ */
+FNN_Status fnn_conv_pack_s4(const int8_t *w, uint32_t n, uint32_t rows,
+                            int8_t *packed);
+
+/**
+ * Pack `rows` rows of n ternary weights for `FNN_PACK_S2`.
+ *
+ * @param w      `rows` rows of n weights, each -1, 0 or 1
+ * @param n      weights in a row
+ * @param rows   rows
+ * @param packed FNN_S2_BYTES(n, rows) bytes, 4-byte aligned
+ * @return `FNN_ERR_RANGE` when a weight is out of range
+ */
+FNN_Status fnn_conv_pack_s2(const int8_t *w, uint32_t n, uint32_t rows,
+                            int8_t *packed);
+/** @} */
 
 /**
  * Check a layer's shapes, strides and padding: the output must be what
@@ -55,7 +98,8 @@ FNN_Status fnn_conv_check(const FNN_Conv *l);
  * @param l       a layer fnn_conv_check() accepts
  * @param x       the input, `in.h in.w in.c` values
  * @param y       the output, `out.h out.w out.c` values; not x
- * @param scratch FNN_CONV_SCRATCH() bytes
+ * @param scratch FNN_CONV_SCRATCH() bytes, or FNN_CONV_SUB_SCRATCH() bytes,
+ *                4-byte aligned, with sub-byte weights
  */
 void fnn_conv_s8(const FNN_Conv *l, const int8_t *x, int8_t *y,
                  int8_t *scratch);
