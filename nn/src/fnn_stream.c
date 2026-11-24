@@ -51,6 +51,9 @@ FNN_Status fnn_stream_conv1d_check(const FNN_Conv *l, const FNN_Stream *s) {
   if (st != FNN_OK) {
     return st;
   }
+  if (l->packed >= FNN_PACK_S4) {
+    return FNN_ERR_RANGE;
+  }
   if (l->in.h != 1U || l->kh != 1U || l->pl != 0U ||
       s->n != l->kw || s->c != l->in.c || s->stride != l->sw) {
     return FNN_ERR_SHAPE;

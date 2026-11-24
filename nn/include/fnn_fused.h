@@ -22,6 +22,11 @@
  * depthwise output. */
 #define FNN_DWPW_SCRATCH(kh, w, c_in, c_dw) ((kh) * (w) * (c_in) + (w) * (c_dw))
 
+/** FNN_DWPW_SCRATCH() and the pointwise layer's scratch, when its weights are
+ * sub-byte. */
+#define FNN_DWPW_SUB_SCRATCH(kh, w, c_in, c_dw)                                \
+  (FNN_DWPW_SCRATCH(kh, w, c_in, c_dw) + 3U + FNN_CONV_SUB_SCRATCH(1U, 1U, c_dw))
+
 /**
  * Check that two layers can run as one: a depthwise layer of stride 1 whose
  * output has its input's size, then a 1 x 1 convolution of stride 1 over it.
@@ -39,7 +44,8 @@ FNN_Status fnn_dwpw_check(const FNN_DwConv *dw, const FNN_Conv *pw);
  * @param x       the input, `dw->in` values
  * @param y       the output, `pw->out` values; may be x when a row of y is no
  *                longer than a row of x
- * @param scratch FNN_DWPW_SCRATCH() bytes; not x or y
+ * @param scratch FNN_DWPW_SCRATCH() bytes, or FNN_DWPW_SUB_SCRATCH() with a
+ *                sub-byte pointwise layer; not x or y
  */
 void fnn_dwpw_s8(const FNN_DwConv *dw, const FNN_Conv *pw, const int8_t *x,
                  int8_t *y, int8_t *scratch);
@@ -54,7 +60,8 @@ void fnn_dwpw_s8(const FNN_DwConv *dw, const FNN_Conv *pw, const int8_t *x,
  * its output.
  *
  * @return `FNN_ERR_SHAPE` or `FNN_ERR_RANGE` when either layer fails its own
- *         check, `FNN_ERR_SHAPE` when they do not fit together
+ *         check, `FNN_ERR_RANGE` for sub-byte weights, `FNN_ERR_SHAPE` when
+ *         they do not fit together
  */
 FNN_Status fnn_convpool_check(const FNN_Conv *c, const FNN_Pool *p);
 

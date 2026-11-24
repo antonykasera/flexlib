@@ -55,7 +55,8 @@ const int8_t *fnn_stream_push(FNN_Stream *s, const int8_t *x);
  * row, no padding, and a history whose window and stride are the filter's.
  *
  * @return `FNN_ERR_SHAPE` or `FNN_ERR_RANGE` when the layer fails
- *         fnn_conv_check(), `FNN_ERR_SHAPE` when it does not fit s
+ *         fnn_conv_check(), `FNN_ERR_RANGE` for sub-byte weights,
+ *         `FNN_ERR_SHAPE` when it does not fit s
  */
 FNN_Status fnn_stream_conv1d_check(const FNN_Conv *l, const FNN_Stream *s);
 

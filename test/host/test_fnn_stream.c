@@ -131,6 +131,9 @@ void test_fnn_stream_conv1d_check(void) {
   a.zx = 200;
   ASSERT_EQ(fnn_stream_conv1d_check(&a, &s), FNN_ERR_RANGE);
   a = l;
+  a.packed = FNN_PACK_S4;
+  ASSERT_EQ(fnn_stream_conv1d_check(&a, &s), FNN_ERR_RANGE);
+  a = l;
   a.pl = 2U;
   a.out.w = 10U;
   ASSERT_EQ(fnn_stream_conv1d_check(&a, &s), FNN_ERR_SHAPE);

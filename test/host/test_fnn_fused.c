@@ -18,14 +18,14 @@
 
 #define XMAX 1600U
 #define CMAX 24U
-#define SMAX (5U * 8U * 12U + 8U * CMAX)
+#define SMAX FNN_DWPW_SUB_SCRATCH(5U, 8U, 12U, CMAX)
 
 static int8_t x[XMAX], xy[XMAX + 1U], d[XMAX], y[XMAX + 1U], want[XMAX];
-static int8_t wd[25U * CMAX], wp[CMAX * CMAX], s[SMAX + 1U], cs[CMAX];
+static int8_t wd[25U * CMAX], wp[CMAX * CMAX], s[SMAX + 4U], cs[CMAX];
 static int8_t wpk[CMAX * CMAX] FX_ALIGN(4);
 static int32_t bd[CMAX], bp[CMAX], md[CMAX], mp[CMAX];
 static int8_t rd[CMAX], rp[CMAX];
-static unsigned in_place;
+static unsigned in_place, sub;
 
 static uint32_t pick(uint64_t *r, uint32_t lo, uint32_t hi) {
   return lo + test_rng_u32(r) % (hi - lo + 1U);
@@ -51,10 +51,18 @@ static unsigned run(uint64_t *r) {
   for (uint32_t i = 0U; i < kh * kw * cd; i++) {
     wd[i] = (int8_t)(-127 + (int32_t)(test_rng_u32(r) % 255U));
   }
+  uint32_t packed = test_rng_u32(r) % 4U;
+  int32_t lim = packed == FNN_PACK_S4 ? 7 : packed == FNN_PACK_S2 ? 1 : 127;
   for (uint32_t i = 0U; i < co * cd; i++) {
-    wp[i] = (int8_t)(-127 + (int32_t)(test_rng_u32(r) % 255U));
+    wp[i] = (int8_t)(-lim + (int32_t)(test_rng_u32(r) % (2U * (uint32_t)lim + 1U)));
   }
-  fnn_dense_pack_s8(wp, cd, co, wpk);
+  if (packed == FNN_PACK_S4) {
+    (void)fnn_conv_pack_s4(wp, cd, co, wpk);
+  } else if (packed == FNN_PACK_S2) {
+    (void)fnn_conv_pack_s2(wp, cd, co, wpk);
+  } else {
+    fnn_dense_pack_s8(wp, cd, co, wpk);
+  }
   for (uint32_t i = 0U; i < CMAX; i++) {
     bd[i] = (int32_t)(test_rng_u32(r) % 40001U) - 20000;
     bp[i] = (int32_t)(test_rng_u32(r) % 40001U) - 20000;
@@ -63,7 +71,6 @@ static unsigned run(uint64_t *r) {
   quant(r, qd, kh * kw, md, rd);
   quant(r, qp, cd, mp, rp);
   int32_t zd = (int32_t)pick(r, 0U, 255U) - 128, zy = (int32_t)pick(r, 0U, 255U) - 128;
-  uint32_t packed = test_rng_u32(r) & 1U;
   const FNN_DwConv dw = {wd, bd, {h, w, c}, {h, w, cd}, kh, kw, 1U, 1U,
                          pick(r, 0U, kh - 1U), pick(r, 0U, kw - 1U),
                          (int32_t)pick(r, 0U, 255U) - 128, {md, rd, qd},
@@ -71,21 +78,27 @@ static unsigned run(uint64_t *r) {
   const FNN_Conv pw = {packed ? wpk : wp, bp, {h, w, cd}, {h, w, co}, 1U, 1U, 1U,
                        1U, 0U, 0U, packed, zd, {mp, rp, qp},
                        {zy, -128, test_rng_u32(r) % 3U == 0U ? 100 : 127}};
+  FNN_Conv rows = pw;
+  rows.w = wp;
+  rows.packed = 0U;
   unsigned bad = fnn_dwpw_check(&dw, &pw) != FNN_OK;
   fnn_dwconv_s8(&dw, x, d);
-  fnn_conv_s8(&pw, d, want, cs);
-  uint32_t need = FNN_DWPW_SCRATCH(kh, w, c, cd);
-  s[need] = 55;
+  fnn_conv_s8(&rows, d, want, cs);
+  uint32_t need = packed >= FNN_PACK_S4 ? FNN_DWPW_SUB_SCRATCH(kh, w, c, cd)
+                                        : FNN_DWPW_SCRATCH(kh, w, c, cd);
+  int8_t *sc = s + pick(r, 0U, 3U);
+  sc[need] = 55;
   y[ny] = 55;
-  fnn_dwpw_s8(&dw, &pw, x, y, s);
-  bad += s[need] != 55 || y[ny] != 55;
+  fnn_dwpw_s8(&dw, &pw, x, y, sc);
+  bad += sc[need] != 55 || y[ny] != 55;
+  sub += packed >= FNN_PACK_S4;
   for (uint32_t i = 0U; i < ny; i++) {
     bad += y[i] != want[i];
   }
   if (co <= c) {
     memcpy(xy, x, nx);
     xy[nx] = 55;
-    fnn_dwpw_s8(&dw, &pw, xy, xy, s);
+    fnn_dwpw_s8(&dw, &pw, xy, xy, sc);
     bad += xy[nx] != 55;
     for (uint32_t i = 0U; i < ny; i++) {
       bad += xy[i] != want[i];
@@ -99,12 +112,12 @@ static unsigned run(uint64_t *r) {
 void test_fnn_dwpw_random(void) {
   uint64_t r = 0xD3E1U;
   unsigned bad = 0U;
-  in_place = 0U;
+  in_place = sub = 0U;
   for (unsigned k = 0U; k < 3000U; k++) {
     bad += run(&r);
   }
   ASSERT_EQ(bad, 0U);
-  ASSERT_TRUE(in_place > 800U);
+  ASSERT_TRUE(in_place > 800U && sub > 1200U);
 }
 
 void test_fnn_dwpw_check(void) {
@@ -132,6 +145,9 @@ void test_fnn_dwpw_check(void) {
   b = pw;
   b.out.w = 4U;
   ASSERT_EQ(fnn_dwpw_check(&dw, &b), FNN_ERR_SHAPE);
+  b = pw;
+  b.packed = FNN_PACK_S2;
+  ASSERT_EQ(fnn_dwpw_check(&dw, &b), FNN_OK);
 }
 
 #define CVMAX (13U * 13U * CMAX)
@@ -212,6 +228,9 @@ void test_fnn_convpool_check(void) {
   ASSERT_EQ(fnn_convpool_check(&cv, &po), FNN_OK);
   FNN_Conv a = cv;
   a.zx = 200;
+  ASSERT_EQ(fnn_convpool_check(&a, &po), FNN_ERR_RANGE);
+  a = cv;
+  a.packed = FNN_PACK_S4;
   ASSERT_EQ(fnn_convpool_check(&a, &po), FNN_ERR_RANGE);
   FNN_Pool b = po;
   b.lo = 10;

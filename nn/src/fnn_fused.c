@@ -35,6 +35,9 @@ FNN_Status fnn_convpool_check(const FNN_Conv *c, const FNN_Pool *p) {
   if (s != FNN_OK) {
     return s;
   }
+  if (c->packed >= FNN_PACK_S4) {
+    return FNN_ERR_RANGE;
+  }
   if (p->in.h != c->out.h || p->in.w != c->out.w || p->in.c != c->out.c) {
     return FNN_ERR_SHAPE;
   }
@@ -69,6 +72,7 @@ void fnn_dwpw_s8(const FNN_DwConv *dw, const FNN_Conv *pw, const int8_t *x,
   uint32_t h = dw->in.h, kh = dw->kh, pt = dw->pt;
   uint32_t row = dw->in.w * dw->in.c, out_row = pw->out.w * pw->out.c;
   int8_t *d = scratch + kh * row;
+  int8_t *sub = (int8_t *)(((uintptr_t)(d + dw->out.w * dw->out.c) + 3U) & ~(uintptr_t)3U);
   FNN_DwConv one = *dw;
   FNN_Conv pone = *pw;
   one.out.h = 1U;
@@ -91,6 +95,6 @@ void fnn_dwpw_s8(const FNN_DwConv *dw, const FNN_Conv *pw, const int8_t *x,
     one.in.h = hi - lo;
     one.pt = pt > r ? pt - r : 0U;
     fnn_dwconv_s8(&one, scratch, d);
-    fnn_conv_s8(&pone, d, y + r * out_row, NULL);
+    fnn_conv_s8(&pone, d, y + r * out_row, pw->packed >= FNN_PACK_S4 ? sub : NULL);
   }
 }
