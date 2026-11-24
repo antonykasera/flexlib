@@ -4,6 +4,12 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md),
 [nn/CHANGELOG.md](nn/CHANGELOG.md).
 
+## v0.11.0 (2026-11-25)
+
+flexnn 0.4.0.
+
+- flexnn: convolution weights in 4 bits or ternary, with the same outputs as int8 and 14 to 26% fewer cycles than packed int8. The converter writes them when a model's weights fit ([nn/CHANGELOG.md](nn/CHANGELOG.md)).
+
 ## v0.10.1 (2026-11-24)
 
 flexnn 0.3.1.
