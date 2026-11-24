@@ -218,6 +218,29 @@ def pack_rows(w):
     return np.concatenate(parts).tolist()
 
 
+PACK_S4, PACK_S2 = 2, 3
+# names, not numbers: generated C then fails to build against a flexnn without them
+PACK_NAMES = {PACK_S4: "FNN_PACK_S4", PACK_S2: "FNN_PACK_S2"}
+
+
+def pack_sub(w, packed):
+    """The rows of w in the order fnn_conv_pack_s4() or fnn_conv_pack_s2() writes."""
+    bits, per = (4, 1) if packed == PACK_S4 else (2, 2)
+    rows, n = w.shape
+    words, groups = -(-n // per), -(-rows // 8)
+    q = np.zeros((groups * 8, words * per), np.int64)
+    q[:rows, :n] = w
+    q = q.reshape(groups, 8, words, per).transpose(0, 2, 1, 3) & ((1 << bits) - 1)
+    shift = bits * (8 * np.arange(per)[None, :] + np.arange(8)[:, None])
+    v = (q << shift).sum(axis=(2, 3)).astype("<u4")
+    return v.reshape(-1).view(np.int8).tolist()
+
+
+def sub_scratch(n):
+    """FNN_CONV_SUB_SCRATCH() for n weights a row."""
+    return ((2 * n + 3) & ~3) + 4 * (n + 1)
+
+
 def _int8(op, t, what):
     if t.dtype != "INT8":
         raise ConvertError(f"op {op.idx} ({op.name}): {what} '{t.name}' is "
@@ -347,16 +370,21 @@ def lower_conv(op, T, ctx):
     folded = [wrap32(bias[j] - zx * wsum[j]) for j in range(oc)]
     mult, rsh = _channel_quant(op, xin, w, y, oc)
     lo, hi = act_range(o.FusedActivationFunction(), y.scale[0], zy)
-    n = op.idx
-    decls = (_array("int8_t", f"w{n}", pack_rows(w.data.reshape(oc, -1)), align=True) +
+    n, rows = op.idx, w.data.reshape(oc, -1)
+    top = int(np.abs(rows.astype(np.int32)).max())
+    packed = PACK_S2 if top <= 1 else PACK_S4 if top <= 7 else 1
+    data = pack_rows(rows) if packed == 1 else pack_sub(rows, packed)
+    decls = (_array("int8_t", f"w{n}", data, align=True) +
              _array("int32_t", f"b{n}", folded, per_line=8) + _quant(n, mult, rsh) +
              f"static const FNN_Conv l{n} = {{w{n}, b{n}, {{{h}u, {iw}u, {c}u}}, "
              f"{{{oh}u, {ow}u, {oc}u}}, {kh}u, {kw}u, {sh}u, {sw}u, {pt}u, {pl}u, "
-             f"1u, {zx}, {{m{n}, r{n}, {len(mult)}u}}, {{{zy}, {lo}, {hi}}}}};\n")
+             f"{PACK_NAMES.get(packed, '1u')}, {zx}, {{m{n}, r{n}, {len(mult)}u}}, "
+             f"{{{zy}, {lo}, {hi}}}}};\n")
+    k = kh * kw * c
     return Layer(op, "conv", [xin.idx], [y.idx], decls,
-                 f"fnn_conv_s8(&l{n}, {{x0}}, {{y}}, {{s}});", w.data.size + 9 * oc,
-                 oh * ow * oc * kh * kw * c, scratch=kh * kw * c, packed=True,
-                 geom=(h, iw, c, oh, ow, oc, kh, kw, sh, sw, pt, pl))
+                 f"fnn_conv_s8(&l{n}, {{x0}}, {{y}}, {{s}});", len(data) + 9 * oc,
+                 oh * ow * oc * k, scratch=k if packed == 1 else sub_scratch(k),
+                 packed=packed, geom=(h, iw, c, oh, ow, oc, kh, kw, sh, sw, pt, pl))
 
 
 def lower_depthwise(op, T, ctx):
@@ -777,7 +805,7 @@ def fusible(layers, outputs):
             if (P.kind == "conv" and sh == sw == 1 and (oh, ow) == (h, w) and
                     P.geom[6:10] == (1, 1, 1, 1)):
                 pairs[i] = readers[0]
-        elif P.call.startswith("fnn_maxpool_s8("):
+        elif P.call.startswith("fnn_maxpool_s8(") and L.packed < PACK_S4:
             pairs[i] = readers[0]
     return pairs
 
@@ -797,7 +825,9 @@ def fuse(layers, pairs):
         if D.kind == "depthwise":
             F = Layer(D.op, "dwpw", D.reads, P.writes, D.decls + P.decls,
                       f"fnn_dwpw_s8(&l{D.op.idx}, &l{P.op.idx}, {{x0}}, {{y}}, {{s}});",
-                      D.flash + P.flash, D.macs + P.macs, scratch=kh * w * c + w * c_out,
+                      D.flash + P.flash, D.macs + P.macs,
+                      scratch=kh * w * c + w * c_out +
+                      (3 + sub_scratch(c_out) if P.packed >= PACK_S4 else 0),
                       in_place=(0,) if P.geom[5] <= c else (), packed=P.packed)
         else:
             F = Layer(D.op, "convpool", D.reads, P.writes, D.decls + P.decls,
@@ -843,6 +873,8 @@ def stream_split(tensors, layers, inputs, outputs):
         h, w, _, _, ow, _, _, kw, _, sw, pt, pl = L.geom
         if h != 1:
             raise ConvertError(f"{where}: its input must be one row")
+        if L.packed >= PACK_S4:
+            raise ConvertError(f"{where}: its weights are sub-byte")
         if pt or pl or (w - kw) % sw:
             raise ConvertError(f"{where}: its windows must cover the input exactly, "
                                "with VALID padding")
@@ -1273,6 +1305,7 @@ def convert(path, out_dir, name=None, tflite_tables=False, stream=False):
         reads = ", ".join(str(p.where[t]) for t in L.reads)
         writes = str(p.where[L.writes[0]]) + (", in place" if i in p.over else "")
         kind = "no copy" if i in p.sliced else L.kind
+        kind += {PACK_S4: " s4", PACK_S2: " s2"}.get(L.packed, "")
         rows.append(f"  {idx[i]:>{wide}}  {L.op.name:18} {kind:9} {L.macs:9} {L.flash:5} B  "
                     f"{reads:12} {writes:16} {p.scratch.get(i, '')}".rstrip())
     return name, "\n".join(rows)

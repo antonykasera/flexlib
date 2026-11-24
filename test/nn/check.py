@@ -55,6 +55,9 @@ def load(libdir):
         lib.fnn_argmax_s8.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
         lib.fnn_dense_pack_s8.argtypes = [ctypes.c_void_p, ctypes.c_uint32,
                                           ctypes.c_uint32, ctypes.c_void_p]
+        for f in (lib.fnn_conv_pack_s4, lib.fnn_conv_pack_s2):
+            f.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint32,
+                          ctypes.c_void_p]
         for f in (lib.fnn_quantize_f32_s8, lib.fnn_quantize_q15_s8):
             f.argtypes = [ctypes.c_void_p] * 2 + [ctypes.c_uint32] + [
                 ctypes.c_int32] * 3
@@ -588,6 +591,16 @@ def case_converter_arith(lib, lib_g, seed=99):
         lib.fnn_dense_pack_s8(w.ctypes.data, n_in, n_out, got.ctypes.data)
         n += 1
         bad += fnn_tflite.pack_rows(w) != got.tolist()
+    for k in range(2000):
+        packed, lim = (fnn_tflite.PACK_S4, 7) if k % 2 else (fnn_tflite.PACK_S2, 1)
+        n_out, n_in = int(rng.integers(1, 40)), int(rng.integers(1, 70))
+        w = rng.integers(-lim, lim + 1, (n_out, n_in), dtype=np.int8)
+        want = fnn_tflite.pack_sub(w, packed)
+        got = np.zeros(len(want), np.uint32)
+        f = lib.fnn_conv_pack_s4 if packed == fnn_tflite.PACK_S4 else lib.fnn_conv_pack_s2
+        n += 1
+        bad += f(w.ctypes.data, n_in, n_out, got.ctypes.data) != 0
+        bad += want != got.view(np.int8)[:len(want)].tolist()
     tab = np.zeros(256, np.int8)
     funcs = [math.tanh, fnn_tflite.logistic, fnn_tflite.UNARY["HARD_SWISH"]]
     for k in range(300):
@@ -630,18 +643,18 @@ class Net:
             return -(-h // sh), -(-w // sw)
         return (h - kh) // sh + 1, (w - kw) // sw + 1
 
-    def conv(self, oc, kh, kw, s=(1, 1), same=True, act=RELU, src=None, dw=0):
+    def conv(self, oc, kh, kw, s=(1, 1), same=True, act=RELU, src=None, dw=0, lim=127):
         src = self.cur if src is None else src
         (_, h, w, c), sx, zx = self.info(src)
         oh, ow = self.window(h, w, kh, kw, s[0], s[1], same)
         oc = c * dw if dw else oc
-        s_w = (self.rng.uniform(0.5, 1.5, oc) * 0.004).astype(np.float32)
+        s_w = (self.rng.uniform(0.5, 1.5, oc) * 0.004 * (127 / lim)).astype(np.float32)
         k = kh * kw * (1 if dw else c)
-        s_y = float(sx * float(np.mean(s_w)) * 127.0 * math.sqrt(k) / 3.0)
+        s_y = float(sx * float(np.mean(s_w)) * lim * math.sqrt(k) / 3.0)
         shape = [1, kh, kw, oc] if dw else [oc, kh, kw, c]
         wt = self.m.tensor(f"w{len(self.m.tensors)}", shape, tfl.INT8, scale=list(s_w),
                            zp=[0] * oc, axis=3 if dw else 0,
-                           data=self.rng.integers(-127, 128, shape, dtype=np.int8))
+                           data=self.rng.integers(-lim, lim + 1, shape, dtype=np.int8))
         bscale = [float(np.float32(sx) * v) for v in s_w]
         b = self.m.tensor(f"b{len(self.m.tensors)}", [oc], tfl.INT32, scale=bscale,
                           zp=[0] * oc, data=self.rng.integers(-2000, 2000, oc, dtype=np.int32))
@@ -769,12 +782,12 @@ def net_r5(rng):
     return n.build()
 
 
-def net_r3(rng):
+def net_r3(rng, lim=127):
     n = Net([1, 49, 10, 1], rng)
-    n.conv(64, 10, 4, s=(2, 2))
+    n.conv(64, 10, 4, s=(2, 2), lim=lim)
     for _ in range(4):
         n.conv(0, 3, 3, dw=1)
-        n.conv(64, 1, 1)
+        n.conv(64, 1, 1, lim=lim)
     n.mean(1.0, False)
     n.fc(12)
     n.softmax()
@@ -897,7 +910,7 @@ def case_plans(out_dir, count=300, checked=10, seed=500):
 
 
 def block(mult=1, s=(1, 1), k=1, oc=8, pad=False, same=True, branch=False, tail=0,
-          h=6, last=False):
+          h=6, last=False, lim=127):
     """A depthwise 3 x 3 layer and the convolution after it, on an h x 5 x 8 map."""
     def make(rng):
         n = Net([1, h, 5, 8], rng)
@@ -905,7 +918,7 @@ def block(mult=1, s=(1, 1), k=1, oc=8, pad=False, same=True, branch=False, tail=
         if pad:
             n.pad(1, 1, 1, 1)
         d = n.conv(0, min(h, 3), 3, s=s, same=same and not pad, dw=mult)
-        y = n.conv(oc, k, k)
+        y = n.conv(oc, k, k, lim=lim)
         if last:
             n.cur = d
             return n.build()
@@ -935,11 +948,14 @@ BLOCKS = (("1 x 1 to 8 channels", block(), True, True, True),
           ("3 x 3 after the depthwise", block(k=3), False, False, False),
           ("the depthwise output read again", block(branch=True), False, False, False),
           ("a larger layer after it, which sets the arena", block(tail=64), True, False,
-           False))
+           False),
+          ("int4 1 x 1", block(lim=7), True, True, True),
+          ("ternary 1 x 1 to 12, 2 outputs per channel", block(mult=2, oc=12, lim=1),
+           True, True, False))
 
 
 def conv_pool(op="MAX_POOL_2D", k=2, s=2, same=False, again=False, last=False, tail=0,
-              dw=False, reshape=False):
+              dw=False, reshape=False, lim=127):
     """A 3 x 3 convolution to 16 channels and a pool after it, on a 12 x 12 x 4 map."""
     def make(rng):
         n = Net([1, 12, 12, 4], rng)
@@ -947,7 +963,7 @@ def conv_pool(op="MAX_POOL_2D", k=2, s=2, same=False, again=False, last=False, t
             n.conv(0, 3, 3, dw=1)
             y = n.conv(16, 1, 1)
         else:
-            y = n.conv(16, 3, 3)
+            y = n.conv(16, 3, 3, lim=lim)
         if reshape:
             n.reshape([1, 6, 24, 16])
         n.pool(op, k, k, (s, s), same=same)
@@ -975,7 +991,8 @@ POOLS = (("a 2 x 2 max pool", conv_pool(), True, True, False),
           False, False),
          ("a RESHAPE between them", conv_pool(reshape=True), False, False, False),
          ("a depthwise layer and 1 x 1 before the pool", conv_pool(dw=True), True, True,
-          False))
+          False),
+         ("int4 weights", conv_pool(lim=7), False, False, False))
 
 
 def case_fused(name, make, can, fused, in_place, out_dir, seed):
@@ -993,15 +1010,17 @@ def case_fused(name, make, can, fused, in_place, out_dir, seed):
     return f"{kind}, {name}", 50 * tensors[outputs[0]].size(), bad, wrong
 
 
-ARENAS = {"r2": 2928, "r5": 2872, "r3": 9280, "rows": 400, "mixed": 2048,
+ARENAS = {"r2": 2928, "r5": 2872, "r3": 9280, "r3_s4": 9672, "r3_s2": 9672,
+          "rows": 400, "mixed": 2048,
           "cnn_keras": 1280, "mlp_keras": 48}
 
 
 def case_arenas(out_dir):
     """Each named model's arena, live bound and wanted arena."""
     rows = []
-    made = [("r2", net_r2), ("r5", net_r5), ("r3", net_r3), ("rows", net_rows),
-            ("mixed", net_mixed)]
+    made = [("r2", net_r2), ("r5", net_r5), ("r3", net_r3),
+            ("r3_s4", lambda rng: net_r3(rng, 7)), ("r3_s2", lambda rng: net_r3(rng, 1)),
+            ("rows", net_rows), ("mixed", net_mixed)]
     paths = []
     for name, make in made:
         blob = make(np.random.default_rng(7))
@@ -1019,6 +1038,8 @@ def case_arenas(out_dir):
 NETS = (("R2, IMU gesture: conv1d x 3, pools, mean, dense", net_r2, 300),
         ("R5, 28 x 28 CNN: conv, pool x 2, dense, softmax", net_r5, 200),
         ("R3, keyword spotting DS-CNN, 4 depthwise blocks", net_r3, 50),
+        ("R3 with int4 convolutions", lambda rng: net_r3(rng, 7), 50),
+        ("R3 with ternary convolutions", lambda rng: net_r3(rng, 1), 50),
         ("joins along a row, and layers that must not run in place", net_rows, 300))
 
 
@@ -1145,6 +1166,10 @@ def case_stream_errors(out_dir):
     n = Net([1, 1, 32, 4], rng)
     n.conv(4, 1, 3, same=False)
     cases.append(("a wide output", n.build(), "before the model's output"))
+    n = Net([1, 1, 32, 3], rng)
+    n.conv(8, 1, 5, same=False, lim=7)
+    n.mean(1.0, False)
+    cases.append(("int4 weights", n.build(), "sub-byte"))
     wrong = []
     for name, blob, words in cases:
         path = Path(out_dir) / "refused.tflite"
