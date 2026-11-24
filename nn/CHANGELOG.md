@@ -1,5 +1,11 @@
 # flexnn changelog
 
+## Unreleased
+
+- `fnn_conv_pack_s4`, `fnn_conv_pack_s2`, `FNN_PACK_S4` and `FNN_PACK_S2` store convolution weights in [-7, 7] in 4 bits, or in {-1, 0, 1} in 2, with the same outputs as int8. A 1 x 1 layer from 64 to 64 channels takes 25% fewer cycles than with packed int8 weights, or 17% fewer when ternary.
+- `fnn_dwpw_s8` takes a sub-byte 1 x 1 layer, given `FNN_DWPW_SUB_SCRATCH()` bytes of scratch. `fnn_convpool_check` and `fnn_stream_conv1d_check` return `FNN_ERR_RANGE` for sub-byte weights.
+- `fnn_tflite.py` writes a convolution in 4 or 2 bits when all its weights fit, and then neither pairs it with a max pool nor streams it.
+
 ## 0.3.1 (2026-11-24)
 
 - Packed weights are read through a `may_alias` word type. With link-time optimisation, GCC could reorder those reads and give wrong outputs from packed fully connected and convolution layers.

@@ -155,15 +155,28 @@ together.
 Cycles on an STM32F103 at 72 MHz (`-O2`, weights in the flash cache), against
 CMSIS-NN 8.0.0 built the same way, with a multiplier per output channel:
 
-| layer | flexnn, packed | flexnn, rows | CMSIS-NN |
-| --- | --: | --: | --: |
-| 1 x 1, 64 -> 64 channels, 5 x 5 | 520256 | 649666 | 591662 |
-| 3 x 3, 8 -> 16 channels, 12 x 12, SAME | 902661 | 1111050 | 1135991 |
-| 5 taps, 16 -> 32 channels, 64 long | 802725 | 1007294 | 979578 |
+| layer | flexnn, packed | flexnn, rows | CMSIS-NN | int4 | ternary |
+| --- | --: | --: | --: | --: | --: |
+| 1 x 1, 64 -> 64 channels, 5 x 5 | 520209 | 649619 | 591662 | 389597 | 431253 |
+| 3 x 3, 8 -> 16 channels, 12 x 12, SAME | 902863 | 1111252 | 1135991 | 702573 | 772177 |
+| 5 taps, 16 -> 32 channels, 64 long | 802545 | 1007114 | 979578 | 592551 | 638521 |
 
 Packed, that is 4.9 to 5.4 cycles per multiply-accumulate, 12 to 20% fewer
 cycles than CMSIS-NN. In TFLite's order the filter takes from 2% fewer to 10%
 more than CMSIS-NN: pack it when you can.
+
+### Int4 and ternary weights
+
+A model trained with its weights in [-7, 7], or in {-1, 0, 1}, can keep them in
+4 or 2 bits. Pack each layer with `fnn_conv_pack_s4` or `fnn_conv_pack_s2`,
+set `packed` to `FNN_PACK_S4` or `FNN_PACK_S2`, and give `fnn_conv_s8`
+`FNN_CONV_SUB_SCRATCH()` bytes of 4-byte aligned scratch. The outputs are the
+ones the same weights give as int8.
+
+- int4 takes 22 to 26% fewer cycles than packed int8 in the table above, in half
+  the flash. Ternary takes 14 to 20% fewer, in a quarter.
+- `fnn_tflite.py` packs a convolution this way whenever all its weights fit, so
+  an int8 `.tflite` from quantisation-aware training needs nothing more.
 
 ## Depthwise convolution (`fnn_dwconv.h`)
 
@@ -285,15 +298,16 @@ Which prints:
  4/24 6/39 4/28
 ```
 
-Besides `x`, the block used 24 bytes of scratch.
+Besides `x`, the block used 24 bytes of scratch. A 1 x 1 layer with int4 or
+ternary weights needs `FNN_DWPW_SUB_SCRATCH()` bytes instead.
 
 For a 12 x 5 x 64 block, 3 x 3 then 64 to 64 channels, on an STM32F103 at
 72 MHz (`-O2`):
 
 | block | memory | cycles |
 | --- | --: | --: |
-| `fnn_dwconv_s8` then `fnn_conv_s8` | 7680 B | 1877647 |
-| `fnn_dwpw_s8`, in place | 5120 B | 1912658 |
+| `fnn_dwconv_s8` then `fnn_conv_s8` | 7680 B | 1877523 |
+| `fnn_dwpw_s8`, in place | 5120 B | 1912743 |
 
 `fnn_tflite.py` fuses such a pair when that makes the arena smaller.
 
@@ -914,9 +928,9 @@ weights in flash:
 
 | model | multiply-accumulates | arena | flexnn | CMSIS-NN |
 | --- | --: | --: | --: | --: |
-| R2, IMU gesture, three 1-D convolutions, pools, a mean, dense 8 | 261,440 | 2928 B | 1,446,289 | 1,769,539 |
-| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 2872 B | 2,337,885 | 2,852,491 |
-| R3, keyword spotting, a 10 x 4 convolution, four depthwise and pointwise pairs, mean, dense 12, softmax | 2,656,768 | 9280 B | 17,820,043 | |
+| R2, IMU gesture, three 1-D convolutions, pools, a mean, dense 8 | 261,440 | 2928 B | 1,445,698 | 1,769,539 |
+| R5, 28 x 28 CNN, two 3 x 3 convolutions, pools, dense 10, softmax | 290,080 | 2872 B | 2,331,975 | 2,855,963 |
+| R3, keyword spotting, a 10 x 4 convolution, four depthwise and pointwise pairs, mean, dense 12, softmax | 2,656,768 | 9280 B | 17,821,032 | |
 
 R2 and R5 run about 1.2 times as fast as CMSIS-NN: R2 in 20 ms and R5 in
 32 ms. R5 runs each convolution with its max pool fused, in 2872 bytes where
@@ -1010,7 +1024,7 @@ On an STM32F103 at 72 MHz (`-O2`), for the same 128-sample windows:
 
 | R2 | multiply-accumulates | memory | cycles |
 | --- | --: | --: | --: |
-| `r2_run` on the whole window | 261,440 | 2928 B | 1,446,308 |
+| `r2_run` on the whole window | 261,440 | 2928 B | 1,445,717 |
 | `r2_step` on 4 new samples | 9,408 | 2302 + 32 B | 59,044 |
 
 Both give the same results.
@@ -1147,6 +1161,13 @@ five layers including a stride-2 SAME layer and a filter larger than its
 input, bit for bit in `FNN_ROUND_GEMMLOWP`, the interpreter's rule for
 convolution.
 
+Int4 and ternary convolutions against the same layers with int8 weights: 3000
+random layers of each, rows of up to 600 weights, odd and even pixel counts,
+and weights and inputs at their extremes. Depthwise and pointwise blocks with
+int4 and ternary 1 x 1 layers, the scratch at every alignment. Against the
+TFLite interpreter, R3 with int4 and with ternary convolutions, bit for bit in
+`FNN_ROUND_TFLITE`.
+
 Pools and means against references in TFLite's terms: 3191 random pools of 1 to
 64 channels with windows up to 5 x 5, strides 1 to 3, VALID and SAME padding
 and random clamps, both kinds each time. The 1677 with no padding above or to
@@ -1176,15 +1197,15 @@ interpreter's double-precision rounding and a multiplier from the float32
 product part, every sum from -16384 to 16383, bit for bit in `FNN_ROUND_AWAY`
 and `FNN_ROUND_TFLITE`. The converter's multipliers, softmax and activation
 tables, clamps, mean and add setup, and packed weights against flexnn's own
-functions on 66,583 values, and eight models it must refuse, each with the
+functions on 68,583 values, and eight models it must refuse, each with the
 message that says why. Every memory plan is replayed byte by byte at
 conversion, each byte tagged by the value it holds, and the converter stops if
 a layer would read an overwritten value. nn-check also pins the arena of each
 model above and converts 300 random graphs of convolutions, depthwise and
 pointwise pairs, pools, tables, adds and joined rows, ten of them against the
-interpreter as well. Twenty small blocks check which layer pairs the converter fuses, each also
-against the interpreter, and six models check that it refuses to stream what it
-cannot.
+interpreter as well. Twenty-three small blocks check which layer pairs the
+converter fuses, each also against the interpreter, and seven models check that
+it refuses to stream what it cannot.
 
 Adds against a reference in TFLite's terms for `FNN_ROUND_GEMMLOWP` and an
 exact 64-bit sum for the other modes: all 65,536 pairs of int8 inputs at nine
