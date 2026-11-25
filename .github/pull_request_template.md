@@ -11,7 +11,7 @@
 - [ ] A new kernel has an asm-audit entry and a bench case (`make golden`)
 - [ ] User-visible changes have a line under `## Unreleased` in the
       library's `CHANGELOG.md`
-- [ ] Each commit is one concern and builds on its own
+- [ ] Commits are limited to one concern and build individually
 
 ## Measurements
 

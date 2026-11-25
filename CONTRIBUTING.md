@@ -20,11 +20,11 @@ newlib, Python 3 and Doxygen. Then, from the repository root:
 ```sh
 make                        # host tests, Cortex-M3/M4/M7 builds, lint, asm-audit
 make host-test HOST_CC=clang
-make docs-check             # every public header documented
+make docs-check             # public headers documented
 ```
 
 CI runs the same steps with GCC 13 and clang. [docs/testing.md](docs/testing.md)
-lists every command, including the exhaustive runs, the accuracy tables and
+lists the commands, including the exhaustive runs, the accuracy tables and
 the bench.
 
 ## What a change needs
@@ -33,9 +33,9 @@ the bench.
   without warnings under `-Wall -Wextra -Wshadow -Wconversion
   -Wsign-conversion -Wdouble-promotion`, and the lint pass adds
   `-Wpedantic`. Format it with the repository's `.clang-format`.
-- **A documented contract.** Each public function has a short Doxygen
-  comment in its header that states what it computes and its error bound,
-  for example "within 0.5 LSB" or "correctly rounded".
+- **A documented contract.** Public functions have a short Doxygen comment
+  in their header that states what they compute and their error bound, for
+  example "within 0.5 LSB" or "correctly rounded".
 - **Tests that show the bound holds.** Host tests go in `test/host/`. Where
   the input space is 2^32 or smaller, check all of it in
   `test/exhaustive/`. Otherwise use seeded random inputs plus the edge
@@ -50,13 +50,12 @@ the bench.
 
 ## Commits and pull requests
 
-Keep each commit to one concern, and make sure each one builds and passes on
-its own. Commit subjects name the area first, as in the existing history:
+Keep commits to one concern, and make sure they build and pass individually. Commit subjects name the area first, as in the existing history:
 `feat(dsp): ...`, `fix(math): ...`, `test(utils): ...`, `docs: ...`,
 `bench: ...`.
 
 A change that users will notice gets a line under `## Unreleased` in the
-library's `CHANGELOG.md` (`utils/`, `math/` or `dsp/`). Comment and
+library's `CHANGELOG.md` (`utils/`, `math/`, `dsp/` or `nn/`). Comment and
 documentation fixes do not need one.
 
 ## License
@@ -67,6 +66,6 @@ is licensed under the Apache License 2.0, and that you have the right to
 license it so. A contribution offered under any other license, or with
 conditions attached, will not be merged.
 
-Code copied from another project can only come in if its license is
-compatible with Apache-2.0 and its notices come with it. Say where it came
+Code copied from another project is accepted if its license is compatible
+with Apache-2.0 and its notices are included. Say where it came
 from in the pull request.

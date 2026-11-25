@@ -1,8 +1,8 @@
 # flexlib bench
 
-Firmware that times every flexlib function on the board, next to newlib libm,
-libgcc's soft-float and CMSIS-DSP built with the same flags. Results:
-[docs/results/f103.md](../docs/results/f103.md).
+Benchmark firmware that measures the flexlib functions on the board, alongside
+newlib libm, libgcc's soft-float, CMSIS-DSP and CMSIS-NN built with the same
+flags. The results are in [docs/results/f103.md](../docs/results/f103.md).
 
 ```
 core/        bench.h (the case macros), bench_core.c (timing, golden check,
@@ -15,15 +15,15 @@ port/*/      port.mk (CPU flags, report, OpenOCD target), board.h, port.c,
              linker.ld
 port/f103/   also report_usb.c (report over USB CDC) and cache_probe.c (the
              flash read cost table, the cold flush)
-port/f405/   report over RTT only; ST's device headers and CMSIS 6
+port/f405/   report over RTT, ST's device headers and CMSIS 6
 ```
 
 ## Running it
 
 ```sh
 make deps                            # the submodules in third_party/
-make bench-run                       # flash and read each image, write the results
-make bench-windows                   # the instructions each case times
+make bench-run                       # flash and read all images, write the results
+make bench-windows                   # the instructions inside the timed windows
 make bench BENCH_SET=math            # one image: utils | math | struct | dsp .. dsp6 | nn | nn2
 ```
 
@@ -37,36 +37,37 @@ code in the image. The firmware writes into a SEGGER RTT buffer in RAM and
 waits while it is full. OpenOCD (0.12 or later) flashes the image and serves
 the buffer on TCP port 9090. `BENCH_OPENOCD` holds the interface and target
 arguments (default `-f interface/stlink.cfg -f target/stm32f1x.cfg`). The
-measured code starts on a 4 KB boundary: both reports time the same
-instructions at the same alignment.
+measured code starts on a 4 KB boundary, which keeps the timed instructions
+and their alignment the same for both reports.
 
 `BENCH_TARGET` selects the board (default `f103`). `BENCH_TARGET=f405` builds
-for an STM32F405RG at 168 MHz from an 8 MHz crystal: Cortex-M4 with the FPU
-(hard-float ABI), 5 flash wait states, prefetch and the ART caches on. It
-reports over RTT and writes `docs/results/f405.md`. Its cold rows reset the ART
-caches before each sample.
+for an STM32F405RG, a Cortex-M4 with FPU at 168 MHz from an 8 MHz crystal,
+using the hard-float ABI, 5 flash wait states, prefetch and the ART caches. It
+reports over RTT and writes `docs/results/f405.md`. Cold samples start from
+reset ART caches.
 
 ## Method
 
 - One call per input, timed with the DWT cycle counter over 256 fixed inputs;
   min, median and max are reported. Counter read cost is subtracted.
-- Warm: each case runs once untimed first. Cold: the flash cache is flushed
-  before every sample; cold numbers move by about one line (113 cycles).
+- Warm cases run once untimed before measurement. Cold samples start with a
+  flushed flash cache, and cold numbers vary by about one line (113 cycles).
 - The board is an F103 clone (CPUID 0x412FC230) whose flash behaves like a
   cache (32-byte lines, 16-32 KB). A genuine STM32F103 has none, and timings
   may differ, especially for tables and rarely run code.
-- Built at `-O2` without LTO: library functions are timed as real calls.
-- `make bench-windows` lists the instructions inside each timed window.
-- Each case's output hash on the board is checked against the same code run
-  on the host.
-- Any non-empty window reads one cycle high; the `empty, int16 arg` row
-  measures it.
+- Built at `-O2` without LTO, which times library functions as real calls.
+- `make bench-windows` lists the instructions inside the timed windows.
+- The output hash of a case on the board is checked against the same code
+  run on the host.
+- A non-empty window reads one cycle high, and the `empty, int16 arg` row
+  measures this.
 - Samples above 2 x median + 4 are counted and listed by input index.
 - "Flash read cost" measures the board's flash per load, cold and warm.
-- Eleven images: flexutils, flexmath's scalar functions, its structures,
-  flexdsp in six (block functions; filters and tones; transforms; correlation
-  and adaptive filters; sample-rate conversion; float blocks), and flexnn in
-  two, its layers and whole models as `fnn_tflite.py` converts them. The
+- The cases are split over eleven images, one for flexutils, two for flexmath
+  (scalar functions and structures), six for flexdsp (block functions, filters
+  and tones, transforms, correlation and adaptive filters, sample-rate
+  conversion, float blocks) and two for flexnn (layers, and whole models as
+  `fnn_tflite.py` converts them). The
   converted models live in `models/`; `make nn-models` writes them again after
   a change to the converter, and `make nn-check` fails while they are stale.
   The largest needs about 105 KB of flash (`st-info --probe` shows yours).

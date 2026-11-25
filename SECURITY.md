@@ -2,8 +2,8 @@
 
 ## Supported versions
 
-flexlib is before 1.0. Fixes go into the next release. The latest
-release is the only one supported.
+flexlib is before 1.0. Fixes go into the next release, and security fixes
+are made against the latest release.
 
 ## What counts as a security issue
 
@@ -21,8 +21,8 @@ Please do not open a public issue for a security problem. Report it
 privately instead:
 
 - On GitHub: [report a vulnerability](https://github.com/antonykasera/flexlib/security/advisories/new)
-  from the repository's Security tab. Only you and the maintainer can see
-  the report.
+  from the repository's Security tab. The report is visible to you and the
+  maintainer.
 - By email, if you cannot use GitHub: <antonykasera.dev@gmail.com>
 
 Include the flexlib version, the function, the arguments that trigger the
