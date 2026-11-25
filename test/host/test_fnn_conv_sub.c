@@ -44,7 +44,7 @@ static unsigned run(uint64_t *r, uint32_t fmt, int extreme) {
     x[i] = extreme ? -128 : (int8_t)test_rng_u32(r);
   }
   for (uint32_t i = 0U; i < n * oc; i++) {
-    w[i] = extreme ? -(int8_t)lim : (int8_t)((int32_t)pick(r, 0U, 2U * lim) - (int32_t)lim);
+    w[i] = extreme ? (int8_t)-(int32_t)lim : (int8_t)((int32_t)pick(r, 0U, 2U * lim) - (int32_t)lim);
   }
   for (uint32_t o = 0U; o < oc; o++) {
     b[o] = (int32_t)(test_rng_u32(r) % 40001U) - 20000;
