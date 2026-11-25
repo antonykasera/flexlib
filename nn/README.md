@@ -628,6 +628,13 @@ exact softmax, plus at most $(n + 1) 2^{-32}$. The one exception is a
 probability above 255.5/256, which the format cannot hold and which gives 127.
 The output can overwrite the scores.
 
+Built with `FNN_ROUND_GEMMLOWP` or `FNN_ROUND_TFLITE`, both functions use
+TFLite's own fixed-point softmax instead, and every output equals the TFLite
+interpreter's and CMSIS-NN's. The table then holds TFLite's exponentials, and n
+can be at most 4095. TFLite's arithmetic is an approximation, and at some near-ties
+it is one step off the exact softmax. The cycles below are for the exact
+softmax.
+
 Cycles on an STM32F103 at 72 MHz (`-O2`), against CMSIS-NN 8.0.0's
 `arm_softmax_s8` built the same way:
 
@@ -1134,8 +1141,8 @@ Against CMSIS-NN 8.0.0 compiled on the PC, in `FNN_ROUND_GEMMLOWP`: 400 random
 fully connected layers, per tensor and per channel, and 600 random
 convolutions through `arm_convolve_wrapper_s8`, which picks CMSIS-NN's 1 x 1,
 1 x n and general paths, in both weight layouts, 600 depthwise layers through
-`arm_depthwise_conv_wrapper_s8`, 2000 softmax rows at an input scale of
-1/16, random max and average pools with padding and clamps, 124,139 and
+`arm_depthwise_conv_wrapper_s8`, 12,000 softmax rows at six input scales from
+0.004 to 3, random max and average pools with padding and clamps, 124,139 and
 105,036 outputs, and 1000 random adds, 2,071,493 outputs. A quarter of the layers use a power-of-two scale, which makes exact ties;
 built with `FNN_ROUND_UP` instead, the same check finds hundreds of
 differences.
@@ -1198,7 +1205,7 @@ interpreter's double-precision rounding and a multiplier from the float32
 product part, every sum from -16384 to 16383, bit for bit in `FNN_ROUND_AWAY`
 and `FNN_ROUND_TFLITE`. The converter's multipliers, softmax and activation
 tables, clamps, mean and add setup, and packed weights against flexnn's own
-functions on 68,583 values, and eight models it must refuse, each with the
+functions on 68,783 values, and eight models it must refuse, each with the
 message that says why. Every memory plan is replayed byte by byte at
 conversion, each byte tagged by the value it holds, and the converter stops if
 a layer would read an overwritten value. nn-check also pins the arena of each
@@ -1230,8 +1237,11 @@ Softmax against an exact model of its own arithmetic and against the true
 softmax, at 1 to 1100 scores and five input scales: equal scores, the
 certain case, the far end of the table, sums past 2^40, and 100,000 sums built
 to sit just off a rounding tie, where the cheap division is closest to wrong.
-Against the TFLite interpreter, 58,000 outputs at four scales and betas, all
-equal. Argmax against a plain loop at every length to 300 and against TFLite
+In TFLite's arithmetic, every table entry at ten input scales, 1 to 4095
+scores and every pair of scores against TFLite's softmax written out on the PC.
+Against the TFLite interpreter, 78,688 outputs at eight scales and betas, among
+them the inputs where the two arithmetics part. In `FNN_ROUND_GEMMLOWP` and
+`FNN_ROUND_TFLITE` all are equal, and the exact softmax differs on 5. Argmax against a plain loop at every length to 300 and against TFLite
 on 1500 runs, half of them full of ties.
 
 Conversions: every q15 input and every float bit pattern, at several scales and
