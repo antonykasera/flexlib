@@ -4,6 +4,12 @@ Repository releases. Per library: [utils/CHANGELOG.md](utils/CHANGELOG.md),
 [math/CHANGELOG.md](math/CHANGELOG.md), [dsp/CHANGELOG.md](dsp/CHANGELOG.md),
 [nn/CHANGELOG.md](nn/CHANGELOG.md).
 
+## v0.11.1 (2026-11-26)
+
+flexnn 0.4.1.
+
+- flexnn: softmax in `FNN_ROUND_GEMMLOWP` and `FNN_ROUND_TFLITE` builds uses TFLite's fixed-point arithmetic and matches the TFLite interpreter and CMSIS-NN ([nn/CHANGELOG.md](nn/CHANGELOG.md)).
+
 ## v0.11.0 (2026-11-25)
 
 flexnn 0.4.0.

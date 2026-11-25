@@ -14,7 +14,7 @@
 /** Minor version. */
 #define FLEXLIB_VERSION_MINOR 11
 /** Patch version. */
-#define FLEXLIB_VERSION_PATCH 0
+#define FLEXLIB_VERSION_PATCH 1
 
 /** The version as one number */
 #define FLEXLIB_VERSION_NUM                                                    \

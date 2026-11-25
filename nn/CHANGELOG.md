@@ -1,8 +1,8 @@
 # flexnn changelog
 
-## Unreleased
+## 0.4.1 (2026-11-26)
 
-- `fnn_softmax_s8` and `fnn_softmax_s8_build` use TFLite's fixed-point softmax when built with `FNN_ROUND_GEMMLOWP` or `FNN_ROUND_TFLITE`, and match the outputs of the TFLite interpreter and CMSIS-NN. They rounded the exact softmax in all modes before, which differs by one step at some near-ties. In that arithmetic n is at most 4095, and the build returns `FNN_ERR_QUANT` when beta times the input scale is at most $2^{-26}$, where TFLite stops. `fnn_tflite.py` writes both tables.
+- `fnn_softmax_s8` and `fnn_softmax_s8_build` use TFLite's fixed-point softmax when built with `FNN_ROUND_GEMMLOWP` or `FNN_ROUND_TFLITE`, and match the outputs of the TFLite interpreter and CMSIS-NN. They rounded the exact softmax in all modes before, which differs by one step at some near-ties. In that arithmetic n is at most 4095, and the build returns `FNN_ERR_QUANT` when beta times the input scale is at most $2^{-26}$, where TFLite stops. `fnn_tflite.py` writes both tables, and models with a softmax built in either mode must be converted again.
 
 ## 0.4.0 (2026-11-25)
 

@@ -35,13 +35,13 @@ Add the repository as a submodule pinned to a release:
 
 ```sh
 git submodule add https://github.com/antonykasera/flexlib.git lib/flexlib
-git -C lib/flexlib checkout v0.11.0
+git -C lib/flexlib checkout v0.11.1
 ```
 
 Or extract the release archive:
 
 ```sh
-tar xf flexlib-0.11.0.tar.gz -C lib
+tar xf flexlib-0.11.1.tar.gz -C lib
 ```
 
 ## Usage
@@ -67,7 +67,7 @@ SRCS   += $(FLEXLIB_SRCS)
 ### CMake
 
 ```cmake
-set(FLEXLIB_REQUIRE 0.11.0)          # optional minimum version
+set(FLEXLIB_REQUIRE 0.11.1)          # optional minimum version
 set(FLEXLIB_DEFINES "FU_CRC_SMALL")  # optional build options
 add_subdirectory(lib/flexlib)
 target_link_libraries(app PRIVATE flexlib::dsp)
@@ -80,8 +80,8 @@ the release archive:
 ```cmake
 include(FetchContent)
 FetchContent_Declare(flexlib
-  URL https://github.com/antonykasera/flexlib/releases/download/v0.11.0/flexlib-0.11.0.tar.gz
-  URL_HASH SHA256=...)   # from flexlib-0.11.0.tar.gz.sha256
+  URL https://github.com/antonykasera/flexlib/releases/download/v0.11.1/flexlib-0.11.1.tar.gz
+  URL_HASH SHA256=...)   # from flexlib-0.11.1.tar.gz.sha256
 FetchContent_MakeAvailable(flexlib)
 ```
 
@@ -127,8 +127,8 @@ cc -std=c11 -Iarch -Iutils/include -Imath/include first.c \
 ## Versioning
 
 The libraries are versioned and tagged separately (`flexdsp-v0.6.0`). A
-repository release (`v0.11.0`) bundles flexutils 0.1.2, flexmath 0.2.5, flexdsp
-0.6.0 and flexnn 0.4.0. Before 1.0, minor releases may change the API and
+repository release (`v0.11.1`) bundles flexutils 0.1.2, flexmath 0.2.5, flexdsp
+0.6.0 and flexnn 0.4.1. Before 1.0, minor releases may change the API and
 patch releases do not. Changes are listed in [CHANGELOG.md](CHANGELOG.md) and
 the per-library changelogs.
 
