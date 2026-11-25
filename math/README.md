@@ -4,14 +4,13 @@
 [![Release](https://img.shields.io/github/v/tag/antonykasera/flexlib?filter=flexmath-v%2A&sort=semver&label=release)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
 
-A Cortex-M3 has no FPU. Every float operation is a call into libgcc, and
-newlib's `sinf` takes over a thousand cycles. flexmath gives you two ways
-around that. The fixed-point functions work on fractions held in integers,
-in Q15, Q31 and Q16.16. The float functions take and return `float` as usual
-but compute with integer operations inside. Code written with floats runs
-several times faster without changing its types. Vectors, matrices,
-quaternions and PID controllers come in both forms. Plain C11, no
-allocation.
+Fixed-point and float math for Cortex-M parts without an FPU. The fixed-point
+functions operate on Q15, Q31 and Q16.16. The float functions take and return
+`float` and are implemented with integer instructions. Vectors, matrices,
+quaternions and PID controllers are provided in both forms. Written in C11 with
+no allocation.
+
+## Example
 
 ```c
 #include <math.h>
@@ -20,41 +19,24 @@ allocation.
 #include "fm_float.h"
 
 int main(void) {
-  /* polar form of (3, 4): exact length, angle within 0.545 ULP */
   float r = fm_sqrtf(3.0f * 3.0f + 4.0f * 4.0f);
   float a = fm_atan2f(4.0f, 3.0f);
-
-  /* sin reduces any argument exactly: 10^6 rad is no harder than 1 */
   float s = fm_sinf(1e6f);
-  double ref = sin(1e6);
-
-  printf("%g %.7f %.7f %.7f\n", (double)r, (double)a, (double)s, ref);
-  return r == 5.0f && fabs(a - atan2(4.0, 3.0)) < 1e-7 &&
-                 fabs(s - ref) < 1e-7
-             ? 0
-             : 1;
+  printf("%g %.7f %.7f %.7f\n", (double)r, (double)a, (double)s, sin(1e6));
+  return 0;
 }
 ```
 
-Which prints
+Output:
 
 ```text
 5 0.9272952 -0.3499935 -0.3499935
 ```
 
-The length of (3, 4) comes out exactly 5, the angle is 0.9272952 rad, and
-the sine of 10^6 rad matches `double`'s to every printed digit: `fm_sinf`
-reduces any argument exactly, and a large one costs no more than a small one.
-
-Cycles below are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
-[docs/results/f103.md](../docs/results/f103.md). Errors are against a
-`double` or exact reference, and CMSIS-DSP's are in
-[docs/accuracy.md](../docs/accuracy.md).
-
 ## Fixed point
 
-| function | cycles | baseline | max error | baseline's error |
-|---|--:|---|--:|--:|
+| Function | Cycles | Baseline | Max error | Baseline error |
+| --- | --: | --- | --: | --: |
 | `fm_mul_q15` / `fm_mul_q31` / `fm_mul_q16` | 6 / 17 / 18 | | 0.5 LSB | CMSIS 1 / 2 LSB |
 | `fm_f32_to_q31` / `fm_q31_to_f32` | 26 / 24 | soft-float 309 / 59 | exact (nearest) | |
 | `fm_isqrt32` | 33 | `sqrtf` via float 643 | exact floor | |
@@ -70,116 +52,68 @@ Cycles below are medians on an STM32F103 at 72 MHz (`-O2`, warm cache), from
 | `fm_exp2_q16` / `fm_exp_q16` | 67 / 89 | `expf` via float 1566 | 0.54 LSB | |
 | `fm_pow_q16` | 153 | `powf` via float 5183 | 0.65 LSB + \|y\| 2^-32 of the result | |
 
-Angles in `fm_trig` and `fm_atan` are binary: a full turn is 2^16 or 2^32.
-A phase held in an unsigned integer then wraps round by itself. Results
-saturate instead of wrapping, and the logarithms of x <= 0 return
-`INT32_MIN`.
+Angles are binary, with a full turn of 2^16 or 2^32, and a phase held in an
+unsigned integer wraps without a range check. Results saturate. The logarithm
+of x <= 0 returns `INT32_MIN`.
 
-## Float without an FPU
+## Float
 
-Each function takes and returns `float` and uses only integer operations.
-inf, NaN (quieted) and subnormals are handled as C requires.
-
-| function | cycles | newlib / libgcc | max error, on all 2^32 floats | CMSIS-DSP |
-|---|--:|--:|---|---|
+| Function | Cycles | newlib / libgcc | Max error, all 2^32 inputs | CMSIS-DSP |
+| --- | --: | --: | --- | --- |
 | `fm_sqrtf` | 63 | 595 | correctly rounded | |
 | `fm_recipf` | 41 | `1.0f / x` 150 | correctly rounded | |
 | `fm_rsqrtf` | 65 | `1.0f / sqrtf` 746 | correctly rounded | |
-| `fm_sinf` / `fm_cosf` | 139 / 140 | 1348 / 1220 | 0.515 ULP, any finite x | 573 cycles, 1.3e7 ULP |
+| `fm_sinf` / `fm_cosf` | 139 / 140 | 1348 / 1220 | 0.515 ULP | 573 cycles, 1.3e7 ULP |
 | `fm_sincosf` | 204 | | 0.515 ULP | |
 | `fm_atan2f` | 193 | 1839 | 0.545 ULP (2^32 hashed pairs) | 1461 cycles, 5.2 ULP |
 | `fm_asinf` / `fm_acosf` | 267 / 276 | 1342 / 1463 | 0.545 ULP | |
 | `fm_log2f` / `fm_logf` | 107 / 121 | 1701 / 1540 | 0.52 ULP | |
 | `fm_exp2f` / `fm_expf` | 87 / 112 | 3546 / 1292 | 0.52 ULP | |
 
-`fm_sinf` and `fm_cosf` reduce any argument exactly, and large arguments cost
-the same 150 cycles. newlib's `sinf` takes 15320 for |x| between pi/4 and
-2^22.
+Infinities, NaN (quieted) and subnormals follow the C standard. `fm_sinf` and
+`fm_cosf` reduce large arguments without loss of precision, in a constant 150
+cycles.
 
 ## Vectors, matrices, quaternions, PID
 
-Every output is one exact sum of its products, rounded once. For float the
-error is at most 0.5 ULP + 2^-32 times the sum of the products' magnitudes:
-terms that cancel leave the exact remainder where a plain float loop
-loses it.
-
-| function | cycles | plain C (libgcc) | CMSIS-DSP | error | CMSIS / plain error |
-|---|--:|--:|--:|---|---|
+| Function | Cycles | Plain C (libgcc) | CMSIS-DSP | Max error | Baseline error |
+| --- | --: | --: | --: | --- | --- |
 | `fm_mat4_mul_q31` | 992 | | 1309 | 0.5 LSB, saturated | 1 LSB, wraps |
 | `fm_mat4_mul_f32` | 2986 | 6411 | 6445 | 0.5 ULP | 8e5 ULP |
 | `fm_dot3_f32` / `fm_cross3_f32` | 207 / 425 | 264 / 461 | | 0.5 ULP | |
 | `fm_quat_mul` | 747 | 1431 | 1434 | 0.5 ULP | 2e6 ULP |
-| `fm_quat_normalize` | 534 | 937 | 914 | 0.6 ULP, any finite q | 2.8 ULP |
+| `fm_quat_normalize` | 534 | 937 | 914 | 0.6 ULP | 2.8 ULP |
 | `fm_quat_rotate` | 843 | 1491 | | 2^-22 \|v\| | |
-| `fm_quat_integrate` | 2083 | 5108 (libm) | | 2^-22, exact rotation | |
-| `fm_pid_q16` | 171 | | 39 * | exact, one rounding | |
-| `fm_pid_f32` | 501 | 695 | 192 * | one rounding per sum | |
+| `fm_quat_integrate` | 2083 | 5108 (libm) | | 2^-22 | |
+| `fm_pid_q16` | 171 | | 39 \* | one rounding | |
+| `fm_pid_f32` | 501 | 695 | 192 \* | one rounding per sum | |
 
-\* CMSIS's PID is the velocity form with no output clamping, no anti-windup
-and the derivative on the error: a smaller controller than flexmath's.
+\* CMSIS-DSP's PID is the velocity form, without output clamping or
+anti-windup.
 
-- `fm_linalg`: dot2/3/4, cross2/3, mat3 and mat4 times a matrix or a vector,
-  on row-major arrays.
-- `fm_quat`: `FM_Quat {w, x, y, z}`. `fm_quat_integrate` applies the exact
-  rotation for the gyro rates and renormalises, and the attitude does not
-  drift from rounding.
-- `fm_pid`: the output is clamped, and while it is, the integrator stops at
-  the limit. There is no overshoot after saturation. Because the derivative
-  acts on the measurement, a setpoint step does not kick the output. Gains are
-  per step: ki = Ki dt, kd = Kd / dt.
+Sums of products are exact and rounded once. For float, the error
+is at most 0.5 ULP plus 2^-32 times the sum of the products' magnitudes.
+Matrices are row-major. `FM_Quat` is `{w, x, y, z}`. `fm_quat_integrate`
+applies the exact rotation for the angular rate and renormalises. The PID
+clamps its output, holds the integrator while clamped, and takes the
+derivative on the measurement. Gains are per step, with ki = Ki dt and
+kd = Kd / dt.
 
-## Use
+Cycles are medians on an STM32F103 at 72 MHz (`-O2`, warm cache). Full results
+are in [docs/results/f103.md](../docs/results/f103.md), and the error
+comparison with CMSIS-DSP in [docs/accuracy.md](../docs/accuracy.md).
 
-In a [flex](https://github.com/antonykasera/STM32F1-HAL) project (v1.1.0 or
-later), add one line to the Makefile. flexutils comes with it:
+## Configuration
 
-```make
-FLEXLIB_LIBS := math
-```
+| Macro | Effect |
+| --- | --- |
+| `FM_LUT_IN_RAM` | Places the tables (2.8 KB) in `.data`. A cold `fm_sin_q15` call takes 368 cycles instead of 480. |
 
-Elsewhere, include the fragment. It only sets variables:
+## Usage
 
-```make
-include lib/flexlib/flexmath.mk     # pulls in flexutils too
-CFLAGS += $(FLEXLIB_CFLAGS)
-SRCS   += $(FLEXLIB_SRCS)
-```
-
-Here is a tilt controller that integrates a gyro and holds the body's z axis
-upright:
-
-```c
-#include "fm_pid.h"
-#include "fm_quat.h"
-
-static FM_Quat att = {1.0f, 0.0f, 0.0f, 0.0f};
-static FM_PidF32 tilt;
-
-void control_init(void) {
-  fm_pid_init_f32(&tilt, 2.0f, 0.01f, 0.5f, -1.0f, 1.0f);
-  fm_pid_reset_f32(&tilt, 0.0f);
-}
-
-/* every 1 ms, gyro in rad/s: hold the body's z axis upright in y */
-float control_step(const float gyro[3]) {
-  static const float z[3] = {0.0f, 0.0f, 1.0f};
-  float up[3];
-  fm_quat_integrate(&att, &att, gyro, 0.001f);
-  fm_quat_rotate(up, &att, z);
-  return fm_pid_f32(&tilt, 0.0f, up[1]);
-}
-```
-
-The step makes no soft-float calls and takes about 3.4k cycles, 48 us at
-72 MHz.
-
-## Options
-
-- `FM_LUT_IN_RAM`: puts the tables (2.8 KB) in `.data`. A call whose table
-  is not in the flash cache is then faster: a cold `fm_sin_q15` drops from
-  480 to 368 cycles.
-- `FX_ASSERT_FAIL(file, line)` / `FX_DISABLE_ASSERT`: by default a failed
-  argument check traps, with no stdio.
+Select the library with `FLEXLIB_LIBS := math`, or link `flexlib::math` in
+CMake. flexutils is added as a dependency. Build integration is described in
+the [root README](../README.md#usage).
 
 ## Testing
 
