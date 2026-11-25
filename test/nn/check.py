@@ -556,9 +556,11 @@ def case_converter_arith(lib, lib_g, seed=99):
     tab = np.zeros(256, np.uint32)
     for _ in range(200):
         beta, s_x = float(rng.uniform(0.1, 3.0)), float(rng.uniform(0.001, 0.5))
-        lib.fnn_softmax_s8_build(beta, s_x, tab.ctypes.data)
-        n += 1
-        bad += fnn_tflite.lower_softmax_table(beta * s_x) != [int(v) for v in tab]
+        for tflite, lb in ((False, lib), (True, lib_g)):
+            lb.fnn_softmax_s8_build(beta, s_x, tab.ctypes.data)
+            n += 1
+            bad += (fnn_tflite.lower_softmax_table(beta * s_x, tflite) !=
+                    [int(v) for v in tab])
     for _ in range(5000):
         act = int(rng.choice([0, RELU, 2, RELU6]))
         sc, zp = float(np.float32(rng.uniform(0.001, 0.2))), int(rng.integers(-128, 128))
@@ -1300,27 +1302,38 @@ def case_table(lib, op, s_in, zx, s_out, zy, f, seed, **options):
     return name, int(np.count_nonzero(diff)), int(diff.max()), 20 * 256, wrong
 
 
-def case_softmax(lib, n, s_in, zx, beta, seed, runs=200):
-    """Softmax of n scores against TFLite's reference softmax."""
+def case_softmax(libs, n, s_in, zx, beta, seed, runs=200):
+    """Softmax of n scores against TFLite's reference softmax, in each mode."""
     m = tfl.Model()
     x = m.tensor("x", [1, n], tfl.INT8, scale=s_in, zp=zx)
     y = m.tensor("y", [1, n], tfl.INT8, scale=1.0 / 256.0, zp=-128)
     m.op("SOFTMAX", [x], [y], Beta=beta)
     rng = np.random.default_rng(seed)
     xs = [rng.integers(-128, 128, (1, n), dtype=np.int8) for _ in range(runs)]
-    got = tfl.run_reference(m.build(), xs)
     tab = np.zeros(256, np.uint32)
-    assert lib.fnn_softmax_s8_build(beta, s_in, tab.ctypes.data) == 0
     out = np.zeros(n, np.int8)
-    differ, by = 0, 0
-    for xv, want in zip(xs, got):
-        xc = np.ascontiguousarray(xv[0])
-        lib.fnn_softmax_s8(xc.ctypes.data, out.ctypes.data, n, tab.ctypes.data)
-        d = np.abs(out.astype(int) - want[0].astype(int))
-        differ += int(np.count_nonzero(d))
-        by = max(by, int(d.max()))
+    # plus inputs where the exact softmax and TFLite's arithmetic part
+    near = [rng.integers(-128, 128, n, dtype=np.int8) for _ in range(4000)]
+    outs = []
+    for lib in (libs[AWAY], libs[GEMMLOWP]):
+        assert lib.fnn_softmax_s8_build(beta, s_in, tab.ctypes.data) == 0
+        outs.append([])
+        for xc in near:
+            lib.fnn_softmax_s8(xc.ctypes.data, out.ctypes.data, n, tab.ctypes.data)
+            outs[-1].append(out.copy())
+    xs += [x[None, :] for x, a, g in zip(near, *outs) if (a != g).any()][:runs]
+    got = tfl.run_reference(m.build(), xs)
+    differ = []
+    for lib in libs:
+        assert lib.fnn_softmax_s8_build(beta, s_in, tab.ctypes.data) == 0
+        d = 0
+        for xv, want in zip(xs, got):
+            xc = np.ascontiguousarray(xv[0])
+            lib.fnn_softmax_s8(xc.ctypes.data, out.ctypes.data, n, tab.ctypes.data)
+            d += int(np.count_nonzero(out != want[0]))
+        differ.append(d)
     name = f"softmax of {n}, scale {s_in:.4g}, zero point {zx}, beta {beta:g}"
-    return name, differ, by, runs * n
+    return name, len(xs) * n, differ
 
 
 def case_argmax(lib, n, seed, runs=500):
@@ -1574,13 +1587,17 @@ def main():
     print("\nentries of the exact table that differ from TFLite's, and by how much;"
           "\nthe table read from the interpreter must give no wrong outputs")
 
-    print(f"\n{'softmax':58} {'differ':>6} {'by':>3}  {'outputs':>8}")
+    print(f"\n{'softmax':58} {'outputs':>8}  " + "  ".join(f"{m[10:]:>8}" for m in MODES))
     for c in ((12, 1.0 / 16.0, 0, 1.0, 11), (10, 0.1, -30, 1.0, 12),
-              (12, 0.25, 5, 0.5, 13), (256, 0.05, 0, 1.0, 14)):
-        name, differ, by, n = case_softmax(libs[AWAY], *c)
-        print(f"{name:58} {differ:6} {by:3}  {n:8}")
-        failed |= differ != 0
-    print("\noutputs that differ from TFLite's softmax, and by how much: none may\n")
+              (12, 0.25, 5, 0.5, 13), (256, 0.05, 0, 1.0, 14),
+              (10, 0.35, 0, 1.0, 15), (16, 0.7, 3, 1.0, 16), (12, 3.0, 0, 1.0, 17),
+              (64, 0.02, -7, 2.0, 18)):
+        name, n, differ = case_softmax(libs, *c)
+        print(f"{name:58} {n:8}  " + "  ".join(f"{d:8}" for d in differ))
+        failed |= differ[GEMMLOWP] != 0 or differ[TFLITE] != 0
+    print("\noutputs that differ from TFLite's softmax: none may in FNN_ROUND_GEMMLOWP"
+          "\nor FNN_ROUND_TFLITE, which use its arithmetic. The others round the"
+          "\nexact softmax\n")
 
     print(f"{'case':58} {'outputs':>8}  " + "  ".join(f"{m[10:]:>8}" for m in MODES))
     for c in (("int16", 0.0371, 3, 21), ("int16", 1.0 / 256.0, -128, 22),

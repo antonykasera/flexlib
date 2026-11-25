@@ -236,3 +236,102 @@ void ref_quantize_multiplier(double scale, int32_t *mult, int32_t *shift) {
   *mult = (int32_t)m;
   *shift = e;
 }
+
+/* gemmlowp SaturatingRoundingMultiplyByPOT, exponent > 0 */
+static int32_t sat_pot(int32_t x, int e) {
+  int32_t thr = (int32_t)((1LL << (31 - e)) - 1);
+  return x > thr ? INT32_MAX : (x < -thr ? INT32_MIN : (int32_t)(x * (1LL << e)));
+}
+
+/* gemmlowp exp_on_interval_between_negative_one_quarter_and_0_excl */
+static int32_t exp_interval(int32_t a) {
+  const int32_t constant_term = 1895147668, one_third = 715827883;
+  int32_t x = a + (1 << 28);
+  int32_t x2 = srdhm(x, x);
+  int32_t x3 = srdhm(x2, x);
+  int32_t x4 = srdhm(x2, x2);
+  int32_t x4_over_4 = rdbpot(x4, 2);
+  int32_t poly = rdbpot(srdhm(x4_over_4 + x3, one_third) + x2, 1);
+  return constant_term + srdhm(constant_term, x + poly);
+}
+
+/* gemmlowp exp_on_negative_values, five integer bits in */
+static int32_t exp_on_negative_values(int32_t a) {
+  static const int32_t mult[7] = {1672461947, 1302514674, 790015084, 290630308,
+                                  39332535,   720401,     242};
+  int32_t quarter = 1 << 24;
+  int32_t a_mod = (a & (quarter - 1)) - quarter;
+  int32_t result = exp_interval(sat_pot(a_mod, 5));
+  int32_t remainder = a_mod - a;
+  for (int e = -2; e <= 4; e++) {
+    if (remainder & (1 << (26 + e))) {
+      result = srdhm(result, mult[e + 2]);
+    }
+  }
+  return a == 0 ? INT32_MAX : result;
+}
+
+/* gemmlowp one_over_one_plus_x_for_x_in_0_1 */
+static int32_t one_over_one_plus_x(int32_t a) {
+  int64_t sum = (int64_t)a + INT32_MAX;
+  int32_t half_denominator = (int32_t)((sum + (sum >= 0 ? 1 : -1)) / 2);
+  int32_t x = 1515870810 + srdhm(half_denominator, -1010580540);
+  for (int i = 0; i < 3; i++) {
+    int32_t one_minus = (1 << 29) - srdhm(half_denominator, x);
+    x = x + sat_pot(srdhm(x, one_minus), 2);
+  }
+  return sat_pot(x, 1);
+}
+
+/* TFLite's PreprocessSoftmaxScaling and CalculateInputRadius */
+static void softmax_params(double k, int32_t *mult, int *left, int32_t *diff_min) {
+  double real = fmin(k * (double)(1 << 26), 2147483647.0);
+  double q = frexp(real, left);
+  int64_t m = (int64_t)round(q * (double)(1LL << 31));
+  if (m == 1LL << 31) {
+    m /= 2;
+    (*left)++;
+  }
+  *mult = (int32_t)m;
+  *diff_min = -(int32_t)floor(31.0 * (double)(1LL << 26) / (double)(1LL << *left));
+}
+
+static int32_t softmax_exp(int32_t diff, int32_t mult, int left, int32_t diff_min) {
+  if (diff < diff_min) {
+    return 0;
+  }
+  return exp_on_negative_values(srdhm((int32_t)(diff * (1LL << left)), mult));
+}
+
+int32_t ref_softmax_exp(double k, uint32_t d) {
+  int32_t mult, diff_min;
+  int left;
+  softmax_params(k, &mult, &left, &diff_min);
+  return softmax_exp(-(int32_t)d, mult, left, diff_min);
+}
+
+void ref_softmax(const int8_t *x, uint32_t n, double k, int8_t *y) {
+  int32_t m, diff_min;
+  int left;
+  softmax_params(k, &m, &left, &diff_min);
+  int32_t mx = -128;
+  for (uint32_t i = 0U; i < n; i++) {
+    mx = x[i] > mx ? x[i] : mx;
+  }
+  int32_t sum = 0;
+  for (uint32_t i = 0U; i < n; i++) {
+    sum += rdbpot(softmax_exp(x[i] - mx, m, left, diff_min), 12);
+  }
+  int headroom = __builtin_clz((uint32_t)sum);
+  int over = 12 - headroom;
+  int32_t scale = one_over_one_plus_x((int32_t)(((uint32_t)sum << headroom) - (1U << 31)));
+  for (uint32_t i = 0U; i < n; i++) {
+    int32_t v = -128;
+    if (x[i] - mx >= diff_min) {
+      int32_t p = srdhm(scale, softmax_exp(x[i] - mx, m, left, diff_min));
+      int e = over + 31 - 8;
+      v = (e <= 31 ? rdbpot(p, e) : 0) - 128;
+    }
+    y[i] = (int8_t)(v > 127 ? 127 : v);
+  }
+}

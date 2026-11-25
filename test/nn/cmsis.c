@@ -355,22 +355,29 @@ static unsigned long add_cases(unsigned long *outputs) {
   return bad;
 }
 
-/* Compares softmax at an input scale of 1/16, with TFLite's parameters. */
+/* Compares softmax at several input scales, with TFLite's parameters. */
 static unsigned long softmax_cases(unsigned long *outputs) {
+  static const double ks[] = {1.0 / 16.0, 0.35, 0.05, 0.7, 3.0, 0.004};
   static uint32_t tab[256];
-  (void)fnn_softmax_s8_build(1.0, 1.0 / 16.0, tab);
   unsigned long differ = 0U;
-  for (unsigned rep = 0U; rep < 2000U; rep++) {
-    uint32_t n = 2U + rnd() % 30U;
-    for (uint32_t i = 0U; i < n; i++) {
-      x[i] = (int8_t)rnd();
+  for (unsigned c = 0U; c < sizeof ks / sizeof ks[0]; c++) {
+    int left;
+    double q = frexp(ks[c] * 67108864.0, &left);
+    int32_t m = (int32_t)round(q * 2147483648.0);
+    int32_t diff_min = -(int32_t)floor(31.0 * 67108864.0 / ldexp(1.0, left));
+    (void)fnn_softmax_s8_build(1.0, ks[c], tab);
+    for (unsigned rep = 0U; rep < 2000U; rep++) {
+      uint32_t n = 2U + rnd() % 30U;
+      for (uint32_t i = 0U; i < n; i++) {
+        x[i] = (int8_t)rnd();
+      }
+      arm_softmax_s8(x, 1, (int32_t)n, m, left, diff_min, want);
+      fnn_softmax_s8(x, y, n, tab);
+      for (uint32_t i = 0U; i < n; i++) {
+        differ += y[i] != want[i];
+      }
+      *outputs += n;
     }
-    arm_softmax_s8(x, 1, (int32_t)n, 1 << 30, 23, -248, want);
-    fnn_softmax_s8(x, y, n, tab);
-    for (uint32_t i = 0U; i < n; i++) {
-      differ += y[i] != want[i];
-    }
-    *outputs += n;
   }
   return differ;
 }

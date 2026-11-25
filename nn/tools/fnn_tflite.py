@@ -564,16 +564,68 @@ def lower_softmax(op, T, ctx):
     k = float(beta) * x.scale[0]
     if not (k > 0.0) or not math.isfinite(k):
         raise _err(op, "beta times the input scale must be positive")
+    if k * 67108864.0 <= 1.0:
+        raise _err(op, "beta times the input scale is too small for TFLite's "
+                       "softmax")
+    if n_in > 4095:
+        raise _err(op, "softmax over more than 4095 values is not supported")
     n = op.idx
-    return Layer(op, "softmax", [x.idx], [y.idx],
-                 _array("uint32_t", f"e{n}", lower_softmax_table(k), per_line=6),
+    decls = ("#if FNN_ROUNDING == FNN_ROUND_GEMMLOWP || "
+             "FNN_ROUNDING == FNN_ROUND_TFLITE\n" +
+             _array("uint32_t", f"e{n}", lower_softmax_table(k, True), per_line=6) +
+             "#else\n" +
+             _array("uint32_t", f"e{n}", lower_softmax_table(k), per_line=6) +
+             "#endif\n")
+    return Layer(op, "softmax", [x.idx], [y.idx], decls,
                  f"fnn_softmax_s8({{x0}}, {{y}}, {n_in}u, e{n});", 1024, 0)
 
 
-def lower_softmax_table(k):
+def _srdhm(a, b):
+    """gemmlowp's SaturatingRoundingDoublingHighMul."""
+    if a == b == -(1 << 31):
+        return (1 << 31) - 1
+    ab = a * b
+    v = ab + ((1 << 30) if ab >= 0 else 1 - (1 << 30))
+    return v // (1 << 31) if v >= 0 else -(-v // (1 << 31))
+
+
+def _rdbpot(x, e):
+    """gemmlowp's RoundingDivideByPOT."""
+    mask = (1 << e) - 1
+    return (x >> e) + ((x & mask) > (mask >> 1) + (x < 0))
+
+
+def _exp_neg(a):
+    """gemmlowp's exp_on_negative_values for a <= 0 in Q5.26, in Q0.31."""
+    if a == 0:
+        return (1 << 31) - 1
+    m = (a & ((1 << 24) - 1)) - (1 << 24)
+    c = 1895147668
+    x = m * 32 + (1 << 28)
+    x2 = _srdhm(x, x)
+    x3, x4 = _srdhm(x2, x), _srdhm(x2, x2)
+    t = _rdbpot(_srdhm(_rdbpot(x4, 2) + x3, 715827883) + x2, 1)
+    r = c + _srdhm(c, x + t)
+    for k, f in enumerate((1672461947, 1302514674, 790015084, 290630308,
+                           39332535, 720401, 242)):
+        if (m - a) & (1 << (24 + k)):
+            r = _srdhm(r, f)
+    return r
+
+
+def lower_softmax_table(k, tflite=False):
     """The exponentials fnn_softmax_s8_build() writes, for beta times the
-    input scale k."""
-    return [int(math.ldexp(math.exp(-k * d), 31) + 0.5) for d in range(256)]
+    input scale k, exact or TFLite's fixed-point ones."""
+    if not tflite:
+        return [int(math.ldexp(math.exp(-k * d), 31) + 0.5) for d in range(256)]
+    q, shift = math.frexp(k * 67108864.0)
+    mult = math.floor(q * 2147483648.0 + 0.5)
+    if mult == 1 << 31:
+        mult //= 2
+        shift += 1
+    radius = math.floor(31.0 * 67108864.0 / math.ldexp(1.0, shift))
+    return [_exp_neg(_srdhm(-(d << shift), mult)) if d <= radius else 0
+            for d in range(256)]
 
 
 def lower_reshape(op, T, ctx):

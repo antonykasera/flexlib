@@ -1,5 +1,9 @@
 # flexnn changelog
 
+## Unreleased
+
+- `fnn_softmax_s8` and `fnn_softmax_s8_build` use TFLite's fixed-point softmax when built with `FNN_ROUND_GEMMLOWP` or `FNN_ROUND_TFLITE`, and match the TFLite interpreter and CMSIS-NN on every output. They rounded the exact softmax in every mode before, which differs by one step at some near-ties. In that arithmetic n is at most 4095, and the build returns `FNN_ERR_QUANT` when beta times the input scale is at most $2^{-26}$, where TFLite stops. `fnn_tflite.py` writes both tables.
+
 ## 0.4.0 (2026-11-25)
 
 - `fnn_conv_pack_s4`, `fnn_conv_pack_s2`, `FNN_PACK_S4` and `FNN_PACK_S2` store convolution weights in [-7, 7] in 4 bits, or in {-1, 0, 1} in 2, with the same outputs as int8. A 1 x 1 layer from 64 to 64 channels takes 25% fewer cycles than with packed int8 weights, or 17% fewer when ternary.

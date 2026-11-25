@@ -79,4 +79,11 @@ void ref_fully_connected(const int8_t *x, uint32_t n_in, const int8_t *w,
                          int per_channel, int32_t zy, int32_t lo, int32_t hi,
                          RefRound mode, int8_t *y);
 
+/* TFLite's reference int8 SOFTMAX in gemmlowp fixed point, for beta times the
+ * input scale k */
+void ref_softmax(const int8_t *x, uint32_t n, double k, int8_t *y);
+
+/* the exponential ref_softmax() takes for a difference of -d, 0 when it skips d */
+int32_t ref_softmax_exp(double k, uint32_t d);
+
 #endif /* REF_NN_H */

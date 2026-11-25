@@ -6,7 +6,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "fnn_quant.h"
 #include "fnn_softmax.h"
+#include "ref_nn.h"
 #include "test_assert.h"
 #include "test_stats.h"
 #include <math.h>
@@ -15,6 +17,133 @@
 
 static int8_t x[NMAX], y[NMAX + 1U];
 static uint32_t tab[256];
+
+#if FNN_RULE == FNN_ROUND_GEMMLOWP
+
+/* In TFLite's arithmetic every output equals the transcribed reference. */
+static unsigned run(uint32_t n, double k) {
+  int8_t want[NMAX];
+  y[n] = 55;
+  fnn_softmax_s8(x, y, n, tab);
+  ref_softmax(x, n, k, want);
+  unsigned bad = y[n] != 55;
+  for (uint32_t i = 0U; i < n; i++) {
+    bad += y[i] != want[i];
+  }
+  return bad;
+}
+
+/* 1/16 less 2^-37 rounds TFLite's multiplier up to 2^31, and 1.5 2^-26 puts
+ * the product for d = 1 on a negative tie. */
+static const double ks[] = {1.0 / 16.0, 0.003, 0.35, 0.5, 2.0, 40.0, 1e-7, 1e3,
+                            0.0625 - 0x1p-37, 0x1.8p-26};
+
+void test_fnn_softmax_build(void) {
+  unsigned bad = 0U;
+  for (unsigned c = 0U; c < sizeof ks / sizeof ks[0]; c++) {
+    ASSERT_EQ(fnn_softmax_s8_build(1.0, ks[c], tab), FNN_OK);
+    bad += tab[0] != 2147483647U;
+    for (uint32_t d = 0U; d < 256U; d++) {
+      bad += tab[d] != (uint32_t)ref_softmax_exp(ks[c], d);
+    }
+    for (uint32_t d = 1U; d < 256U; d++) {
+      long double v = ldexpl(expl(-(long double)ks[c] * (long double)d), 31);
+      bad += tab[d] > tab[d - 1U];
+      bad += tab[d] != 0U && fabsl((long double)tab[d] - v) > 1e-6L * v + 64.0L;
+    }
+  }
+  ASSERT_EQ(bad, 0U);
+
+  static const double badk[] = {0.0, -1.0, 1e-8, (double)NAN, (double)INFINITY};
+  for (unsigned i = 0U; i < sizeof badk / sizeof badk[0]; i++) {
+    tab[0] = 55U;
+    ASSERT_EQ(fnn_softmax_s8_build(1.0, badk[i], tab), FNN_ERR_QUANT);
+    ASSERT_EQ(fnn_softmax_s8_build(badk[i], 1.0, tab), FNN_ERR_QUANT);
+    ASSERT_EQ(tab[0], 55U);
+  }
+  ASSERT_EQ(fnn_softmax_s8_build(1e200, 1e200, tab), FNN_ERR_QUANT);
+}
+
+void test_fnn_softmax_random(void) {
+  static const uint32_t ns[] = {1,  2,  3,  5,   10,  12,  16,   17,
+                                64, 65, 255, 256, 511, 512, 1000, 1100};
+  uint64_t r = 0x50F7AU;
+  unsigned bad = 0U;
+  for (unsigned c = 0U; c < sizeof ks / sizeof ks[0]; c++) {
+    ASSERT_EQ(fnn_softmax_s8_build(1.0, ks[c], tab), FNN_OK);
+    for (unsigned a = 0U; a < sizeof ns / sizeof ns[0]; a++) {
+      for (unsigned rep = 0U; rep < 20U; rep++) {
+        uint32_t span = rep % 2U ? 256U : 1U + test_rng_u32(&r) % 16U;
+        int32_t base = (int32_t)(test_rng_u32(&r) % (257U - span)) - 128;
+        for (uint32_t i = 0U; i < ns[a]; i++) {
+          x[i] = (int8_t)(base + (int32_t)(test_rng_u32(&r) % span));
+        }
+        bad += run(ns[a], ks[c]);
+      }
+    }
+  }
+  ASSERT_EQ(bad, 0U);
+}
+
+void test_fnn_softmax_edges(void) {
+  ASSERT_EQ(fnn_softmax_s8_build(1.0, 1.0 / 16.0, tab), FNN_OK);
+  x[0] = -128;
+  ASSERT_EQ(run(1U, 1.0 / 16.0), 0U);
+  ASSERT_EQ(y[0], 127);
+
+  /* equal scores, up to the most the sum holds */
+  for (uint32_t n = 1U; n <= NMAX; n += 7U) {
+    for (uint32_t i = 0U; i < n; i++) {
+      x[i] = 7;
+    }
+    ASSERT_EQ(run(n, 1.0 / 16.0), 0U);
+  }
+  static int8_t big[4095];
+  for (uint32_t i = 0U; i < 4095U; i++) {
+    big[i] = 7;
+  }
+  fnn_softmax_s8(big, big, 4095U, tab);
+  ASSERT_EQ(big[0], -128);
+
+  /* in place, and only the maximum past the input radius */
+  for (unsigned c = 0U; c < 2U; c++) {
+    double k = c ? 1e3 : 0.05;
+    ASSERT_EQ(fnn_softmax_s8_build(1.0, k, tab), FNN_OK);
+    for (uint32_t i = 0U; i < 20U; i++) {
+      x[i] = (int8_t)(i % 3U ? 127 : 126 - (int32_t)i);
+    }
+    ASSERT_EQ(run(20U, k), 0U);
+    int8_t z[20];
+    for (uint32_t i = 0U; i < 20U; i++) {
+      z[i] = x[i];
+    }
+    fnn_softmax_s8(z, z, 20U, tab);
+    unsigned bad = 0U;
+    for (uint32_t i = 0U; i < 20U; i++) {
+      bad += z[i] != y[i];
+    }
+    ASSERT_EQ(bad, 0U);
+  }
+}
+
+void test_fnn_softmax_ties(void) {
+  /* every pair of scores, at scales either side of the near-ties */
+  unsigned bad = 0U;
+  for (unsigned c = 0U; c < sizeof ks / sizeof ks[0]; c++) {
+    ASSERT_EQ(fnn_softmax_s8_build(1.0, ks[c], tab), FNN_OK);
+    for (int32_t a = -128; a < 128; a++) {
+      for (int32_t b = -128; b < 128; b += 3) {
+        x[0] = (int8_t)a;
+        x[1] = (int8_t)b;
+        x[2] = (int8_t)b;
+        bad += run(3U, ks[c]);
+      }
+    }
+  }
+  ASSERT_EQ(bad, 0U);
+}
+
+#else
 
 /* The exact result, by 64-bit division. */
 static int8_t model(const int8_t *v, uint32_t n, uint32_t i) {
@@ -189,33 +318,6 @@ void test_fnn_softmax_edges(void) {
   ASSERT_EQ(bad, 0U);
 }
 
-void test_fnn_argmax(void) {
-  uint64_t r = 0xA4C3AU;
-  unsigned bad = 0U;
-  for (uint32_t n = 1U; n <= 300U; n++) {
-    for (uint32_t i = 0U; i < n; i++) {
-      x[i] = (int8_t)(test_rng_u32(&r) % (n < 50U ? 5U : 256U));
-    }
-    uint32_t k = 0U;
-    for (uint32_t i = 1U; i < n; i++) {
-      k = x[i] > x[k] ? i : k;
-    }
-    bad += fnn_argmax_s8(x, n) != k;
-  }
-  ASSERT_EQ(bad, 0U);
-
-  for (uint32_t i = 0U; i < 40U; i++) {
-    x[i] = -128;
-  }
-  ASSERT_EQ(fnn_argmax_s8(x, 40U), 0U);
-  x[39] = -127;
-  ASSERT_EQ(fnn_argmax_s8(x, 40U), 39U);
-  x[17] = 127;
-  x[30] = 127;
-  ASSERT_EQ(fnn_argmax_s8(x, 40U), 17U);
-  ASSERT_EQ(fnn_argmax_s8(x, 1U), 0U);
-}
-
 /* Tables whose entry for d = 1 sits next to a tie. */
 void test_fnn_softmax_ties(void) {
   uint64_t r = 0x7135U;
@@ -244,4 +346,33 @@ void test_fnn_softmax_ties(void) {
     cases++;
   }
   ASSERT_EQ(bad, 0U);
+}
+
+#endif
+
+void test_fnn_argmax(void) {
+  uint64_t r = 0xA4C3AU;
+  unsigned bad = 0U;
+  for (uint32_t n = 1U; n <= 300U; n++) {
+    for (uint32_t i = 0U; i < n; i++) {
+      x[i] = (int8_t)(test_rng_u32(&r) % (n < 50U ? 5U : 256U));
+    }
+    uint32_t k = 0U;
+    for (uint32_t i = 1U; i < n; i++) {
+      k = x[i] > x[k] ? i : k;
+    }
+    bad += fnn_argmax_s8(x, n) != k;
+  }
+  ASSERT_EQ(bad, 0U);
+
+  for (uint32_t i = 0U; i < 40U; i++) {
+    x[i] = -128;
+  }
+  ASSERT_EQ(fnn_argmax_s8(x, 40U), 0U);
+  x[39] = -127;
+  ASSERT_EQ(fnn_argmax_s8(x, 40U), 39U);
+  x[17] = 127;
+  x[30] = 127;
+  ASSERT_EQ(fnn_argmax_s8(x, 40U), 17U);
+  ASSERT_EQ(fnn_argmax_s8(x, 1U), 0U);
 }
